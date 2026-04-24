@@ -1,273 +1,305 @@
-# Warung Kopi POS
+# ☕ Warung Kopi POS
 
-Project Flutter POS Warung Kopi dengan struktur yang mudah dikembangkan kembali.
+Aplikasi **Point of Sale (POS)** berbasis Flutter untuk warung kopi, dirancang untuk mempermudah transaksi, manajemen stok, serta pengelolaan hutang (BON).
 
-## Kebutuhan
+---
 
-- Flutter SDK yang aktif di mesin Anda
-- Android SDK
-- Perangkat Android atau emulator
+## 🚀 Fitur Utama
 
-## Menjalankan Project
+- Transaksi penjualan (cash, QRIS, transfer, card)
+- Sistem hutang (BON)
+- Manajemen produk & kategori
+- Manajemen pelanggan
+- Tracking stok (stock in / stock out)
+- Laporan transaksi & pendapatan
+- Dashboard ringkasan bisnis
+
+---
+
+## 🧰 Teknologi
+
+- Flutter
+- SQLite (local database)
+- Dart
+
+---
+
+## ▶️ Menjalankan Project
 
 ```bash
 flutter pub get
 flutter run
 ```
 
-Project ini tidak memakai Node.js atau `npm install`. Dependency yang dipakai dikelola oleh Flutter melalui `pubspec.yaml`.
+Database akan otomatis dibuat saat pertama kali menjalankan aplikasi:
 
-Saat aplikasi pertama kali dijalankan, database lokal SQLite `warung_kopi_pos.db` akan dibuat otomatis dan langsung diisi seed data awal.
+```
+warung_kopi_pos.db
+```
 
-## Build APK Debug
+---
+
+## 📦 Build APK
 
 ```bash
 flutter build apk --debug
 ```
 
-Hasil APK debug ada di:
+Output:
 
-```text
+```
 build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-## Struktur Folder
+---
 
-```text
+## 📁 Struktur Folder
+
+```
 lib/
-  app/        -> bootstrap app, router, konfigurasi utama
-  features/   -> layar dan fitur per domain
-  shared/     -> model, state, database, theme, widget umum, formatter
-test/         -> widget test dan flow test utama
-android/      -> konfigurasi Android
+  app/        -> konfigurasi utama & routing
+  features/   -> fitur utama (transaksi, produk, dll)
+  shared/     -> database, model, state, widget
+
+test/         -> testing
+android/      -> konfigurasi android
 ```
 
-## Struktur Database
+---
 
-Database lokal memakai SQLite dengan nama `warung_kopi_pos.db`.
+## 🗄️ Database
 
-### Tabel
+Menggunakan SQLite dengan tabel utama:
 
-#### `categories`
+- categories
+- products
+- customers
+- transactions
+- transaction_items
+- debts
+- debt_payments
+- stock_movements
+- operational_costs
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `name` | `TEXT NOT NULL` | Nama kategori |
-| `description` | `TEXT` | Deskripsi kategori |
+---
 
-#### `products`
+## 🔗 Relasi Utama
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `category_id` | `TEXT NOT NULL` | FK ke `categories.id` |
-| `name` | `TEXT NOT NULL` | Nama produk |
-| `sell_price` | `REAL NOT NULL` | Harga jual |
-| `cost_price` | `REAL NOT NULL` | Harga modal |
-| `stock_qty` | `INTEGER NOT NULL DEFAULT 0` | Stok saat ini |
-| `min_stock` | `INTEGER NOT NULL DEFAULT 0` | Batas minimum stok |
-| `unit` | `TEXT NOT NULL` | Satuan |
-| `rack_location` | `TEXT` | Lokasi rak |
-| `is_active` | `INTEGER NOT NULL DEFAULT 1` | Status aktif produk |
+- categories → products  
+- customers → transactions  
+- transactions → transaction_items  
+- products → transaction_items  
+- transactions → debts  
+- debts → debt_payments  
+- products → stock_movements  
 
-#### `customers`
+---
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `name` | `TEXT NOT NULL` | Nama pelanggan |
-| `phone` | `TEXT NOT NULL` | Nomor telepon |
-| `address` | `TEXT NOT NULL` | Alamat |
-| `notes` | `TEXT` | Catatan pelanggan |
-| `is_active` | `INTEGER NOT NULL DEFAULT 1` | Status aktif pelanggan |
-| `created_at` | `TEXT NOT NULL` | Waktu dibuat |
+## 📊 ERD (Entity Relationship Diagram)
 
-#### `transactions`
+```mermaid
+erDiagram
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `transaction_code` | `TEXT NOT NULL UNIQUE` | Kode transaksi |
-| `customer_id` | `TEXT` | FK ke `customers.id`, boleh `NULL` untuk pembeli umum |
-| `customer_name` | `TEXT NOT NULL` | Nama pelanggan saat transaksi |
-| `total_amount` | `REAL NOT NULL` | Total transaksi |
-| `payment_method` | `TEXT NOT NULL` | Metode pembayaran |
-| `amount_paid` | `REAL NOT NULL DEFAULT 0` | Nominal dibayar |
-| `change_amount` | `REAL NOT NULL DEFAULT 0` | Kembalian |
-| `notes` | `TEXT` | Catatan transaksi |
-| `created_at` | `TEXT NOT NULL` | Waktu transaksi |
+    categories ||--o{ products : has
 
-#### `transaction_items`
+    customers ||--o{ transactions : makes
+    transactions ||--o{ transaction_items : contains
+    products ||--o{ transaction_items : included_in
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `INTEGER` | Primary key autoincrement |
-| `transaction_id` | `TEXT NOT NULL` | FK ke `transactions.id` |
-| `product_id` | `TEXT NOT NULL` | FK ke `products.id` |
-| `product_name` | `TEXT NOT NULL` | Snapshot nama produk |
-| `quantity` | `INTEGER NOT NULL` | Jumlah item |
-| `sell_price` | `REAL NOT NULL` | Harga jual saat transaksi |
+    transactions ||--o{ debts : creates
+    debts ||--o{ debt_payments : paid_by
 
-#### `debts`
+    products ||--o{ stock_movements : tracked_in
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `transaction_id` | `TEXT NOT NULL UNIQUE` | FK ke `transactions.id` |
-| `customer_id` | `TEXT NOT NULL` | FK ke `customers.id` |
-| `customer_name` | `TEXT NOT NULL` | Nama pelanggan saat bon dibuat |
-| `original_amount` | `REAL NOT NULL` | Nominal utang awal |
-| `paid_amount` | `REAL NOT NULL DEFAULT 0` | Total yang sudah dibayar |
-| `due_date` | `TEXT` | Tanggal jatuh tempo |
-| `notes` | `TEXT` | Catatan utang |
-| `created_at` | `TEXT NOT NULL` | Waktu dibuat |
-| `updated_at` | `TEXT NOT NULL` | Waktu terakhir diperbarui |
+    categories {
+        TEXT id PK
+        TEXT name
+        TEXT description
+    }
 
-#### `debt_payments`
+    products {
+        TEXT id PK
+        TEXT category_id FK
+        TEXT name
+        REAL sell_price
+        REAL cost_price
+        INTEGER stock_qty
+        INTEGER min_stock
+        TEXT unit
+        TEXT rack_location
+        INTEGER is_active
+    }
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `debt_id` | `TEXT NOT NULL` | FK ke `debts.id` |
-| `customer_id` | `TEXT NOT NULL` | FK ke `customers.id` |
-| `amount` | `REAL NOT NULL` | Nominal pembayaran |
-| `payment_method` | `TEXT NOT NULL` | Metode pembayaran cicilan |
-| `notes` | `TEXT` | Catatan pembayaran |
-| `paid_at` | `TEXT NOT NULL` | Waktu pembayaran |
+    customers {
+        TEXT id PK
+        TEXT name
+        TEXT phone
+        TEXT address
+        TEXT notes
+        INTEGER is_active
+        TEXT created_at
+    }
 
-#### `stock_movements`
+    transactions {
+        TEXT id PK
+        TEXT transaction_code
+        TEXT customer_id FK
+        TEXT customer_name
+        REAL total_amount
+        TEXT payment_method
+        REAL amount_paid
+        REAL change_amount
+        TEXT notes
+        TEXT created_at
+    }
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `product_id` | `TEXT` | FK ke `products.id`, boleh `NULL` |
-| `reference_name` | `TEXT NOT NULL` | Nama referensi produk/pergerakan |
-| `quantity` | `REAL NOT NULL` | Jumlah stok masuk/keluar |
-| `type` | `TEXT NOT NULL` | Jenis pergerakan stok |
-| `notes` | `TEXT` | Catatan |
-| `created_at` | `TEXT NOT NULL` | Waktu pergerakan |
+    transaction_items {
+        INTEGER id PK
+        TEXT transaction_id FK
+        TEXT product_id FK
+        TEXT product_name
+        INTEGER quantity
+        REAL sell_price
+    }
 
-#### `operational_costs`
+    debts {
+        TEXT id PK
+        TEXT transaction_id FK
+        TEXT customer_id FK
+        TEXT customer_name
+        REAL original_amount
+        REAL paid_amount
+        TEXT due_date
+        TEXT notes
+        TEXT created_at
+        TEXT updated_at
+    }
 
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| `id` | `TEXT` | Primary key |
-| `month_year` | `TEXT NOT NULL` | Bulan biaya |
-| `cost_name` | `TEXT NOT NULL` | Nama biaya |
-| `amount` | `REAL NOT NULL` | Nominal biaya |
+    debt_payments {
+        TEXT id PK
+        TEXT debt_id FK
+        TEXT customer_id FK
+        REAL amount
+        TEXT payment_method
+        TEXT notes
+        TEXT paid_at
+    }
 
-### Relasi
+    stock_movements {
+        TEXT id PK
+        TEXT product_id FK
+        TEXT reference_name
+        REAL quantity
+        TEXT type
+        TEXT notes
+        TEXT created_at
+    }
 
-- `categories` 1 -> N `products`
-- `customers` 1 -> N `transactions`
-- `transactions` 1 -> N `transaction_items`
-- `products` 1 -> N `transaction_items`
-- `transactions` 1 -> 0..1 `debts`
-- `customers` 1 -> N `debts`
-- `debts` 1 -> N `debt_payments`
-- `customers` 1 -> N `debt_payments`
-- `products` 1 -> N `stock_movements`
-
-### Enum yang Disimpan sebagai TEXT
-
-- `payment_method`: `cash`, `qris`, `transfer`, `card`, `bon`
-- `stock_movements.type`: `stockIn`, `stockOut`
-
-### Index
-
-- `transactions(created_at)`
-- `transactions(customer_id)`
-- `transaction_items(transaction_id)`
-- `debts(customer_id)`
-- `debts(updated_at)`
-- `debt_payments(debt_id)`
-- `stock_movements(product_id, created_at)`
-
-## Alur Transaksi
-
-### 1. Transaksi Tunai / Non-BON
-
-1. Kasir memilih produk dan menambahkannya ke keranjang.
-2. Sistem menghitung total belanja dari isi `cart`.
-3. Kasir bisa memilih pelanggan terdaftar atau membiarkan sebagai `Umum / Tanpa Nama`.
-4. Kasir memilih metode pembayaran: `cash`, `qris`, `transfer`, atau `card`.
-5. Saat checkout:
-   - sistem membuat 1 record di tabel `transactions`
-   - sistem membuat beberapa record di tabel `transaction_items`
-   - sistem mengurangi `products.stock_qty`
-   - sistem mencatat pergerakan stok keluar ke tabel `stock_movements` dengan tipe `stockOut`
-6. Karena transaksi langsung dibayar, `amount_paid` akan sama dengan `total_amount`.
-7. Tidak ada record baru di tabel `debts`.
-
-### 2. Transaksi BON
-
-1. Kasir memilih produk dan menambahkannya ke keranjang.
-2. Kasir wajib memilih pelanggan terdaftar.
-3. Kasir memilih metode pembayaran `bon`.
-4. Saat checkout:
-   - sistem membuat 1 record di tabel `transactions`
-   - `amount_paid` diisi `0`
-   - sistem membuat record item di `transaction_items`
-   - sistem mengurangi `products.stock_qty`
-   - sistem mencatat `stock_movements` bertipe `stockOut`
-   - sistem membuat 1 record baru di tabel `debts`
-5. Record `debts` menyimpan:
-   - transaksi asal
-   - pelanggan yang berutang
-   - nominal utang awal di `original_amount`
-   - total pembayaran saat ini di `paid_amount`
-   - tanggal jatuh tempo dan catatan bila ada
-
-### 3. Pembayaran Cicilan / Pelunasan BON
-
-1. Kasir membuka halaman bon/utang lalu memilih utang pelanggan.
-2. Kasir memasukkan nominal pembayaran.
-3. Sistem membatasi nominal agar tidak melebihi sisa utang.
-4. Saat pembayaran disimpan:
-   - sistem membuat 1 record di tabel `debt_payments`
-   - sistem menambahkan nominal tersebut ke `debts.paid_amount`
-   - sistem memperbarui `debts.updated_at`
-5. Status utang dihitung dari model aplikasi:
-   - `unpaid` jika belum ada pembayaran
-   - `partial` jika sudah ada pembayaran tapi belum lunas
-   - `paid` jika `paid_amount >= original_amount`
-
-### 4. Dampak ke Dashboard dan Laporan
-
-- `Transaksi Hari Ini` dihitung dari tabel `transactions`
-- `Pendapatan Tercatat` dihitung dari:
-  - `transactions.amount_paid`
-  - ditambah semua `debt_payments.amount`
-- `Bon Aktif` dihitung dari total `original_amount - paid_amount` pada tabel `debts`
-- `Stok Menipis` dihitung dari produk dengan `stock_qty <= min_stock`
-- grafik laporan bulanan/tahunan tidak disimpan sebagai tabel khusus, tetapi dihitung dari data transaksi, pembayaran bon, dan biaya operasional
-
-### Ringkasan Alur Data
-
-```text
-Kasir pilih produk
--> cart
--> checkout
--> transactions
--> transaction_items
--> products.stock_qty berkurang
--> stock_movements tercatat
-
-Jika metode = BON
--> debts dibuat
-
-Jika ada pembayaran bon
--> debt_payments dibuat
--> debts.paid_amount di-update
+    operational_costs {
+        TEXT id PK
+        TEXT month_year
+        TEXT cost_name
+        REAL amount
+    }
 ```
 
-## Perintah Penting
+---
+
+## 🔄 UX Flow (User Flow POS)
+
+### Alur Utama
+
+```
+Login → Dashboard → Pilih Produk → Keranjang → Checkout → Pembayaran → Selesai
+```
+
+---
+
+### Transaksi Normal
+
+1. Pilih produk  
+2. Masukkan ke keranjang  
+3. Checkout  
+4. Pilih metode pembayaran  
+5. Input jumlah bayar  
+6. Transaksi selesai  
+7. Cetak struk  
+
+✔ Stok berkurang  
+✔ Tidak masuk hutang  
+
+---
+
+### Transaksi BON (Hutang)
+
+1. Pilih produk  
+2. Checkout  
+3. Pilih pelanggan (WAJIB)  
+4. Pilih metode = BON  
+5. Simpan transaksi  
+
+✔ Stok berkurang  
+✔ Data masuk ke `debts`  
+
+---
+
+### Pembayaran Hutang
+
+1. Pilih data hutang  
+2. Input pembayaran  
+3. Simpan ke `debt_payments`  
+4. Update status:
+   - unpaid
+   - partial
+   - paid
+
+---
+
+### Dashboard & Laporan
+
+- Pendapatan harian  
+- Jumlah transaksi  
+- Hutang aktif  
+- Stok menipis  
+
+---
+
+## ⚡ Enum
+
+**payment_method:**
+- cash
+- qris
+- transfer
+- card
+- bon
+
+**stock_movements.type:**
+- stockIn
+- stockOut
+
+---
+
+## 🛠️ Perintah Penting
 
 ```bash
 flutter analyze
 flutter test
 flutter build apk --debug
 ```
-#   P r o j e c t _ U M K M _ S o l u s i o n  
- 
+
+---
+
+## 📌 Catatan
+
+- Transaksi normal langsung lunas  
+- Transaksi BON akan membuat data hutang  
+- Semua transaksi mempengaruhi stok & laporan  
+
+---
+
+## 📈 Pengembangan Selanjutnya
+
+- Login multi user (admin / kasir)  
+- Integrasi cloud database  
+- Export laporan (PDF / Excel)  
+- Integrasi printer thermal  
