@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "D:\\kulyah\\smt 6\\project 3\\Warung Kopi\\.dart-home\\Local\\Pub\\Cache\\hosted\\pub.dev\\jni-1.0.0\\src\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Users\\Dwi ilham\\AppData\\Local\\Android\\sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "D:\\kulyah\\smt 6\\project 3\\Warung Kopi\\.dart-home\\Local\\Pub\\Cache\\hosted\\pub.dev\\jni-1.0.0\\android\\.cxx\\Debug\\2668522f\\x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Users\\Dwi ilham\\AppData\\Local\\Android\\sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "D:\\kulyah\\smt 6\\project 3\\Warung Kopi\\.dart-home\\Local\\Pub\\Cache\\hosted\\pub.dev\\jni-1.0.0\\android\\.cxx\\Debug\\2668522f\\x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "jni::@6890427a1f51a3e7e1df": {
+      "artifactName": "jni",
+      "abi": "x86_64",
+      "output": "D:\\kulyah\\smt 6\\project 3\\Warung Kopi\\build\\jni\\intermediates\\cxx\\Debug\\2668522f\\obj\\x86_64\\libdartjni.so",
+      "runtimeFiles": []
+    }
+  }
+}
