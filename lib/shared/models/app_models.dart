@@ -41,6 +41,7 @@ class Product {
     required this.minStock,
     required this.unit,
     this.rackLocation,
+    this.imagePath,
     this.isActive = true,
   });
 
@@ -53,6 +54,7 @@ class Product {
   final int minStock;
   final String unit;
   final String? rackLocation;
+  final String? imagePath;
   final bool isActive;
 
   bool get isLowStock => stockQty <= minStock;
@@ -67,6 +69,7 @@ class Product {
     int? minStock,
     String? unit,
     String? rackLocation,
+    String? imagePath,
     bool? isActive,
   }) {
     return Product(
@@ -79,7 +82,40 @@ class Product {
       minStock: minStock ?? this.minStock,
       unit: unit ?? this.unit,
       rackLocation: rackLocation ?? this.rackLocation,
+      imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
+    );
+  }
+}
+
+class AppProfile {
+  const AppProfile({
+    required this.id,
+    required this.storeName,
+    required this.storeSubtitle,
+    this.ownerName,
+    this.photoPath,
+  });
+
+  final String id;
+  final String storeName;
+  final String storeSubtitle;
+  final String? ownerName;
+  final String? photoPath;
+
+  AppProfile copyWith({
+    String? id,
+    String? storeName,
+    String? storeSubtitle,
+    String? ownerName,
+    String? photoPath,
+  }) {
+    return AppProfile(
+      id: id ?? this.id,
+      storeName: storeName ?? this.storeName,
+      storeSubtitle: storeSubtitle ?? this.storeSubtitle,
+      ownerName: ownerName ?? this.ownerName,
+      photoPath: photoPath ?? this.photoPath,
     );
   }
 }

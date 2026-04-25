@@ -7,6 +7,7 @@ import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/utils/app_formatters.dart';
 import '../../shared/widgets/common_widgets.dart';
+import '../../shared/widgets/store_profile_sheet.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -14,104 +15,156 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
+    final profile = state.appProfile;
     final activeDebts = state.activeDebtsSorted.take(3).toList();
     final recentTransactions = state.transactions.take(4).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        const SectionHeader(
-          title: 'Warung Kopi Pertigaan Jati',
-          subtitle:
-              'Pantau transaksi, bon pelanggan, dan stok menipis dari satu dashboard Android.',
+        HeroPanel(
+          badge: StatusChip(
+            label: profile.ownerName ?? 'Pemilik toko',
+            color: Colors.white,
+            icon: Icons.waving_hand_rounded,
+          ),
+          title: profile.storeName,
+          subtitle: profile.storeSubtitle,
+          trailing: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              AppProfileAvatar(photoPath: profile.photoPath),
+              const SizedBox(height: 12),
+              IconButton.filled(
+                key: const Key('dashboard-edit-profile-button'),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.deepTeal,
+                ),
+                onPressed: () => showStoreProfileSheet(
+                  context,
+                  ref,
+                  profile: profile,
+                ),
+                icon: const Icon(Icons.edit_rounded),
+              ),
+            ],
+          ),
+          bottom: Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () => context.go('/cashier'),
+                  icon: const Icon(Icons.point_of_sale_rounded),
+                  label: const Text('Buka kasir'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.20),
+                    ),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => context.go('/more'),
+                  icon: const Icon(Icons.grid_view_rounded),
+                  label: const Text('Modul lain'),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         GridView.count(
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.15,
+          childAspectRatio: 0.95,
           children: [
             KpiCard(
-              title: 'Pendapatan Tercatat',
+              title: 'Pendapatan',
               value: AppFormatters.currency(state.totalRevenue),
               icon: Icons.payments_rounded,
-              color: AppTheme.forest,
-              subtitle: 'Termasuk cicilan bon yang sudah dibayar',
+              color: AppTheme.deepTeal,
+              subtitle: 'Termasuk pembayaran cicilan',
             ),
             KpiCard(
               title: 'Transaksi Hari Ini',
               value: '${state.todayTransactionCount}',
               icon: Icons.receipt_long_rounded,
-              color: AppTheme.pine,
-              subtitle: 'Dummy data aktif dalam satu sesi aplikasi',
+              color: AppTheme.info,
+              subtitle: 'Aktivitas terbaru di aplikasi',
             ),
             KpiCard(
               title: 'Bon Aktif',
               value: AppFormatters.currency(state.activeDebtTotal),
               icon: Icons.account_balance_wallet_rounded,
-              color: AppTheme.moss,
+              color: AppTheme.warning,
               subtitle: '${state.activeDebtsSorted.length} bon belum lunas',
             ),
             KpiCard(
               title: 'Stok Menipis',
               value: '${state.lowStockProducts.length} item',
               icon: Icons.warning_amber_rounded,
-              color: AppTheme.warning,
-              subtitle: 'Prioritas restock untuk shift berikutnya',
+              color: AppTheme.success,
+              subtitle: 'Perlu restock segera',
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SectionHeader(
                 title: 'Aksi Cepat',
-                subtitle:
-                    'Shortcut untuk pekerjaan yang paling sering dipakai.',
+                subtitle: 'Buka alur yang paling sering dipakai dalam satu tap.',
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+              const Row(
                 children: [
-                  _QuickActionButton(
-                    label: 'Mulai Kasir',
-                    icon: Icons.point_of_sale_rounded,
-                    onTap: () => context.go('/cashier'),
+                  Expanded(
+                    child: _QuickActionInfo(
+                      icon: Icons.flash_on_rounded,
+                      title: 'Kasir Cepat',
+                      subtitle: 'Transaksi dan checkout',
+                    ),
                   ),
-                  _QuickActionButton(
-                    label: 'Tambah Pelanggan',
-                    icon: Icons.person_add_alt_1_rounded,
-                    onTap: () => context.go('/customers'),
-                  ),
-                  _QuickActionButton(
-                    label: 'Bayar Bon',
-                    icon: Icons.paid_rounded,
-                    onTap: () => context.go('/debts'),
-                  ),
-                  _QuickActionButton(
-                    label: 'Cek Stok',
-                    icon: Icons.inventory_2_rounded,
-                    onTap: () => context.go('/inventory'),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: _QuickActionInfo(
+                      icon: Icons.inventory_2_rounded,
+                      title: 'Cek Stok',
+                      subtitle: 'Monitor item menipis',
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              AppActionTile(
+                icon: Icons.person_add_alt_1_rounded,
+                title: 'Kelola profil toko',
+                subtitle: 'Upload foto profil toko dan ubah identitas tampilan.',
+                onTap: () => showStoreProfileSheet(
+                  context,
+                  ref,
+                  profile: profile,
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionHeader(
-                title: 'Bon Belum Lunas',
-                subtitle: 'Tiga pelanggan paling lama belum bayar.',
+                title: 'Bon Prioritas',
+                subtitle: 'Utang aktif yang butuh perhatian lebih dulu.',
                 action: TextButton(
                   onPressed: () => context.go('/debts'),
                   child: const Text('Lihat semua'),
@@ -126,36 +179,14 @@ class DashboardScreen extends ConsumerWidget {
                 )
               else
                 ...activeDebts.map(
-                  (debt) => Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(12),
-                      title: Text(debt.customerName),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 6),
-                          DebtAgeIndicator(ageInDays: debt.ageInDays),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Sisa ${AppFormatters.currency(debt.remainingAmount)}',
-                          ),
-                        ],
-                      ),
-                      trailing: IconButton.filledTonal(
-                        onPressed: () async {
-                          await ref.read(posStateProvider).markDebtPaid(debt.id);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Bon ${debt.customerName} ditandai lunas.',
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.done_all_rounded),
-                      ),
+                  (debt) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: AppMenuLinkTile(
+                      icon: Icons.wallet_rounded,
+                      title: debt.customerName,
+                      subtitle:
+                          'Sisa ${AppFormatters.currency(debt.remainingAmount)}',
+                      trailing: DebtAgeIndicator(ageInDays: debt.ageInDays),
                       onTap: () => context.go('/debts/${debt.id}'),
                     ),
                   ),
@@ -163,65 +194,69 @@ class DashboardScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionHeader(
-                title: 'Stok Perlu Perhatian',
-                subtitle: 'Produk yang sudah menyentuh batas minimum.',
+                title: 'Transaksi Terbaru',
+                subtitle: 'Preview aktivitas penjualan yang baru masuk.',
                 action: TextButton(
-                  onPressed: () => context.go('/inventory'),
-                  child: const Text('Buka stok'),
+                  onPressed: () => context.go('/cashier'),
+                  child: const Text('Buka kasir'),
                 ),
               ),
               const SizedBox(height: 12),
-              ...state.lowStockProducts.take(4).map(
-                    (product) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(product.name),
-                      subtitle: Text(
-                        'Stok ${product.stockQty} ${product.unit} - Min ${product.minStock}',
-                      ),
-                      trailing: const StatusChip(
-                        label: 'Low',
-                        color: AppTheme.warning,
-                      ),
-                    ),
-                  ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppSectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionHeader(
-                title: 'Transaksi Terbaru',
-                subtitle: 'Preview transaksi yang baru masuk ke sistem dummy.',
-              ),
-              const SizedBox(height: 12),
               ...recentTransactions.map(
-                (transaction) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: AppTheme.mist,
-                    child: Icon(
-                      transaction.paymentMethod.label == 'BON'
-                          ? Icons.schedule_rounded
-                          : Icons.shopping_bag_rounded,
-                      color: AppTheme.forest,
+                (transaction) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(22),
                     ),
-                  ),
-                  title: Text(transaction.customerName),
-                  subtitle: Text(
-                    '${transaction.transactionCode} - ${transaction.paymentMethod.label}',
-                  ),
-                  trailing: Text(
-                    AppFormatters.currency(transaction.totalAmount),
-                    style: Theme.of(context).textTheme.titleSmall,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppTheme.foam,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            transaction.paymentMethod.name == 'bon'
+                                ? Icons.schedule_rounded
+                                : Icons.shopping_bag_rounded,
+                            color: AppTheme.deepTeal,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                transaction.customerName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${transaction.transactionCode} · ${transaction.paymentMethod.label}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          AppFormatters.currency(transaction.totalAmount),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -233,25 +268,34 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
-  const _QuickActionButton({
-    required this.label,
+class _QuickActionInfo extends StatelessWidget {
+  const _QuickActionInfo({
     required this.icon,
-    required this.onTap,
+    required this.title,
+    required this.subtitle,
   });
 
-  final String label;
   final IconData icon;
-  final VoidCallback onTap;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.foam,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTheme.deepTeal),
+          const SizedBox(height: 12),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }

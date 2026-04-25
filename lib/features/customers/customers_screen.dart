@@ -27,40 +27,38 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           customer.phone.toLowerCase().contains(input);
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        SectionHeader(
-          title: 'Pelanggan',
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Pelanggan',
+            color: Colors.white,
+            icon: Icons.people_alt_rounded,
+          ),
+          title: 'Kelola pelanggan aktif untuk transaksi BON.',
           subtitle:
-              'Cari pelanggan terdaftar, tambah baru, lalu buka profil riwayatnya.',
-          action: FilledButton.icon(
+              'Cari pelanggan, tambah data baru, lalu buka profil riwayat transaksi mereka.',
+          bottom: FilledButton.icon(
             key: const Key('customers-add-button'),
-            onPressed: () async {
-              await showCustomerFormSheet(context, ref);
-            },
+            onPressed: () async => showCustomerFormSheet(context, ref),
             icon: const Icon(Icons.person_add_alt_1_rounded),
-            label: const Text('Tambah'),
+            label: const Text('Tambah Pelanggan'),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
-          child: TextField(
-            key: const Key('customers-search-field'),
+          child: AppSearchField(
+            fieldKey: const Key('customers-search-field'),
+            hintText: 'Cari nama atau nomor telepon',
             onChanged: (value) => setState(() => _query = value),
-            decoration: const InputDecoration(
-              hintText: 'Cari nama atau nomor telepon',
-              prefixIcon: Icon(Icons.search),
-            ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         if (filtered.isEmpty)
           const EmptyState(
             icon: Icons.people_outline_rounded,
             title: 'Belum ada pelanggan cocok',
-            subtitle:
-                'Tambah pelanggan baru agar bisa dipakai di transaksi BON.',
+            subtitle: 'Tambah pelanggan baru agar bisa dipakai di transaksi BON.',
           )
         else
           ...filtered.map((customer) {
@@ -74,6 +72,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                   children: [
                     Row(
                       children: [
+                        const AppMediaPreview(
+                          width: 62,
+                          height: 62,
+                          borderRadius: 31,
+                          placeholderIcon: Icons.person_outline_rounded,
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +88,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const SizedBox(height: 4),
-                              Text('${customer.phone} - ${customer.address}'),
+                              Text('${customer.phone} · ${customer.address}'),
                             ],
                           ),
                         ),
@@ -145,16 +150,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () =>
-                                context.go('/customers/${customer.id}'),
-                            icon: const Icon(Icons.arrow_forward_rounded),
-                            label: const Text('Profil'),
-                          ),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton.icon(
+                      onPressed: () => context.go('/customers/${customer.id}'),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('Buka Profil'),
                     ),
                   ],
                 ),

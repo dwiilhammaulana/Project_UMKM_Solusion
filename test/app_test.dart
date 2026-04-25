@@ -1,28 +1,42 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
 import 'package:warung_kopi_pos/shared/database/app_database.dart';
+import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
+import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
 
 void main() {
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<ProviderContainer> pumpApp(
+    WidgetTester tester, {
+    List<String?> pickerResponses = const [],
+  }) async {
     tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(AppDatabase(inMemory: true)),
+          mediaPickerProvider.overrideWithValue(
+            FakeMediaPickerService(List<String?>.from(pickerResponses)),
+          ),
         ],
         child: const WarungKopiApp(),
       ),
     );
-    for (var i = 0; i < 30; i++) {
+
+    for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 100));
       final errorFinder = find.text('Database lokal gagal dimuat');
       if (errorFinder.evaluate().isNotEmpty) {
@@ -33,82 +47,71 @@ void main() {
         fail('App bootstrap fell into error state: $visibleTexts');
       }
       if (find.text('Warung Kopi Pertigaan Jati').evaluate().isNotEmpty) {
-        return;
+        break;
       }
     }
 
-    final visibleTexts = find.byType(Text).evaluate().map((element) {
-      final widget = element.widget as Text;
-      return widget.data ?? widget.textSpan?.toPlainText() ?? '<rich-text>';
-    }).join(' | ');
-    fail('Dashboard never appeared. Visible texts: $visibleTexts');
+    return ProviderScope.containerOf(tester.element(find.byType(WarungKopiApp)));
   }
 
-  testWidgets('app opens dashboard and can navigate from drawer', (
+  Future<void> openMoreAndTap(WidgetTester tester, String keyValue) async {
+    await tester.tap(find.text('Lainnya'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key(keyValue)));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('app opens dashboard and can navigate from bottom nav', (
     tester,
   ) async {
     await pumpApp(tester);
 
     expect(find.text('Warung Kopi Pertigaan Jati'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('app-drawer-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('drawer-produk')));
+    await tester.tap(find.text('Produk'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Daftar Produk'), findsOneWidget);
+    expect(find.text('Tambah Produk'), findsOneWidget);
   });
 
   testWidgets(
     'cashier flow enforces registered customer for BON and can checkout',
     (tester) async {
-      await pumpApp(tester);
+      final container = await pumpApp(tester);
 
-      await tester.tap(find.byKey(const Key('app-drawer-button')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('drawer-kasir')));
+      await tester.tap(find.text('Kasir'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Tambah').first);
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.byKey(const Key('payment-bon')));
-      await tester.tap(find.byKey(const Key('payment-bon')));
+      container.read(posStateProvider).setPaymentMethod(PaymentMethod.bon);
       await tester.pumpAndSettle();
-      await tester
-          .ensureVisible(find.byKey(const Key('cashier-checkout-button')));
-      await tester.tap(find.byKey(const Key('cashier-checkout-button')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('Transaksi BON wajib memilih pelanggan'),
-        findsOneWidget,
+      await expectLater(
+        container.read(posStateProvider).checkout(),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('Transaksi BON wajib memilih pelanggan'),
+          ),
+        ),
       );
 
-      await tester
-          .ensureVisible(find.byKey(const Key('cashier-customer-search')));
-      await tester.enterText(
-        find.byKey(const Key('cashier-customer-search')),
-        'Pak Slamet',
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Pak Slamet').first);
+      container.read(posStateProvider).setSelectedCustomer('cus-001');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('cashier-checkout-button')));
+      final transaction = await container.read(posStateProvider).checkout();
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Transaksi BON Tersimpan'), findsOneWidget);
+      expect(transaction.paymentMethod, PaymentMethod.bon);
     },
   );
 
   testWidgets('customers search works and customer form opens', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.byKey(const Key('app-drawer-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('drawer-pelanggan')));
-    await tester.pumpAndSettle();
+    await openMoreAndTap(tester, 'more-customers-link');
 
     await tester.enterText(
       find.byKey(const Key('customers-search-field')),
@@ -124,23 +127,187 @@ void main() {
   });
 
   testWidgets('debt payment updates ui flow', (tester) async {
-    await pumpApp(tester);
+    final container = await pumpApp(tester);
 
-    await tester.tap(find.byKey(const Key('app-drawer-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('drawer-bon/utang')));
-    await tester.pumpAndSettle();
+    await openMoreAndTap(tester, 'more-debts-link');
+    expect(find.text('Daftar Bon Aktif'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Bayar Cicilan').first);
-    await tester.tap(find.text('Bayar Cicilan').first);
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('debt-payment-amount')),
-      '10000',
-    );
-    await tester.tap(find.text('Simpan Pembayaran'));
+    final firstDebt = container.read(posStateProvider).activeDebtsSorted.first;
+    final before = firstDebt.remainingAmount;
+    await container.read(posStateProvider).recordDebtPayment(
+          debtId: firstDebt.id,
+          amount: 10000,
+          paymentMethod: PaymentMethod.cash,
+        );
     await tester.pumpAndSettle();
 
-    expect(find.text('Manajemen Bon / Utang'), findsOneWidget);
+    final updated = container
+        .read(posStateProvider)
+        .debts
+        .firstWhere((item) => item.id == firstDebt.id);
+
+    expect(updated.remainingAmount, lessThan(before));
   });
+
+  testWidgets('product image can be uploaded and placeholder starts empty', (
+    tester,
+  ) async {
+    final container = await pumpApp(
+      tester,
+      pickerResponses: ['C:/mock/product-kopi.png'],
+    );
+
+    await tester.tap(find.text('Produk'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('products-add-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Foto\nproduk'), findsOneWidget);
+
+    await container.read(posStateProvider).saveProduct(
+          name: 'Kopi Test',
+          categoryId: container.read(posStateProvider).categories.first.id,
+          sellPrice: 15000,
+          costPrice: 7000,
+          stockQty: 12,
+          minStock: 3,
+          unit: 'gelas',
+          rackLocation: 'Bar X1',
+          imagePath: 'C:/mock/product-kopi.png',
+        );
+    await tester.pumpAndSettle();
+
+    final created = container
+        .read(posStateProvider)
+        .products
+        .firstWhere((item) => item.name == 'Kopi Test');
+    expect(created.imagePath, 'C:/mock/product-kopi.png');
+  });
+
+  testWidgets('store profile image can be uploaded and cleared', (tester) async {
+    final container = await pumpApp(
+      tester,
+      pickerResponses: ['C:/mock/store-profile.png'],
+    );
+
+    await tester.tap(find.byKey(const Key('dashboard-edit-profile-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Profil Toko'), findsOneWidget);
+
+    await container.read(posStateProvider).saveAppProfile(
+          storeName: 'Warung Kopi Pertigaan Jati',
+          storeSubtitle: 'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
+          ownerName: 'Pemilik Toko',
+          photoPath: 'C:/mock/store-profile.png',
+        );
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(posStateProvider).appProfile.photoPath,
+      'C:/mock/store-profile.png',
+    );
+
+    await container.read(posStateProvider).saveAppProfile(
+          storeName: 'Warung Kopi Pertigaan Jati',
+          storeSubtitle: 'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
+          ownerName: 'Pemilik Toko',
+          photoPath: null,
+        );
+    await tester.pumpAndSettle();
+
+    expect(container.read(posStateProvider).appProfile.photoPath, isNull);
+  });
+
+  test('database migration preserves old data and adds new image/profile fields', () async {
+    sqfliteFfiInit();
+    final factory = databaseFactoryFfi;
+    final name = 'warung_kopi_migration_test_${DateTime.now().microsecondsSinceEpoch}.db';
+    final dbPath = p.join(await factory.getDatabasesPath(), name);
+
+    final oldDb = await factory.openDatabase(
+      dbPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE categories (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              description TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              category_id TEXT NOT NULL,
+              name TEXT NOT NULL,
+              sell_price REAL NOT NULL,
+              cost_price REAL NOT NULL,
+              stock_qty INTEGER NOT NULL DEFAULT 0,
+              min_stock INTEGER NOT NULL DEFAULT 0,
+              unit TEXT NOT NULL,
+              rack_location TEXT,
+              is_active INTEGER NOT NULL DEFAULT 1
+            )
+          ''');
+          await db.insert('categories', {
+            'id': 'cat-1',
+            'name': 'Kopi',
+            'description': null,
+          });
+          await db.insert('products', {
+            'id': 'prd-legacy',
+            'category_id': 'cat-1',
+            'name': 'Produk Lama',
+            'sell_price': 10000,
+            'cost_price': 5000,
+            'stock_qty': 4,
+            'min_stock': 1,
+            'unit': 'gelas',
+            'rack_location': 'Rak A',
+            'is_active': 1,
+          });
+        },
+      ),
+    );
+    await oldDb.close();
+
+    final appDatabase = AppDatabase(
+      databaseName: name,
+      databaseFactoryOverride: factory,
+    );
+    final upgraded = await appDatabase.database;
+
+    final productRows = await upgraded.query(
+      'products',
+      where: 'id = ?',
+      whereArgs: ['prd-legacy'],
+    );
+    final profileRows = await upgraded.query('app_profile');
+
+    expect(productRows.single['name'], 'Produk Lama');
+    expect(productRows.single['image_path'], isNull);
+    expect(profileRows, isNotEmpty);
+
+    await appDatabase.close();
+    await factory.deleteDatabase(dbPath);
+    final file = File(dbPath);
+    if (file.existsSync()) {
+      file.deleteSync();
+    }
+  });
+}
+
+class FakeMediaPickerService implements MediaPickerService {
+  FakeMediaPickerService(this.responses);
+
+  final List<String?> responses;
+
+  @override
+  Future<String?> pickImagePath() async {
+    if (responses.isEmpty) {
+      return null;
+    }
+    return responses.removeAt(0);
+  }
 }

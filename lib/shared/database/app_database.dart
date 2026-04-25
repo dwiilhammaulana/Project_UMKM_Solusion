@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart' show Sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'database_seed.dart';
@@ -13,7 +14,7 @@ class AppDatabase {
   }) : _databaseFactoryOverride = databaseFactoryOverride;
 
   static const String _defaultDatabaseName = 'warung_kopi_pos.db';
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
 
   final bool inMemory;
   final String databaseName;
@@ -58,8 +59,7 @@ class AppDatabase {
           if (oldVersion == newVersion) {
             return;
           }
-          await _dropAllTables(db);
-          await _createSchema(db);
+          await _migrateSchema(db, oldVersion, newVersion);
         },
       ),
     );
@@ -113,8 +113,18 @@ class AppDatabase {
         min_stock INTEGER NOT NULL DEFAULT 0,
         unit TEXT NOT NULL,
         rack_location TEXT,
+        image_path TEXT,
         is_active INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+      )
+      ''',
+      '''
+      CREATE TABLE app_profile (
+        id TEXT PRIMARY KEY,
+        store_name TEXT NOT NULL,
+        store_subtitle TEXT NOT NULL,
+        owner_name TEXT,
+        photo_path TEXT
       )
       ''',
       '''
@@ -218,21 +228,54 @@ class AppDatabase {
     }
   }
 
-  Future<void> _dropAllTables(Database db) async {
-    const statements = <String>[
-      'DROP TABLE IF EXISTS debt_payments',
-      'DROP TABLE IF EXISTS debts',
-      'DROP TABLE IF EXISTS transaction_items',
-      'DROP TABLE IF EXISTS transactions',
-      'DROP TABLE IF EXISTS stock_movements',
-      'DROP TABLE IF EXISTS operational_costs',
-      'DROP TABLE IF EXISTS customers',
-      'DROP TABLE IF EXISTS products',
-      'DROP TABLE IF EXISTS categories',
-    ];
+  Future<void> _migrateSchema(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2 && newVersion >= 2) {
+      await _addColumnIfNeeded(
+        db,
+        table: 'products',
+        column: 'image_path',
+        definition: 'TEXT',
+      );
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_profile (
+          id TEXT PRIMARY KEY,
+          store_name TEXT NOT NULL,
+          store_subtitle TEXT NOT NULL,
+          owner_name TEXT,
+          photo_path TEXT
+        )
+      ''');
+      final existingCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM app_profile'),
+          ) ??
+          0;
+      if (existingCount == 0) {
+        await db.insert('app_profile', {
+          'id': 'store-main',
+          'store_name': 'Warung Kopi Pertigaan Jati',
+          'store_subtitle':
+              'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
+          'owner_name': 'Pemilik Toko',
+          'photo_path': null,
+        });
+      }
+    }
+  }
 
-    for (final statement in statements) {
-      await db.execute(statement);
+  Future<void> _addColumnIfNeeded(
+    Database db, {
+    required String table,
+    required String column,
+    required String definition,
+  }) async {
+    final rows = await db.rawQuery('PRAGMA table_info($table)');
+    final hasColumn = rows.any((row) => row['name'] == column);
+    if (!hasColumn) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
     }
   }
 }

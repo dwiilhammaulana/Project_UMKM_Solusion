@@ -16,53 +16,38 @@ class AppShell extends ConsumerWidget {
   final String currentLocation;
   final Widget child;
 
-  static const _menuItems = [
-    _MenuItem(label: 'Dashboard', path: '/dashboard', icon: Icons.home_rounded),
-    _MenuItem(
+  static const _items = [
+    _NavItem(
+      label: 'Beranda',
+      path: '/dashboard',
+      icon: Icons.home_rounded,
+      selectedIcon: Icons.home_filled,
+    ),
+    _NavItem(
       label: 'Kasir',
       path: '/cashier',
-      icon: Icons.point_of_sale_rounded,
+      icon: Icons.point_of_sale_outlined,
+      selectedIcon: Icons.point_of_sale_rounded,
     ),
-    _MenuItem(
+    _NavItem(
       label: 'Produk',
       path: '/products',
-      icon: Icons.local_cafe_rounded,
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2_rounded,
     ),
-    _MenuItem(
-      label: 'Pelanggan',
-      path: '/customers',
-      icon: Icons.people_alt_rounded,
-    ),
-    _MenuItem(
-      label: 'Bon/Utang',
-      path: '/debts',
-      icon: Icons.receipt_long_rounded,
-    ),
-    _MenuItem(
-      label: 'Stok',
-      path: '/inventory',
-      icon: Icons.inventory_2_rounded,
-    ),
-    _MenuItem(
-      label: 'Laporan',
-      path: '/reports',
-      icon: Icons.description_rounded,
-    ),
-    _MenuItem(
-      label: 'Analitik',
-      path: '/analytics',
-      icon: Icons.insights_rounded,
+    _NavItem(
+      label: 'Lainnya',
+      path: '/more',
+      icon: Icons.grid_view_rounded,
+      selectedIcon: Icons.widgets_rounded,
     ),
   ];
 
-  String get title {
-    for (final item in _menuItems) {
-      if (currentLocation == item.path ||
-          currentLocation.startsWith('${item.path}/')) {
-        return item.label;
-      }
-    }
-    return 'POS Warung Kopi';
+  int get _selectedIndex {
+    if (currentLocation.startsWith('/cashier')) return 1;
+    if (currentLocation.startsWith('/products')) return 2;
+    if (currentLocation.startsWith('/dashboard')) return 0;
+    return 3;
   }
 
   @override
@@ -70,115 +55,106 @@ class AppShell extends ConsumerWidget {
     final state = ref.watch(posStateProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            key: const Key('app-drawer-button'),
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: Text(title),
-      ),
-      drawer: Drawer(
-        child: Column(
+      extendBody: true,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.pageGradient),
+        child: Stack(
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 54, 20, 20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.forest, AppTheme.pine],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.white24,
-                    child: Icon(Icons.local_cafe_rounded, color: Colors.white),
-                  ),
-                  SizedBox(height: 14),
-                  Text(
-                    'Warung Kopi',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Dummy UI Android untuk gambaran awal operasional POS.',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
+            Positioned(
+              top: -120,
+              right: -80,
+              child: _BackdropOrb(
+                size: 260,
+                color: AppTheme.mint.withValues(alpha: 0.20),
               ),
             ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(12),
-                children: _menuItems.map((item) {
-                  final selected = currentLocation == item.path ||
-                      currentLocation.startsWith('${item.path}/');
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: ListTile(
-                      key: Key('drawer-${item.label.toLowerCase()}'),
-                      selected: selected,
-                      selectedTileColor: AppTheme.mist,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      leading: Icon(item.icon),
-                      title: Text(item.label),
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        context.go(item.path);
-                      },
-                    ),
-                  );
-                }).toList(),
+            Positioned(
+              left: -100,
+              top: 120,
+              child: _BackdropOrb(
+                size: 220,
+                color: AppTheme.info.withValues(alpha: 0.12),
               ),
+            ),
+            Positioned(
+              right: -100,
+              bottom: 120,
+              child: _BackdropOrb(
+                size: 240,
+                color: AppTheme.foam,
+              ),
+            ),
+            SafeArea(
+              bottom: false,
+              child: state.isLoading
+                  ? const LoadingState()
+                  : state.errorMessage != null
+                      ? ErrorState(
+                          title: 'Database lokal gagal dimuat',
+                          subtitle: state.errorMessage!,
+                          onRetry: () => ref.read(posStateProvider).reload(),
+                        )
+                      : child,
             ),
           ],
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppTheme.paper, AppTheme.mist],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Container(
+          decoration: AppTheme.frostedDecoration(radius: 30),
+          child: NavigationBar(
+            selectedIndex: _selectedIndex,
+            destinations: _items
+                .map(
+                  (item) => NavigationDestination(
+                    icon: Icon(item.icon),
+                    selectedIcon: Icon(item.selectedIcon),
+                    label: item.label,
+                  ),
+                )
+                .toList(),
+            onDestinationSelected: (index) => context.go(_items[index].path),
           ),
-        ),
-        child: SafeArea(
-          child: state.isLoading
-              ? const LoadingState()
-              : state.errorMessage != null
-                  ? ErrorState(
-                      title: 'Database lokal gagal dimuat',
-                      subtitle: state.errorMessage!,
-                      onRetry: () => ref.read(posStateProvider).reload(),
-                    )
-                  : child,
         ),
       ),
     );
   }
 }
 
-class _MenuItem {
-  const _MenuItem({
+class _NavItem {
+  const _NavItem({
     required this.label,
     required this.path,
     required this.icon,
+    required this.selectedIcon,
   });
 
   final String label;
   final String path;
   final IconData icon;
+  final IconData selectedIcon;
+}
+
+class _BackdropOrb extends StatelessWidget {
+  const _BackdropOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      ),
+    );
+  }
 }

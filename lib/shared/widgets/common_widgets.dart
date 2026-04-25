@@ -1,8 +1,31 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_formatters.dart';
+
+const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 120);
+
+class AppPageScrollView extends StatelessWidget {
+  const AppPageScrollView({
+    super.key,
+    required this.children,
+    this.padding = kPagePadding,
+  });
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: padding,
+      children: children,
+    );
+  }
+}
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -28,14 +51,116 @@ class SectionHeader extends StatelessWidget {
             children: [
               Text(title, style: theme.textTheme.titleLarge),
               if (subtitle != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(subtitle!, style: theme.textTheme.bodyMedium),
               ],
             ],
           ),
         ),
-        if (action != null) action!,
+        if (action != null) ...[
+          const SizedBox(width: 12),
+          action!,
+        ],
       ],
+    );
+  }
+}
+
+class HeroPanel extends StatelessWidget {
+  const HeroPanel({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.badge,
+    this.trailing,
+    this.bottom,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? badge;
+  final Widget? trailing;
+  final Widget? bottom;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(34),
+        gradient: const LinearGradient(
+          colors: [AppTheme.midnight, AppTheme.deepTeal, AppTheme.teal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.midnight.withValues(alpha: 0.22),
+            blurRadius: 30,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -10,
+            top: -16,
+            child: _GlowOrb(
+              size: 140,
+              color: AppTheme.mint.withValues(alpha: 0.18),
+            ),
+          ),
+          Positioned(
+            left: -18,
+            bottom: -28,
+            child: _GlowOrb(
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (badge != null) ...[
+                          badge!,
+                          const SizedBox(height: 14),
+                        ],
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(color: Colors.white),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 16),
+                    trailing!,
+                  ],
+                ],
+              ),
+              if (bottom != null) ...[
+                const SizedBox(height: 20),
+                bottom!,
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -52,8 +177,12 @@ class AppSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(padding: padding, child: child),
+    return Container(
+      decoration: AppTheme.frostedDecoration(),
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
     );
   }
 }
@@ -80,32 +209,42 @@ class KpiCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.16), Colors.white],
+          colors: [
+            color.withValues(alpha: 0.18),
+            Colors.white,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(color: color.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.midnight.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
+              color: Colors.white.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(icon, color: color),
           ),
-          const SizedBox(height: 18),
+          const Spacer(),
           Text(title, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 6),
           Text(value, style: theme.textTheme.titleLarge),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(subtitle!, style: theme.textTheme.bodySmall),
           ],
         ],
@@ -115,26 +254,41 @@ class KpiCard extends StatelessWidget {
 }
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, required this.color});
+  const StatusChip({
+    super.key,
+    required this.label,
+    required this.color,
+    this.icon,
+  });
 
   final String label;
   final Color color;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -159,24 +313,152 @@ class DebtAgeIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    return StatusChip(
+      label: '$label · $ageInDays hari',
+      color: color,
+      icon: Icons.schedule_rounded,
+    );
+  }
+}
+
+class AppSearchField extends StatelessWidget {
+  const AppSearchField({
+    super.key,
+    required this.hintText,
+    this.onChanged,
+    this.controller,
+    this.fieldKey,
+  });
+
+  final String hintText;
+  final ValueChanged<String>? onChanged;
+  final TextEditingController? controller;
+  final Key? fieldKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: hintText,
+        prefixIcon: const Icon(Icons.search_rounded),
+      ),
+    );
+  }
+}
+
+class AppActionTile extends StatelessWidget {
+  const AppActionTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(26),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: AppTheme.frostedDecoration(
+          radius: 26,
+          tint: AppTheme.foam,
         ),
-        const SizedBox(width: 8),
-        Text(
-          '$label - $ageInDays hari',
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTheme.deepTeal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Icon(icon, color: AppTheme.deepTeal),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppMenuLinkTile extends StatelessWidget {
+  const AppMenuLinkTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: AppTheme.frostedDecoration(radius: 24),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.foam,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: AppTheme.deepTeal),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              trailing ??
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -200,11 +482,19 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSectionCard(
+      padding: const EdgeInsets.all(14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AppMediaPreview(
+                imagePath: product.imagePath,
+                width: 96,
+                height: 96,
+                label: 'Upload\nfoto',
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,27 +503,32 @@ class ProductCard extends StatelessWidget {
                       product.name,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(categoryName),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        StatusChip(
+                          label: AppFormatters.currency(product.sellPrice),
+                          color: AppTheme.deepTeal,
+                        ),
+                        StatusChip(
+                          label: 'Stok ${product.stockQty} ${product.unit}',
+                          color: product.isLowStock
+                              ? AppTheme.warning
+                              : AppTheme.success,
+                        ),
+                        if ((product.rackLocation ?? '').isNotEmpty)
+                          StatusChip(
+                            label: product.rackLocation!,
+                            color: AppTheme.info,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-              if (product.isLowStock)
-                const StatusChip(label: 'Stok Menipis', color: AppTheme.warning),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              StatusChip(
-                label: AppFormatters.currency(product.sellPrice),
-                color: AppTheme.forest,
-              ),
-              StatusChip(
-                label: 'Stok ${product.stockQty} ${product.unit}',
-                color: AppTheme.success,
               ),
             ],
           ),
@@ -247,11 +542,11 @@ class ProductCard extends StatelessWidget {
                   label: const Text('Edit'),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: onAdd,
-                  icon: const Icon(Icons.add_shopping_cart),
+                  icon: const Icon(Icons.add_shopping_cart_rounded),
                   label: Text(count > 0 ? 'Tambah ($count)' : 'Tambah'),
                 ),
               ),
@@ -283,7 +578,7 @@ class ChartCard extends StatelessWidget {
         children: [
           SectionHeader(title: title, subtitle: subtitle),
           const SizedBox(height: 16),
-          SizedBox(height: 240, child: child),
+          SizedBox(height: 260, child: child),
         ],
       ),
     );
@@ -296,22 +591,31 @@ class EmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.action,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: AppSectionCard(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 44, color: AppTheme.pine.withValues(alpha: 0.45)),
-            const SizedBox(height: 14),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.foam,
+              ),
+              child: Icon(icon, size: 34, color: AppTheme.deepTeal),
+            ),
+            const SizedBox(height: 16),
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
@@ -319,6 +623,10 @@ class EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (action != null) ...[
+              const SizedBox(height: 16),
+              action!,
+            ],
           ],
         ),
       ),
@@ -340,13 +648,9 @@ class LoadingState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.hourglass_top_rounded,
-            size: 40,
-            color: AppTheme.pine.withValues(alpha: 0.7),
-          ),
+          const CircularProgressIndicator(),
           const SizedBox(height: 16),
-          Text(label),
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -370,27 +674,17 @@ class ErrorState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded, size: 44),
-            const SizedBox(height: 14),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Coba Lagi'),
-              ),
-            ],
-          ],
+        child: EmptyState(
+          icon: Icons.error_outline_rounded,
+          title: title,
+          subtitle: subtitle,
+          action: onRetry == null
+              ? null
+              : FilledButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Coba Lagi'),
+                ),
         ),
       ),
     );
@@ -409,9 +703,192 @@ class SummaryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Expanded(child: Text(label)),
-          Text(value, style: Theme.of(context).textTheme.titleSmall),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class BottomSheetContainer extends StatelessWidget {
+  const BottomSheetContainer({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(20),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: AppTheme.frostedDecoration(radius: 34),
+          child: Padding(
+            padding: padding,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppMediaPreview extends StatelessWidget {
+  const AppMediaPreview({
+    super.key,
+    this.imagePath,
+    this.width = 88,
+    this.height = 88,
+    this.placeholderIcon = Icons.image_outlined,
+    this.label,
+    this.borderRadius = 24,
+  });
+
+  final String? imagePath;
+  final double width;
+  final double height;
+  final IconData placeholderIcon;
+  final String? label;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedPath = imagePath?.trim();
+    final hasPath = trimmedPath != null && trimmedPath.isNotEmpty;
+    final isRemote = hasPath &&
+        (trimmedPath.startsWith('http://') || trimmedPath.startsWith('https://'));
+    final localExists = hasPath && !isRemote && File(trimmedPath).existsSync();
+
+    Widget child;
+    if (isRemote) {
+      child = ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Image.network(
+          trimmedPath,
+          fit: BoxFit.cover,
+          width: width,
+          height: height,
+          errorBuilder: (_, __, ___) => _placeholder(context),
+        ),
+      );
+    } else if (localExists) {
+      child = ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: Image.file(
+          File(trimmedPath),
+          fit: BoxFit.cover,
+          width: width,
+          height: height,
+          errorBuilder: (_, __, ___) => _placeholder(context),
+        ),
+      );
+    } else {
+      child = _placeholder(context);
+    }
+
+    return SizedBox(width: width, height: height, child: child);
+  }
+
+  Widget _placeholder(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFE6F2F1), Color(0xFFFDFEFE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(placeholderIcon, color: AppTheme.deepTeal.withValues(alpha: 0.65)),
+          if (label != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              label!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class AppProfileAvatar extends StatelessWidget {
+  const AppProfileAvatar({
+    super.key,
+    required this.photoPath,
+    this.size = 72,
+  });
+
+  final String? photoPath;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.24),
+      ),
+      child: ClipOval(
+        child: AppMediaPreview(
+          imagePath: photoPath,
+          width: size,
+          height: size,
+          borderRadius: size,
+          placeholderIcon: Icons.storefront_rounded,
+        ),
+      ),
+    );
+  }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
       ),
     );
   }

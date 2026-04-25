@@ -30,6 +30,12 @@ class PosAppState extends ChangeNotifier {
 
   final PosRepository _repository;
 
+  AppProfile _appProfile = const AppProfile(
+    id: 'store-main',
+    storeName: 'Warung Kopi Pertigaan Jati',
+    storeSubtitle: 'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
+    ownerName: 'Pemilik Toko',
+  );
   List<Category> _categories = const [];
   List<Product> _products = const [];
   List<Customer> _customers = const [];
@@ -45,6 +51,7 @@ class PosAppState extends ChangeNotifier {
   bool _isLoading = true;
   String? _errorMessage;
 
+  AppProfile get appProfile => _appProfile;
   List<Category> get categories => _categories;
   List<Product> get products => _products;
   List<Customer> get customers => _customers;
@@ -258,6 +265,23 @@ class PosAppState extends ChangeNotifier {
     return customer;
   }
 
+  Future<AppProfile> saveAppProfile({
+    required String storeName,
+    required String storeSubtitle,
+    String? ownerName,
+    String? photoPath,
+  }) async {
+    final profile = await _repository.saveAppProfile(
+      storeName: storeName,
+      storeSubtitle: storeSubtitle,
+      ownerName: ownerName,
+      photoPath: photoPath,
+    );
+    await _reloadPersistedData();
+    notifyListeners();
+    return profile;
+  }
+
   Future<void> toggleCustomerActive(String customerId) async {
     await _repository.toggleCustomerActive(customerId);
     await _reloadPersistedData();
@@ -274,6 +298,7 @@ class PosAppState extends ChangeNotifier {
     required int minStock,
     required String unit,
     String? rackLocation,
+    String? imagePath,
   }) async {
     await _repository.saveProduct(
       id: id,
@@ -285,6 +310,7 @@ class PosAppState extends ChangeNotifier {
       minStock: minStock,
       unit: unit,
       rackLocation: rackLocation,
+      imagePath: imagePath,
     );
     await _reloadPersistedData();
     notifyListeners();
@@ -376,6 +402,7 @@ class PosAppState extends ChangeNotifier {
 
   Future<void> _reloadPersistedData() async {
     final results = await Future.wait<dynamic>([
+      _repository.fetchAppProfile(),
       _repository.fetchCategories(),
       _repository.fetchProducts(),
       _repository.fetchCustomers(),
@@ -386,14 +413,15 @@ class PosAppState extends ChangeNotifier {
       _repository.fetchOperationalCosts(),
     ]);
 
-    _categories = results[0] as List<Category>;
-    _products = results[1] as List<Product>;
-    _customers = results[2] as List<Customer>;
-    _transactions = results[3] as List<TransactionRecord>;
-    _debts = results[4] as List<DebtRecord>;
-    _payments = results[5] as List<DebtPayment>;
-    _stockMovements = results[6] as List<StockMovement>;
-    _operationalCosts = results[7] as List<OperationalCost>;
+    _appProfile = results[0] as AppProfile;
+    _categories = results[1] as List<Category>;
+    _products = results[2] as List<Product>;
+    _customers = results[3] as List<Customer>;
+    _transactions = results[4] as List<TransactionRecord>;
+    _debts = results[5] as List<DebtRecord>;
+    _payments = results[6] as List<DebtPayment>;
+    _stockMovements = results[7] as List<StockMovement>;
+    _operationalCosts = results[8] as List<OperationalCost>;
     _selectedCustomerId = _customers.any((item) => item.id == _selectedCustomerId)
         ? _selectedCustomerId
         : null;

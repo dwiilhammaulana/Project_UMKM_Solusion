@@ -20,22 +20,26 @@ class InventoryScreen extends ConsumerWidget {
       ('Minyak Goreng', '1.4 liter', 'Min 2 liter'),
     ];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        const SectionHeader(
-          title: 'Stok & Inventory',
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Inventory',
+            color: Colors.white,
+            icon: Icons.inventory_2_rounded,
+          ),
+          title: 'Pantau stok tanpa bikin layar terasa penuh.',
           subtitle:
-              'Pantau stok menu jadi, bahan baku, dan pergerakan stok terbaru.',
+              'Lihat item menipis, bahan baku, dan pergerakan stok terbaru dengan layout yang lebih mudah dibaca.',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         GridView.count(
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.2,
+          childAspectRatio: 1.05,
           children: [
             KpiCard(
               title: 'Produk Low Stock',
@@ -44,37 +48,74 @@ class InventoryScreen extends ConsumerWidget {
               color: AppTheme.warning,
             ),
             KpiCard(
-              title: 'Pergerakan Hari Ini',
+              title: 'Pergerakan',
               value: '${state.stockMovements.length}',
               icon: Icons.swap_vert_circle_rounded,
               color: AppTheme.info,
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SectionHeader(title: 'Produk Menipis'),
               const SizedBox(height: 12),
-              ...state.lowStockProducts.map(
-                (product) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(product.name),
-                  subtitle: Text(
-                    'Stok ${product.stockQty} ${product.unit} - Rak ${product.rackLocation ?? '-'}',
-                  ),
-                  trailing: StatusChip(
-                    label: 'Min ${product.minStock}',
-                    color: AppTheme.warning,
+              if (state.lowStockProducts.isEmpty)
+                const EmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Stok aman',
+                  subtitle: 'Belum ada item yang menyentuh batas minimum.',
+                )
+              else
+                ...state.lowStockProducts.map(
+                  (product) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Row(
+                        children: [
+                          AppMediaPreview(
+                            imagePath: product.imagePath,
+                            width: 58,
+                            height: 58,
+                            borderRadius: 18,
+                            label: 'Foto',
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product.name,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Stok ${product.stockQty} ${product.unit} · Rak ${product.rackLocation ?? '-'}',
+                                ),
+                              ],
+                            ),
+                          ),
+                          StatusChip(
+                            label: 'Min ${product.minStock}',
+                            color: AppTheme.warning,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,17 +123,24 @@ class InventoryScreen extends ConsumerWidget {
               const SectionHeader(title: 'Bahan Baku'),
               const SizedBox(height: 12),
               ...rawMaterials.map(
-                (item) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(item.$1),
-                  subtitle: Text(item.$2),
-                  trailing: Text(item.$3),
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: AppMenuLinkTile(
+                    icon: Icons.local_drink_rounded,
+                    title: item.$1,
+                    subtitle: item.$2,
+                    trailing: Text(
+                      item.$3,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    onTap: () {},
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,29 +148,55 @@ class InventoryScreen extends ConsumerWidget {
               const SectionHeader(title: 'Riwayat Pergerakan Stok'),
               const SizedBox(height: 12),
               ...state.stockMovements.take(8).map(
-                    (movement) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor:
-                            movement.type == StockMovementType.stockIn
-                                ? AppTheme.success.withValues(alpha: 0.12)
-                                : AppTheme.warning.withValues(alpha: 0.12),
-                        child: Icon(
-                          movement.type == StockMovementType.stockIn
-                              ? Icons.arrow_downward_rounded
-                              : Icons.arrow_upward_rounded,
-                          color: movement.type == StockMovementType.stockIn
-                              ? AppTheme.success
-                              : AppTheme.warning,
+                    (movement) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(22),
                         ),
-                      ),
-                      title: Text(movement.referenceName),
-                      subtitle: Text(
-                        AppFormatters.dateTime(movement.createdAt),
-                      ),
-                      trailing: Text(
-                        '${movement.type == StockMovementType.stockIn ? '+' : '-'}${movement.quantity.toStringAsFixed(0)}',
-                        style: Theme.of(context).textTheme.titleSmall,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color:
+                                    movement.type == StockMovementType.stockIn
+                                        ? AppTheme.success.withValues(alpha: 0.12)
+                                        : AppTheme.warning.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Icon(
+                                movement.type == StockMovementType.stockIn
+                                    ? Icons.arrow_downward_rounded
+                                    : Icons.arrow_upward_rounded,
+                                color: movement.type == StockMovementType.stockIn
+                                    ? AppTheme.success
+                                    : AppTheme.warning,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    movement.referenceName,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(AppFormatters.dateTime(movement.createdAt)),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${movement.type == StockMovementType.stockIn ? '+' : '-'}${movement.quantity.toStringAsFixed(0)}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

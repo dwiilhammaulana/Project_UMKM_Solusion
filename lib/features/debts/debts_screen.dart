@@ -27,34 +27,52 @@ class DebtsScreen extends ConsumerWidget {
         .length
         .toDouble();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        const SectionHeader(
-          title: 'Manajemen Bon / Utang',
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Bon aktif',
+            color: Colors.white,
+            icon: Icons.wallet_rounded,
+          ),
+          title: 'Manajemen BON yang lebih mudah dipantau.',
           subtitle:
-              'Lihat portofolio bon aktif, prioritas tagihan, dan input pembayaran cicilan.',
+              'Lihat prioritas tagihan, usia bon, dan catat cicilan dari tampilan yang lebih ringkas.',
+          bottom: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              StatusChip(
+                label: '${activeDebts.length} bon aktif',
+                color: Colors.white,
+              ),
+              StatusChip(
+                label: AppFormatters.currency(state.activeDebtTotal),
+                color: Colors.white,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         GridView.count(
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.18,
+          childAspectRatio: 0.95,
           children: [
             KpiCard(
               title: 'Piutang Aktif',
               value: AppFormatters.currency(state.activeDebtTotal),
               icon: Icons.account_balance_wallet_rounded,
-              color: AppTheme.moss,
+              color: AppTheme.warning,
             ),
             KpiCard(
               title: 'Bon Aktif',
               value: '${activeDebts.length}',
               icon: Icons.pending_actions_rounded,
-              color: AppTheme.warning,
+              color: AppTheme.deepTeal,
             ),
             KpiCard(
               title: 'Perlu Ditagih',
@@ -63,65 +81,62 @@ class DebtsScreen extends ConsumerWidget {
               color: AppTheme.danger,
             ),
             KpiCard(
-              title: 'Cicilan Tercatat',
+              title: 'Cicilan',
               value: '${state.payments.length}',
               icon: Icons.payments_rounded,
               color: AppTheme.success,
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         ChartCard(
           title: 'Distribusi Usia Bon',
           subtitle: 'Semakin lama usia bon, semakin tinggi prioritas follow-up.',
-          child: Row(
+          child: Column(
             children: [
               Expanded(
                 child: PieChart(
                   PieChartData(
-                    sectionsSpace: 2,
+                    sectionsSpace: 3,
                     centerSpaceRadius: 42,
                     sections: [
                       PieChartSectionData(
                         value: urgent == 0 ? 1 : urgent,
                         color: AppTheme.danger,
                         title: urgent.toStringAsFixed(0),
-                        radius: 54,
+                        radius: 58,
                       ),
                       PieChartSectionData(
                         value: medium == 0 ? 1 : medium,
                         color: AppTheme.warning,
                         title: medium.toStringAsFixed(0),
-                        radius: 54,
+                        radius: 58,
                       ),
                       PieChartSectionData(
                         value: fresh == 0 ? 1 : fresh,
                         color: AppTheme.success,
                         title: fresh.toStringAsFixed(0),
-                        radius: 54,
+                        radius: 58,
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _LegendItem(color: AppTheme.danger, label: '> 14 hari'),
-                    SizedBox(height: 10),
-                    _LegendItem(color: AppTheme.warning, label: '4 - 14 hari'),
-                    SizedBox(height: 10),
-                    _LegendItem(color: AppTheme.success, label: '0 - 3 hari'),
-                  ],
-                ),
+              const SizedBox(height: 14),
+              const Wrap(
+                spacing: 12,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  _LegendItem(color: AppTheme.danger, label: '> 14 hari'),
+                  _LegendItem(color: AppTheme.warning, label: '4 - 14 hari'),
+                  _LegendItem(color: AppTheme.success, label: '0 - 3 hari'),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,9 +154,9 @@ class DebtsScreen extends ConsumerWidget {
                 )
               else
                 ...activeDebts.map(
-                  (debt) => Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: Padding(
+                  (debt) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: AppSectionCard(
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,11 +169,9 @@ class DebtsScreen extends ConsumerWidget {
                                   children: [
                                     Text(
                                       debt.customerName,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
+                                      style: Theme.of(context).textTheme.titleMedium,
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
                                     DebtAgeIndicator(ageInDays: debt.ageInDays),
                                   ],
                                 ),
@@ -181,44 +194,34 @@ class DebtsScreen extends ConsumerWidget {
                             value: AppFormatters.currency(debt.remainingAmount),
                           ),
                           const SizedBox(height: 12),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () =>
-                                      showDebtPaymentSheet(context, ref, debt),
-                                  icon: const Icon(Icons.payments_outlined),
-                                  label: const Text('Bayar Cicilan'),
-                                ),
+                              OutlinedButton.icon(
+                                onPressed: () => showDebtPaymentSheet(context, ref, debt),
+                                icon: const Icon(Icons.payments_outlined),
+                                label: const Text('Bayar Cicilan'),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () async {
-                                    await ref
-                                        .read(posStateProvider)
-                                        .markDebtPaid(debt.id);
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Bon ${debt.customerName} ditandai lunas.',
-                                        ),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  await ref.read(posStateProvider).markDebtPaid(debt.id);
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Bon ${debt.customerName} ditandai lunas.',
                                       ),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.done_all_rounded),
-                                  label: const Text('Tandai Lunas'),
-                                ),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.done_all_rounded),
+                                label: const Text('Tandai Lunas'),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () =>
-                                      context.go('/debts/${debt.id}'),
-                                  icon: const Icon(Icons.open_in_new_rounded),
-                                  label: const Text('Detail'),
-                                ),
+                              FilledButton.icon(
+                                onPressed: () => context.go('/debts/${debt.id}'),
+                                icon: const Icon(Icons.open_in_new_rounded),
+                                label: const Text('Detail'),
                               ),
                             ],
                           ),
@@ -278,73 +281,57 @@ class _DebtPaymentSheetState extends ConsumerState<_DebtPaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: Material(
-        borderRadius: BorderRadius.circular(28),
-        color: AppTheme.surface,
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bayar Bon ${widget.debt.customerName}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Sisa saat ini ${AppFormatters.currency(widget.debt.remainingAmount)}',
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('debt-payment-amount'),
-                  controller: _controller,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Nominal pembayaran',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final item in const [
-                      PaymentMethod.cash,
-                      PaymentMethod.qris,
-                      PaymentMethod.transfer,
-                    ])
-                      ChoiceChip(
-                        label: Text(item.label),
-                        selected: _method == item,
-                        onSelected: (_) => setState(() => _method = item),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () async {
-                    await widget.ref.read(posStateProvider).recordDebtPayment(
-                          debtId: widget.debt.id,
-                          amount: double.tryParse(_controller.text) ?? 0,
-                          paymentMethod: _method,
-                        );
-                    if (!context.mounted) return;
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Simpan Pembayaran'),
-                ),
-              ],
-            ),
+    return BottomSheetContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bayar Bon ${widget.debt.customerName}',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            'Sisa saat ini ${AppFormatters.currency(widget.debt.remainingAmount)}',
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('debt-payment-amount'),
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Nominal pembayaran'),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final item in const [
+                PaymentMethod.cash,
+                PaymentMethod.qris,
+                PaymentMethod.transfer,
+              ])
+                ChoiceChip(
+                  label: Text(item.label),
+                  selected: _method == item,
+                  onSelected: (_) => setState(() => _method = item),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () async {
+              await widget.ref.read(posStateProvider).recordDebtPayment(
+                    debtId: widget.debt.id,
+                    amount: double.tryParse(_controller.text) ?? 0,
+                    paymentMethod: _method,
+                  );
+              if (!context.mounted) return;
+              Navigator.of(context).pop();
+            },
+            child: const Text('Simpan Pembayaran'),
+          ),
+        ],
       ),
     );
   }
@@ -359,6 +346,7 @@ class _LegendItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 12,

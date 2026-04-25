@@ -13,6 +13,14 @@ Future<void> seedDatabaseIfNeeded(Database db) async {
   final seed = buildSeedData();
   final batch = db.batch();
 
+  batch.insert('app_profile', {
+    'id': seed.appProfile.id,
+    'store_name': seed.appProfile.storeName,
+    'store_subtitle': seed.appProfile.storeSubtitle,
+    'owner_name': seed.appProfile.ownerName,
+    'photo_path': seed.appProfile.photoPath,
+  });
+
   for (final category in seed.categories) {
     batch.insert('categories', {
       'id': category.id,
@@ -32,6 +40,7 @@ Future<void> seedDatabaseIfNeeded(Database db) async {
       'min_stock': product.minStock,
       'unit': product.unit,
       'rack_location': product.rackLocation,
+      'image_path': product.imagePath,
       'is_active': product.isActive ? 1 : 0,
     });
   }

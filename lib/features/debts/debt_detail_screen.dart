@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
+import '../../shared/theme/app_theme.dart';
 import '../../shared/utils/app_formatters.dart';
 import '../../shared/widgets/common_widgets.dart';
 import 'debts_screen.dart';
@@ -30,20 +32,32 @@ class DebtDetailScreen extends ConsumerWidget {
         .toList()
       ..sort((a, b) => b.paidAt.compareTo(a.paidAt));
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Detail BON',
+            color: Colors.white,
+            icon: Icons.receipt_long_rounded,
+          ),
+          title: debt.customerName,
+          subtitle:
+              'Pantau sisa utang, jatuh tempo, dan histori pembayaran dalam satu layar.',
+          trailing: IconButton.filled(
+            onPressed: () => context.pop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.deepTeal,
+            ),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          bottom: DebtAgeIndicator(ageInDays: debt.ageInDays),
+        ),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                debt.customerName,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              DebtAgeIndicator(ageInDays: debt.ageInDays),
-              const SizedBox(height: 12),
               SummaryRow(
                 label: 'Utang awal',
                 value: AppFormatters.currency(debt.originalAmount),
@@ -77,7 +91,7 @@ class DebtDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: () async {
                         await ref.read(posStateProvider).markDebtPaid(debt.id);
                       },
@@ -90,7 +104,7 @@ class DebtDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,16 +115,51 @@ class DebtDetailScreen extends ConsumerWidget {
                 const EmptyState(
                   icon: Icons.payments_outlined,
                   title: 'Belum ada cicilan',
-                  subtitle:
-                      'Pembayaran bon akan muncul di sini setelah dicatat.',
+                  subtitle: 'Pembayaran bon akan muncul di sini setelah dicatat.',
                 )
               else
                 ...payments.map(
-                  (payment) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(AppFormatters.currency(payment.amount)),
-                    subtitle: Text(
-                      '${payment.paymentMethod.label} • ${AppFormatters.dateTime(payment.paidAt)}',
+                  (payment) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppTheme.foam,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.payments_rounded,
+                              color: AppTheme.deepTeal,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppFormatters.currency(payment.amount),
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${payment.paymentMethod.label} · ${AppFormatters.dateTime(payment.paidAt)}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

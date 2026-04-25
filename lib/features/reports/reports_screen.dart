@@ -16,31 +16,35 @@ class ReportsScreen extends ConsumerWidget {
 
     return DefaultTabController(
       length: 3,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      child: AppPageScrollView(
         children: [
-          const SectionHeader(
-            title: 'Laporan',
+          HeroPanel(
+            badge: const StatusChip(
+              label: 'Laporan',
+              color: Colors.white,
+              icon: Icons.description_rounded,
+            ),
+            title: 'Ringkasan bisnis yang lebih enak dibaca.',
             subtitle:
-                'Dummy preview laporan harian, bulanan, dan tahunan sebelum export PDF.',
+                'Preview laporan dibuat lebih rapi agar siap dikembangkan ke export PDF atau Excel.',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.15,
+            childAspectRatio: 1.0,
             children: [
               KpiCard(
-                title: 'Pendapatan Bulan Ini',
+                title: 'Pendapatan',
                 value: AppFormatters.currency(current.revenue),
                 icon: Icons.bar_chart_rounded,
                 color: AppTheme.success,
               ),
               KpiCard(
-                title: 'Biaya Operasional',
+                title: 'Biaya',
                 value: AppFormatters.currency(current.operationalCost),
                 icon: Icons.receipt_rounded,
                 color: AppTheme.warning,
@@ -52,52 +56,64 @@ class ReportsScreen extends ConsumerWidget {
                 color: AppTheme.info,
               ),
               KpiCard(
-                title: 'Total Bon Aktif',
+                title: 'Bon Aktif',
                 value: AppFormatters.currency(state.activeDebtTotal),
                 icon: Icons.account_balance_wallet_rounded,
-                color: AppTheme.moss,
+                color: AppTheme.deepTeal,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const TabBar(
-            tabs: [
-              Tab(text: 'Harian'),
-              Tab(text: 'Bulanan'),
-              Tab(text: 'Tahunan'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 560,
-            child: TabBarView(
+          const SizedBox(height: 20),
+          AppSectionCard(
+            child: Column(
               children: [
-                _ReportPreviewCard(
-                  title: 'Laporan Harian',
-                  dateLabel: '22 April 2026',
-                  highlights: [
-                    'Total transaksi: ${state.todayTransactionCount}',
-                    'Pendapatan masuk hari ini: ${AppFormatters.currency(state.totalRevenue)}',
-                    'Bon aktif: ${AppFormatters.currency(state.activeDebtTotal)}',
-                  ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.foam,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const TabBar(
+                    tabs: [
+                      Tab(text: 'Harian'),
+                      Tab(text: 'Bulanan'),
+                      Tab(text: 'Tahunan'),
+                    ],
+                  ),
                 ),
-                _ReportPreviewCard(
-                  title: 'Laporan Bulanan',
-                  dateLabel: 'April 2026',
-                  highlights: [
-                    'Pendapatan: ${AppFormatters.currency(current.revenue)}',
-                    'Modal: ${AppFormatters.currency(current.cost)}',
-                    'Total bon belum lunas: ${AppFormatters.currency(current.activeDebtTotal)}',
-                  ],
-                ),
-                _ReportPreviewCard(
-                  title: 'Laporan Tahunan',
-                  dateLabel: '2026',
-                  highlights: [
-                    'Rekap 6 bulan terakhir: ${AppFormatters.currency(state.reportSummaries.fold(0, (sum, item) => sum + item.revenue))}',
-                    'Biaya operasional: ${AppFormatters.currency(state.reportSummaries.fold(0, (sum, item) => sum + item.operationalCost))}',
-                    'Piutang aktif per akhir periode: ${AppFormatters.currency(state.activeDebtTotal)}',
-                  ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 420,
+                  child: TabBarView(
+                    children: [
+                      _ReportPreviewCard(
+                        title: 'Laporan Harian',
+                        dateLabel: '22 April 2026',
+                        highlights: [
+                          'Total transaksi: ${state.todayTransactionCount}',
+                          'Pendapatan masuk hari ini: ${AppFormatters.currency(state.totalRevenue)}',
+                          'Bon aktif: ${AppFormatters.currency(state.activeDebtTotal)}',
+                        ],
+                      ),
+                      _ReportPreviewCard(
+                        title: 'Laporan Bulanan',
+                        dateLabel: 'April 2026',
+                        highlights: [
+                          'Pendapatan: ${AppFormatters.currency(current.revenue)}',
+                          'Modal: ${AppFormatters.currency(current.cost)}',
+                          'Total bon belum lunas: ${AppFormatters.currency(current.activeDebtTotal)}',
+                        ],
+                      ),
+                      _ReportPreviewCard(
+                        title: 'Laporan Tahunan',
+                        dateLabel: '2026',
+                        highlights: [
+                          'Rekap 6 bulan terakhir: ${AppFormatters.currency(state.reportSummaries.fold(0, (sum, item) => sum + item.revenue))}',
+                          'Biaya operasional: ${AppFormatters.currency(state.reportSummaries.fold(0, (sum, item) => sum + item.operationalCost))}',
+                          'Piutang aktif per akhir periode: ${AppFormatters.currency(state.activeDebtTotal)}',
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -121,31 +137,36 @@ class _ReportPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: title,
-            subtitle: 'Preview PDF - $dateLabel',
-            action: FilledButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Export PDF masih berupa placeholder UI.'),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.picture_as_pdf_rounded),
-              label: const Text('Export PDF'),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: title,
+          subtitle: 'Preview PDF · $dateLabel',
+          action: FilledButton.icon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Export PDF masih berupa placeholder UI.'),
+                ),
+              );
+            },
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            label: const Text('Export'),
           ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppTheme.mist,
-              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                colors: [AppTheme.foam, Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,22 +175,22 @@ class _ReportPreviewCard extends StatelessWidget {
                   'Warung Kopi Pertigaan Jati',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 ...highlights.map(
                   (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Text('- $line'),
+                    child: Text('• $line'),
                   ),
                 ),
-                const Divider(height: 24),
+                const Spacer(),
                 const Text(
                   'Bagian PDF final nantinya berisi tabel detail transaksi, biaya operasional, dan total bon belum lunas.',
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

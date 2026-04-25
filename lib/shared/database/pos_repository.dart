@@ -10,6 +10,15 @@ class PosRepository {
 
   final AppDatabase _appDatabase;
 
+  Future<AppProfile> fetchAppProfile() async {
+    final db = await _appDatabase.database;
+    final rows = await db.query('app_profile', limit: 1);
+    if (rows.isEmpty) {
+      throw Exception('Profil toko belum tersedia.');
+    }
+    return _mapAppProfile(rows.first);
+  }
+
   Future<List<Category>> fetchCategories() async {
     final db = await _appDatabase.database;
     final rows = await db.query('categories', orderBy: 'name ASC');
@@ -206,6 +215,40 @@ class PosRepository {
     return customer;
   }
 
+  Future<AppProfile> saveAppProfile({
+    required String storeName,
+    required String storeSubtitle,
+    String? ownerName,
+    String? photoPath,
+  }) async {
+    final db = await _appDatabase.database;
+    const id = 'store-main';
+    final existing = await db.query(
+      'app_profile',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    final profile = AppProfile(
+      id: id,
+      storeName: storeName,
+      storeSubtitle: storeSubtitle,
+      ownerName: ownerName,
+      photoPath: photoPath,
+    );
+    if (existing.isEmpty) {
+      await db.insert('app_profile', _appProfileValues(profile));
+    } else {
+      await db.update(
+        'app_profile',
+        _appProfileValues(profile),
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+    return profile;
+  }
+
   Future<void> toggleCustomerActive(String customerId) async {
     final db = await _appDatabase.database;
     final existing = await db.query(
@@ -238,6 +281,7 @@ class PosRepository {
     required int minStock,
     required String unit,
     String? rackLocation,
+    String? imagePath,
   }) async {
     final db = await _appDatabase.database;
     if (id == null) {
@@ -251,6 +295,7 @@ class PosRepository {
         minStock: minStock,
         unit: unit,
         rackLocation: rackLocation,
+        imagePath: imagePath,
       );
       await db.insert('products', _productValues(product));
       return;
@@ -267,7 +312,8 @@ class PosRepository {
     }
 
     final preserved = _mapProduct(existing.first);
-    final product = preserved.copyWith(
+    final product = Product(
+      id: preserved.id,
       name: name,
       categoryId: categoryId,
       sellPrice: sellPrice,
@@ -276,6 +322,8 @@ class PosRepository {
       minStock: minStock,
       unit: unit,
       rackLocation: rackLocation,
+      imagePath: imagePath,
+      isActive: preserved.isActive,
     );
     await db.update(
       'products',
@@ -493,7 +541,18 @@ class PosRepository {
       minStock: row.intValue('min_stock'),
       unit: row.stringValue('unit'),
       rackLocation: row['rack_location'] as String?,
+      imagePath: row['image_path'] as String?,
       isActive: row.intValue('is_active') == 1,
+    );
+  }
+
+  AppProfile _mapAppProfile(Map<String, Object?> row) {
+    return AppProfile(
+      id: row.stringValue('id'),
+      storeName: row.stringValue('store_name'),
+      storeSubtitle: row.stringValue('store_subtitle'),
+      ownerName: row['owner_name'] as String?,
+      photoPath: row['photo_path'] as String?,
     );
   }
 
@@ -520,7 +579,18 @@ class PosRepository {
       'min_stock': product.minStock,
       'unit': product.unit,
       'rack_location': product.rackLocation,
+      'image_path': product.imagePath,
       'is_active': product.isActive ? 1 : 0,
+    };
+  }
+
+  Map<String, Object?> _appProfileValues(AppProfile profile) {
+    return {
+      'id': profile.id,
+      'store_name': profile.storeName,
+      'store_subtitle': profile.storeSubtitle,
+      'owner_name': profile.ownerName,
+      'photo_path': profile.photoPath,
     };
   }
 

@@ -28,35 +28,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       return matchesQuery && matchesCategory;
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        SectionHeader(
-          title: 'Daftar Produk',
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Katalog produk',
+            color: Colors.white,
+            icon: Icons.photo_library_outlined,
+          ),
+          title: 'Produk lebih visual dan siap diberi foto.',
           subtitle:
-              'Kelola menu kopi, makanan, dan stok awal untuk demo Android.',
-          action: FilledButton.icon(
+              'Setiap item memiliki slot thumbnail utama agar katalog dan kasir terasa lebih menarik.',
+          bottom: FilledButton.icon(
             key: const Key('products-add-button'),
             onPressed: () => showProductFormSheet(context, ref),
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Tambah Produk'),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
             children: [
-              TextField(
+              AppSearchField(
+                hintText: 'Cari produk...',
                 onChanged: (value) => setState(() => _query = value),
-                decoration: const InputDecoration(
-                  hintText: 'Cari produk...',
-                  prefixIcon: Icon(Icons.search),
-                ),
               ),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              SizedBox(
+                height: 42,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
                   children: [
                     ChoiceChip(
                       label: const Text('Semua'),
@@ -81,7 +83,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         if (filtered.isEmpty)
           const EmptyState(
             icon: Icons.search_off_rounded,
@@ -100,8 +102,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 categoryName: category.name,
                 count: state.cart[product.id] ?? 0,
                 onAdd: () => ref.read(posStateProvider).addToCart(product),
-                onEdit: () =>
-                    showProductFormSheet(context, ref, product: product),
+                onEdit: () => showProductFormSheet(context, ref, product: product),
               ),
             );
           }),

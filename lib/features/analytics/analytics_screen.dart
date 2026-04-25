@@ -24,21 +24,25 @@ class AnalyticsScreen extends ConsumerWidget {
     }
 
     const palette = [
-      AppTheme.forest,
-      AppTheme.pine,
+      AppTheme.deepTeal,
+      AppTheme.teal,
       AppTheme.success,
       AppTheme.info,
     ];
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return AppPageScrollView(
       children: [
-        const SectionHeader(
-          title: 'Analitik',
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Analitik',
+            color: Colors.white,
+            icon: Icons.insights_rounded,
+          ),
+          title: 'Baca performa usaha lewat grafik yang lebih ringan.',
           subtitle:
-              'Visual dummy untuk tren pendapatan, biaya operasional, dan net profit.',
+              'Visual analitik tetap mengambil data yang sama, tapi kini ditata lebih nyaman di layar mobile.',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         ChartCard(
           title: 'Pendapatan vs Modal vs Net Profit',
           subtitle: '6 bulan terakhir sesuai arah PRD.',
@@ -77,21 +81,21 @@ class AnalyticsScreen extends ConsumerWidget {
                     barRods: [
                       BarChartRodData(
                         toY: reports[i].revenue / 1000000,
-                        color: AppTheme.pine,
-                        width: 7,
-                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.deepTeal,
+                        width: 8,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       BarChartRodData(
                         toY: reports[i].cost / 1000000,
                         color: AppTheme.info,
-                        width: 7,
-                        borderRadius: BorderRadius.circular(8),
+                        width: 8,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       BarChartRodData(
                         toY: reports[i].netProfit / 1000000,
                         color: AppTheme.success,
-                        width: 7,
-                        borderRadius: BorderRadius.circular(8),
+                        width: 8,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ],
                   ),
@@ -99,7 +103,7 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         ChartCard(
           title: 'Komposisi Biaya Operasional',
           subtitle: 'Distribusi biaya bulanan utama.',
@@ -111,8 +115,7 @@ class AnalyticsScreen extends ConsumerWidget {
                     centerSpaceRadius: 36,
                     sectionsSpace: 2,
                     sections: [
-                      for (final entry
-                          in costBuckets.entries.toList().asMap().entries)
+                      for (final entry in costBuckets.entries.toList().asMap().entries)
                         PieChartSectionData(
                           value: entry.value.value,
                           title: '',
@@ -124,37 +127,37 @@ class AnalyticsScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final entry
-                        in costBuckets.entries.toList().asMap().entries)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: palette[entry.key % palette.length],
-                                shape: BoxShape.circle,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final entry in costBuckets.entries.toList().asMap().entries)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: palette[entry.key % palette.length],
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(entry.value.key)),
-                            Text(AppFormatters.currency(entry.value.value)),
-                          ],
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(entry.value.key)),
+                              Text(AppFormatters.currency(entry.value.value)),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         ChartCard(
           title: 'Tren Net Profit',
           subtitle: 'Line chart 6 bulan untuk memudahkan baca arah usaha.',

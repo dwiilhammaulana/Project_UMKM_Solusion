@@ -2,6 +2,7 @@ import '../models/app_models.dart';
 
 class SeedData {
   const SeedData({
+    required this.appProfile,
     required this.categories,
     required this.products,
     required this.customers,
@@ -13,6 +14,7 @@ class SeedData {
     required this.reportSummaries,
   });
 
+  final AppProfile appProfile;
   final List<Category> categories;
   final List<Product> products;
   final List<Customer> customers;
@@ -26,6 +28,12 @@ class SeedData {
 
 SeedData buildSeedData() {
   final now = DateTime.now();
+  const appProfile = AppProfile(
+    id: 'store-main',
+    storeName: 'Warung Kopi Pertigaan Jati',
+    storeSubtitle: 'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
+    ownerName: 'Pemilik Toko',
+  );
   final categories = [
     const Category(id: 'cat-coffee', name: 'Kopi'),
     const Category(id: 'cat-food', name: 'Makanan'),
@@ -44,6 +52,7 @@ SeedData buildSeedData() {
       minStock: 8,
       unit: 'gelas',
       rackLocation: 'Bar A1',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-002',
@@ -55,6 +64,7 @@ SeedData buildSeedData() {
       minStock: 10,
       unit: 'gelas',
       rackLocation: 'Bar A2',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-003',
@@ -66,6 +76,7 @@ SeedData buildSeedData() {
       minStock: 7,
       unit: 'gelas',
       rackLocation: 'Bar A3',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-004',
@@ -77,6 +88,7 @@ SeedData buildSeedData() {
       minStock: 6,
       unit: 'porsi',
       rackLocation: 'Dapur B1',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-005',
@@ -88,6 +100,7 @@ SeedData buildSeedData() {
       minStock: 6,
       unit: 'porsi',
       rackLocation: 'Dapur B2',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-006',
@@ -99,6 +112,7 @@ SeedData buildSeedData() {
       minStock: 5,
       unit: 'porsi',
       rackLocation: 'Snack C1',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-007',
@@ -110,6 +124,7 @@ SeedData buildSeedData() {
       minStock: 5,
       unit: 'bungkus',
       rackLocation: 'Snack C2',
+      imagePath: null,
     ),
     const Product(
       id: 'prd-008',
@@ -121,6 +136,7 @@ SeedData buildSeedData() {
       minStock: 10,
       unit: 'botol',
       rackLocation: 'Rak Depan',
+      imagePath: null,
     ),
   ];
 
@@ -497,6 +513,7 @@ SeedData buildSeedData() {
   ];
 
   return SeedData(
+    appProfile: appProfile,
     categories: categories,
     products: products,
     customers: customers,
