@@ -331,13 +331,24 @@ class _DebtPaymentSheetState extends ConsumerState<_DebtPaymentSheet> {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () async {
-                await widget.ref.read(posStateProvider).recordDebtPayment(
-                      debtId: widget.debt.id,
-                      amount: double.tryParse(_controller.text) ?? 0,
-                      paymentMethod: _method,
-                    );
-                if (!context.mounted) return;
-                Navigator.of(context).pop();
+                try {
+                  await widget.ref.read(posStateProvider).recordDebtPayment(
+                        debtId: widget.debt.id,
+                        amount: double.tryParse(_controller.text) ?? 0,
+                        paymentMethod: _method,
+                      );
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                } catch (error) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        error.toString().replaceFirst('Exception: ', ''),
+                      ),
+                    ),
+                  );
+                }
               },
               child: const Text('Simpan Pembayaran'),
             ),

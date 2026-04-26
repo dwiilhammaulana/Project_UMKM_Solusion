@@ -14,7 +14,7 @@ class AppDatabase {
   }) : _databaseFactoryOverride = databaseFactoryOverride;
 
   static const String _defaultDatabaseName = 'warung_kopi_pos.db';
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
 
   final bool inMemory;
   final String databaseName;
@@ -264,6 +264,68 @@ class AppDatabase {
         });
       }
     }
+
+    if (oldVersion < 3 && newVersion >= 3) {
+      const dummyTransactionIds = [
+        'trx-001',
+        'trx-002',
+        'trx-003',
+        'trx-004',
+        'trx-005',
+        'trx-006',
+      ];
+      const dummyDebtIds = ['debt-001', 'debt-002', 'debt-003'];
+      const dummyPaymentIds = ['pay-001', 'pay-002'];
+      const dummyStockMovementIds = [
+        'stm-001',
+        'stm-002',
+        'stm-003',
+        'stm-004'
+      ];
+
+      final transactionPlaceholders = List.filled(
+        dummyTransactionIds.length,
+        '?',
+      ).join(', ');
+      final debtPlaceholders = List.filled(dummyDebtIds.length, '?').join(', ');
+      final paymentPlaceholders = List.filled(
+        dummyPaymentIds.length,
+        '?',
+      ).join(', ');
+      final stockPlaceholders = List.filled(
+        dummyStockMovementIds.length,
+        '?',
+      ).join(', ');
+
+      if (await _tableExists(db, 'debt_payments')) {
+        await db.delete(
+          'debt_payments',
+          where: 'id IN ($paymentPlaceholders)',
+          whereArgs: dummyPaymentIds,
+        );
+      }
+      if (await _tableExists(db, 'debts')) {
+        await db.delete(
+          'debts',
+          where: 'id IN ($debtPlaceholders)',
+          whereArgs: dummyDebtIds,
+        );
+      }
+      if (await _tableExists(db, 'stock_movements')) {
+        await db.delete(
+          'stock_movements',
+          where: 'id IN ($stockPlaceholders)',
+          whereArgs: dummyStockMovementIds,
+        );
+      }
+      if (await _tableExists(db, 'transactions')) {
+        await db.delete(
+          'transactions',
+          where: 'id IN ($transactionPlaceholders)',
+          whereArgs: dummyTransactionIds,
+        );
+      }
+    }
   }
 
   Future<void> _addColumnIfNeeded(
@@ -277,5 +339,17 @@ class AppDatabase {
     if (!hasColumn) {
       await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
     }
+  }
+
+  Future<bool> _tableExists(Database db, String table) async {
+    final result = await db.rawQuery(
+      '''
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table' AND name = ?
+      ''',
+      [table],
+    );
+    return result.isNotEmpty;
   }
 }

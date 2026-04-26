@@ -393,6 +393,14 @@ class PosRepository {
           throw Exception('Produk tidak ditemukan.');
         }
         final quantity = entry.value;
+        if (quantity <= 0) {
+          throw Exception('Jumlah produk harus lebih dari 0.');
+        }
+        if (quantity > product.stockQty) {
+          throw Exception(
+            'Stok ${product.name} tidak cukup. Sisa stok ${product.stockQty}.',
+          );
+        }
         totalAmount += product.sellPrice * quantity;
         items.add(
           TransactionItem(
@@ -506,10 +514,15 @@ class PosRepository {
       final originalAmount = debt.doubleValue('original_amount');
       final paidAmount = debt.doubleValue('paid_amount');
       final remainingAmount = max(0.0, originalAmount - paidAmount);
-      final safeAmount = amount.clamp(0, remainingAmount).toDouble();
-      if (safeAmount <= 0) {
-        return;
+      if (amount <= 0) {
+        throw Exception('Nominal pembayaran harus lebih dari 0.');
       }
+      if (amount > remainingAmount) {
+        throw Exception(
+          'Nominal pembayaran melebihi sisa utang ${remainingAmount.toStringAsFixed(0)}.',
+        );
+      }
+      final safeAmount = amount;
 
       await txn.insert('debt_payments', {
         'id': 'pay-${now.microsecondsSinceEpoch}',

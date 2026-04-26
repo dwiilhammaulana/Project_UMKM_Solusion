@@ -208,12 +208,20 @@ class PosAppState extends ChangeNotifier {
   Future<void> reload() => initialize();
 
   void addToCart(Product product) {
-    _cart.update(product.id, (value) => value + 1, ifAbsent: () => 1);
+    final nextQty = (_cart[product.id] ?? 0) + 1;
+    _ensureCartQtyWithinStock(product.id, nextQty);
+    _cart[product.id] = nextQty;
     notifyListeners();
   }
 
   void increaseCartQty(String productId) {
-    _cart.update(productId, (value) => value + 1);
+    final current = _cart[productId];
+    if (current == null) {
+      return;
+    }
+    final nextQty = current + 1;
+    _ensureCartQtyWithinStock(productId, nextQty);
+    _cart[productId] = nextQty;
     notifyListeners();
   }
 
@@ -443,5 +451,20 @@ class PosAppState extends ChangeNotifier {
         _customers.any((item) => item.id == _selectedCustomerId)
             ? _selectedCustomerId
             : null;
+  }
+
+  void _ensureCartQtyWithinStock(String productId, int requestedQty) {
+    final product = _products.cast<Product?>().firstWhere(
+          (item) => item?.id == productId,
+          orElse: () => null,
+        );
+    if (product == null) {
+      throw Exception('Produk tidak ditemukan.');
+    }
+    if (requestedQty > product.stockQty) {
+      throw Exception(
+        'Stok ${product.name} tidak cukup. Sisa stok ${product.stockQty}.',
+      );
+    }
   }
 }

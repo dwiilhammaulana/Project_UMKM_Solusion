@@ -69,6 +69,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<TransactionRecord> createTransaction(
+    ProviderContainer container, {
+    String? customerId,
+    PaymentMethod paymentMethod = PaymentMethod.cash,
+  }) async {
+    final state = container.read(posStateProvider);
+    state.addToCart(state.products.first);
+    if (customerId != null) {
+      state.setSelectedCustomer(customerId);
+    }
+    state.setPaymentMethod(paymentMethod);
+    return state.checkout();
+  }
+
   testWidgets('app opens dashboard and can navigate from bottom nav', (
     tester,
   ) async {
@@ -116,11 +130,35 @@ void main() {
     },
   );
 
+  testWidgets('cart quantity cannot exceed available stock', (tester) async {
+    final container = await pumpApp(tester);
+    final product = container
+        .read(posStateProvider)
+        .products
+        .firstWhere((item) => item.stockQty > 0);
+
+    for (var i = 0; i < product.stockQty; i++) {
+      container.read(posStateProvider).addToCart(product);
+    }
+
+    expect(
+      () => container.read(posStateProvider).addToCart(product),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'message',
+          contains('Stok ${product.name} tidak cukup'),
+        ),
+      ),
+    );
+  });
+
   testWidgets('cashier history tab shows seeded transactions and metrics', (
     tester,
   ) async {
     final container = await pumpApp(tester);
-    final transaction = container.read(posStateProvider).transactions.first;
+    final transaction = await createTransaction(container);
+    await tester.pumpAndSettle();
 
     await openCashierHistoryTab(tester);
 
@@ -136,7 +174,8 @@ void main() {
     tester,
   ) async {
     final container = await pumpApp(tester);
-    final transaction = container.read(posStateProvider).transactions.first;
+    final transaction = await createTransaction(container);
+    await tester.pumpAndSettle();
 
     await openCashierHistoryTab(tester);
     await tester
@@ -196,7 +235,12 @@ void main() {
   testWidgets('customer transaction history opens shared transaction detail', (
     tester,
   ) async {
-    await pumpApp(tester);
+    final container = await pumpApp(tester);
+    final transaction = await createTransaction(
+      container,
+      customerId: 'cus-001',
+    );
+    await tester.pumpAndSettle();
 
     await openMoreAndTap(tester, 'more-customers-link');
 
@@ -209,7 +253,7 @@ void main() {
     await tester.tap(find.text('Buka Profil').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('TRX-20260421-001'));
+    await tester.tap(find.text(transaction.transactionCode));
     await tester.pumpAndSettle();
 
     expect(find.text('Ringkasan Transaksi'), findsOneWidget);
@@ -218,15 +262,22 @@ void main() {
 
   testWidgets('debt payment updates ui flow', (tester) async {
     final container = await pumpApp(tester);
+    await createTransaction(
+      container,
+      customerId: 'cus-001',
+      paymentMethod: PaymentMethod.bon,
+    );
+    await tester.pumpAndSettle();
 
     await openMoreAndTap(tester, 'more-debts-link');
     expect(find.text('Daftar Bon Aktif'), findsOneWidget);
 
     final firstDebt = container.read(posStateProvider).activeDebtsSorted.first;
     final before = firstDebt.remainingAmount;
+    final paymentAmount = before > 1000 ? 1000.0 : before;
     await container.read(posStateProvider).recordDebtPayment(
           debtId: firstDebt.id,
-          amount: 10000,
+          amount: paymentAmount,
           paymentMethod: PaymentMethod.cash,
         );
     await tester.pumpAndSettle();
@@ -237,6 +288,36 @@ void main() {
         .firstWhere((item) => item.id == firstDebt.id);
 
     expect(updated.remainingAmount, lessThan(before));
+  });
+
+  testWidgets('debt payment cannot exceed remaining debt', (tester) async {
+    final container = await pumpApp(tester);
+    final transaction = await createTransaction(
+      container,
+      customerId: 'cus-001',
+      paymentMethod: PaymentMethod.bon,
+    );
+    await tester.pumpAndSettle();
+
+    final debt = container
+        .read(posStateProvider)
+        .debts
+        .firstWhere((item) => item.transactionId == transaction.id);
+
+    await expectLater(
+      container.read(posStateProvider).recordDebtPayment(
+            debtId: debt.id,
+            amount: debt.remainingAmount + 1000,
+            paymentMethod: PaymentMethod.cash,
+          ),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'message',
+          contains('Nominal pembayaran melebihi sisa utang'),
+        ),
+      ),
+    );
   });
 
   testWidgets('product image can be uploaded and placeholder starts empty', (

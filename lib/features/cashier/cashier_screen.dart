@@ -206,8 +206,18 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           categoryName: category.name,
                           count: state.cart[product.id] ?? 0,
                           onEdit: null,
-                          onAdd: () =>
-                              ref.read(posStateProvider).addToCart(product),
+                          onAdd: () {
+                            try {
+                              ref.read(posStateProvider).addToCart(product);
+                            } catch (error) {
+                              _showMessage(
+                                context,
+                                error
+                                    .toString()
+                                    .replaceFirst('Exception: ', ''),
+                              );
+                            }
+                          },
                         ),
                       );
                     }),
@@ -292,9 +302,19 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                           .titleMedium,
                                     ),
                                     IconButton(
-                                      onPressed: () => ref
-                                          .read(posStateProvider)
-                                          .increaseCartQty(product.id),
+                                      onPressed: () {
+                                        try {
+                                          ref
+                                              .read(posStateProvider)
+                                              .increaseCartQty(product.id);
+                                        } catch (error) {
+                                          _showMessage(
+                                            context,
+                                            error.toString().replaceFirst(
+                                                'Exception: ', ''),
+                                          );
+                                        }
+                                      },
                                       icon: const Icon(Icons.add_rounded),
                                     ),
                                   ],
@@ -376,7 +396,66 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                         setState(() => _customerQuery = value),
                   ),
                   const SizedBox(height: 12),
-                  if (filteredCustomers.isEmpty)
+                  if (state.selectedCustomer != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.foam,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        children: [
+                          const AppMediaPreview(
+                            width: 54,
+                            height: 54,
+                            borderRadius: 27,
+                            placeholderIcon: Icons.person_outline_rounded,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  state.selectedCustomer!.name,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${state.selectedCustomer!.phone} - ${state.selectedCustomer!.address}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              ref
+                                  .read(posStateProvider)
+                                  .setSelectedCustomer(null);
+                              setState(() => _customerQuery = '');
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_customerQuery.trim().isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Ketik nama atau nomor pelanggan untuk mencari lalu pilih satu pelanggan.',
+                      ),
+                    )
+                  else if (filteredCustomers.isEmpty)
                     const EmptyState(
                       icon: Icons.people_outline_rounded,
                       title: 'Belum ada pelanggan cocok',
@@ -388,9 +467,12 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(24),
-                              onTap: () => ref
-                                  .read(posStateProvider)
-                                  .setSelectedCustomer(customer.id),
+                              onTap: () {
+                                ref
+                                    .read(posStateProvider)
+                                    .setSelectedCustomer(customer.id);
+                                setState(() => _customerQuery = '');
+                              },
                               child: Ink(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
