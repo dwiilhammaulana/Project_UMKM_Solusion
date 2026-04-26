@@ -1,4 +1,4 @@
-# PRD – Sistem POS Warung Kopi | ngodingpakeai | v1.2
+# PRD – Sistem POS Warung Kopi
 
 ## PRODUCT REQUIREMENTS DOCUMENT
 ### Sistem Point of Sale (POS)
@@ -13,7 +13,6 @@
 | **Backend & Database** | Supabase BaaS (PostgreSQL) |
 | **Deployment** | Fly.io |
 | **Perubahan v1.2** | + Tabel Pelanggan, + Sistem Bon/Utang, + Wajib nama di transaksi |
-| **Dibuat oleh** | ngodingpakeai |
 
 ---
 
@@ -338,6 +337,3 @@ Berikut adalah diagram relasi antar tabel dalam bentuk deskriptif. Relasi utama 
 
 ---
 
-*Dokumen versi 1.2 – Penambahan Fitur Pelanggan & Bon/Utang*
-
-**ngodingpakeai · 19 April 2026**
