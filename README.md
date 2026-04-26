@@ -69,6 +69,7 @@ Keduanya di-load via package `google_fonts`.
 - **Repository:** `lib/shared/database/pos_repository.dart`
 - **Inisialisasi:** `lib/shared/database/app_database.dart`
 - **Seed data:** `lib/shared/database/database_seed.dart` + `lib/shared/data/seed_data.dart`
+- **Dokumentasi schema lengkap:** `DOKUMENTASI_SKEMA_DATABASE.md`
 
 ### Tabel Utama
 
