@@ -41,7 +41,8 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.customer?.name ?? '');
-    _phoneController = TextEditingController(text: widget.customer?.phone ?? '');
+    _phoneController =
+        TextEditingController(text: widget.customer?.phone ?? '');
     _addressController = TextEditingController(
       text: widget.customer?.address ?? '',
     );
@@ -65,65 +66,69 @@ class _CustomerFormSheetState extends State<_CustomerFormSheet> {
     return BottomSheetContainer(
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.customer == null ? 'Pelanggan Baru' : 'Edit Pelanggan',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Simpan pelanggan aktif untuk transaksi BON dan riwayat pembelian.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 18),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nama pelanggan'),
-              validator: (value) =>
-                  value == null || value.isEmpty ? 'Nama wajib diisi' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneController,
-              decoration: const InputDecoration(labelText: 'No. telepon'),
-              validator: (value) => value == null || value.isEmpty
-                  ? 'No. telepon wajib diisi'
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Alamat'),
-              validator: (value) =>
-                  value == null || value.isEmpty ? 'Alamat wajib diisi' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(labelText: 'Catatan'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              value: _isActive,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Pelanggan aktif'),
-              onChanged:
-                  _isSaving ? null : (value) => setState(() => _isActive = value),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: _isSaving ? null : _save,
-              child: Text(
-                widget.customer == null
-                    ? (_isSaving ? 'Menyimpan...' : 'Simpan Pelanggan')
-                    : (_isSaving ? 'Menyimpan...' : 'Update Pelanggan'),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.customer == null ? 'Pelanggan Baru' : 'Edit Pelanggan',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                'Simpan pelanggan aktif untuk transaksi BON dan riwayat pembelian.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Nama pelanggan'),
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Nama wajib diisi' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(labelText: 'No. telepon'),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'No. telepon wajib diisi'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _addressController,
+                decoration: const InputDecoration(labelText: 'Alamat'),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Alamat wajib diisi'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Catatan'),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 10),
+              SwitchListTile(
+                value: _isActive,
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Pelanggan aktif'),
+                onChanged: _isSaving
+                    ? null
+                    : (value) => setState(() => _isActive = value),
+              ),
+              const SizedBox(height: 10),
+              FilledButton(
+                onPressed: _isSaving ? null : _save,
+                child: Text(
+                  widget.customer == null
+                      ? (_isSaving ? 'Menyimpan...' : 'Simpan Pelanggan')
+                      : (_isSaving ? 'Menyimpan...' : 'Update Pelanggan'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

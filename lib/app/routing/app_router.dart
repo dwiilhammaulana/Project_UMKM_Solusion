@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/cashier/cashier_screen.dart';
+import '../../features/cashier/transaction_detail_screen.dart';
 import '../../features/customers/customer_detail_screen.dart';
 import '../../features/customers/customers_screen.dart';
 import '../../features/dashboard/dashboard_screen.dart';
@@ -30,6 +31,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/cashier',
             builder: (context, state) => const CashierScreen(),
+            routes: [
+              GoRoute(
+                path: 'transactions/:transactionId',
+                builder: (context, state) => TransactionDetailScreen(
+                  transactionId: state.pathParameters['transactionId']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/products',

@@ -76,7 +76,8 @@ class DebtsScreen extends ConsumerWidget {
             ),
             KpiCard(
               title: 'Perlu Ditagih',
-              value: '${activeDebts.where((item) => item.ageInDays > 14).length}',
+              value:
+                  '${activeDebts.where((item) => item.ageInDays > 14).length}',
               icon: Icons.notification_important_rounded,
               color: AppTheme.danger,
             ),
@@ -91,7 +92,8 @@ class DebtsScreen extends ConsumerWidget {
         const SizedBox(height: 20),
         ChartCard(
           title: 'Distribusi Usia Bon',
-          subtitle: 'Semakin lama usia bon, semakin tinggi prioritas follow-up.',
+          subtitle:
+              'Semakin lama usia bon, semakin tinggi prioritas follow-up.',
           child: Column(
             children: [
               Expanded(
@@ -169,7 +171,9 @@ class DebtsScreen extends ConsumerWidget {
                                   children: [
                                     Text(
                                       debt.customerName,
-                                      style: Theme.of(context).textTheme.titleMedium,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
                                     const SizedBox(height: 6),
                                     DebtAgeIndicator(ageInDays: debt.ageInDays),
@@ -199,13 +203,16 @@ class DebtsScreen extends ConsumerWidget {
                             runSpacing: 8,
                             children: [
                               OutlinedButton.icon(
-                                onPressed: () => showDebtPaymentSheet(context, ref, debt),
+                                onPressed: () =>
+                                    showDebtPaymentSheet(context, ref, debt),
                                 icon: const Icon(Icons.payments_outlined),
                                 label: const Text('Bayar Cicilan'),
                               ),
                               OutlinedButton.icon(
                                 onPressed: () async {
-                                  await ref.read(posStateProvider).markDebtPaid(debt.id);
+                                  await ref
+                                      .read(posStateProvider)
+                                      .markDebtPaid(debt.id);
                                   if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -219,7 +226,8 @@ class DebtsScreen extends ConsumerWidget {
                                 label: const Text('Tandai Lunas'),
                               ),
                               FilledButton.icon(
-                                onPressed: () => context.go('/debts/${debt.id}'),
+                                onPressed: () =>
+                                    context.go('/debts/${debt.id}'),
                                 icon: const Icon(Icons.open_in_new_rounded),
                                 label: const Text('Detail'),
                               ),
@@ -282,56 +290,59 @@ class _DebtPaymentSheetState extends ConsumerState<_DebtPaymentSheet> {
   @override
   Widget build(BuildContext context) {
     return BottomSheetContainer(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bayar Bon ${widget.debt.customerName}',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sisa saat ini ${AppFormatters.currency(widget.debt.remainingAmount)}',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('debt-payment-amount'),
-            controller: _controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Nominal pembayaran'),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in const [
-                PaymentMethod.cash,
-                PaymentMethod.qris,
-                PaymentMethod.transfer,
-              ])
-                ChoiceChip(
-                  label: Text(item.label),
-                  selected: _method == item,
-                  onSelected: (_) => setState(() => _method = item),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () async {
-              await widget.ref.read(posStateProvider).recordDebtPayment(
-                    debtId: widget.debt.id,
-                    amount: double.tryParse(_controller.text) ?? 0,
-                    paymentMethod: _method,
-                  );
-              if (!context.mounted) return;
-              Navigator.of(context).pop();
-            },
-            child: const Text('Simpan Pembayaran'),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bayar Bon ${widget.debt.customerName}',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sisa saat ini ${AppFormatters.currency(widget.debt.remainingAmount)}',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('debt-payment-amount'),
+              controller: _controller,
+              keyboardType: TextInputType.number,
+              decoration:
+                  const InputDecoration(labelText: 'Nominal pembayaran'),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in const [
+                  PaymentMethod.cash,
+                  PaymentMethod.qris,
+                  PaymentMethod.transfer,
+                ])
+                  ChoiceChip(
+                    label: Text(item.label),
+                    selected: _method == item,
+                    onSelected: (_) => setState(() => _method = item),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () async {
+                await widget.ref.read(posStateProvider).recordDebtPayment(
+                      debtId: widget.debt.id,
+                      amount: double.tryParse(_controller.text) ?? 0,
+                      paymentMethod: _method,
+                    );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+              },
+              child: const Text('Simpan Pembayaran'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -16,7 +16,8 @@ class CustomerDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
-    final matches = state.customers.where((customer) => customer.id == customerId);
+    final matches =
+        state.customers.where((customer) => customer.id == customerId);
     if (matches.isEmpty) {
       return const EmptyState(
         icon: Icons.person_search_rounded,
@@ -39,7 +40,7 @@ class CustomerDetailScreen extends ConsumerWidget {
             icon: Icons.person_outline_rounded,
           ),
           title: customer.name,
-          subtitle: '${customer.phone} · ${customer.address}',
+          subtitle: '${customer.phone} - ${customer.address}',
           trailing: Column(
             children: [
               IconButton.filled(
@@ -71,13 +72,15 @@ class CustomerDetailScreen extends ConsumerWidget {
           children: [
             KpiCard(
               title: 'Total Belanja',
-              value: AppFormatters.currency(state.totalPurchaseByCustomer(customerId)),
+              value: AppFormatters.currency(
+                  state.totalPurchaseByCustomer(customerId)),
               icon: Icons.shopping_cart_rounded,
               color: AppTheme.info,
             ),
             KpiCard(
               title: 'Utang Aktif',
-              value: AppFormatters.currency(state.activeDebtByCustomer(customerId)),
+              value: AppFormatters.currency(
+                  state.activeDebtByCustomer(customerId)),
               icon: Icons.account_balance_wallet_rounded,
               color: AppTheme.warning,
             ),
@@ -95,8 +98,10 @@ class CustomerDetailScreen extends ConsumerWidget {
                 (transaction) => _HistoryTile(
                   title: transaction.transactionCode,
                   subtitle:
-                      '${AppFormatters.dateTime(transaction.createdAt)} · ${transaction.paymentMethod.label}',
+                      '${AppFormatters.dateTime(transaction.createdAt)} - ${transaction.paymentMethod.label}',
                   trailing: AppFormatters.currency(transaction.totalAmount),
+                  onTap: () =>
+                      context.go('/cashier/transactions/${transaction.id}'),
                 ),
               )
               .toList(),
@@ -107,13 +112,14 @@ class CustomerDetailScreen extends ConsumerWidget {
           title: 'Riwayat Bon',
           emptyIcon: Icons.credit_score_rounded,
           emptyTitle: 'Tidak ada bon',
-          emptySubtitle: 'Data bon pelanggan akan muncul jika pernah transaksi BON.',
+          emptySubtitle:
+              'Data bon pelanggan akan muncul jika pernah transaksi BON.',
           items: debts
               .map(
                 (debt) => _HistoryTile(
                   title: AppFormatters.currency(debt.originalAmount),
                   subtitle:
-                      '${debt.status.label} · ${AppFormatters.date(debt.createdAt)}',
+                      '${debt.status.label} - ${AppFormatters.date(debt.createdAt)}',
                   trailing: AppFormatters.currency(debt.remainingAmount),
                 ),
               )
@@ -125,13 +131,14 @@ class CustomerDetailScreen extends ConsumerWidget {
           title: 'Riwayat Pembayaran Bon',
           emptyIcon: Icons.payments_outlined,
           emptyTitle: 'Belum ada pembayaran',
-          emptySubtitle: 'Cicilan dan pelunasan bon pelanggan akan tampil di sini.',
+          emptySubtitle:
+              'Cicilan dan pelunasan bon pelanggan akan tampil di sini.',
           items: payments
               .map(
                 (payment) => _HistoryTile(
                   title: AppFormatters.currency(payment.amount),
                   subtitle:
-                      '${payment.paymentMethod.label} · ${AppFormatters.dateTime(payment.paidAt)}',
+                      '${payment.paymentMethod.label} - ${AppFormatters.dateTime(payment.paidAt)}',
                   trailing: '',
                 ),
               )
@@ -165,32 +172,46 @@ class CustomerDetailScreen extends ConsumerWidget {
             ...items.map(
               (item) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.title, style: Theme.of(context).textTheme.titleMedium),
-                            const SizedBox(height: 4),
-                            Text(item.subtitle, style: Theme.of(context).textTheme.bodySmall),
-                          ],
+                child: InkWell(
+                  onTap: item.onTap,
+                  borderRadius: BorderRadius.circular(22),
+                  child: Ink(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                item.subtitle,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      if (item.trailing.isNotEmpty) ...[
-                        const SizedBox(width: 12),
-                        Text(
-                          item.trailing,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
+                        if (item.trailing.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Text(
+                            item.trailing,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                        if (item.onTap != null) ...[
+                          const SizedBox(width: 12),
+                          const Icon(Icons.open_in_new_rounded, size: 18),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -206,9 +227,11 @@ class _HistoryTile {
     required this.title,
     required this.subtitle,
     required this.trailing,
+    this.onTap,
   });
 
   final String title;
   final String subtitle;
   final String trailing;
+  final VoidCallback? onTap;
 }

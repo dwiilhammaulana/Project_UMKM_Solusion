@@ -51,13 +51,21 @@ void main() {
       }
     }
 
-    return ProviderScope.containerOf(tester.element(find.byType(WarungKopiApp)));
+    return ProviderScope.containerOf(
+        tester.element(find.byType(WarungKopiApp)));
   }
 
   Future<void> openMoreAndTap(WidgetTester tester, String keyValue) async {
     await tester.tap(find.text('Lainnya'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key(keyValue)));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> openCashierHistoryTab(WidgetTester tester) async {
+    await tester.tap(find.text('Kasir'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cashier-tab-history')));
     await tester.pumpAndSettle();
   }
 
@@ -108,6 +116,65 @@ void main() {
     },
   );
 
+  testWidgets('cashier history tab shows seeded transactions and metrics', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final transaction = container.read(posStateProvider).transactions.first;
+
+    await openCashierHistoryTab(tester);
+
+    expect(
+      find.byKey(Key('transaction-history-tile-${transaction.id}')),
+      findsOneWidget,
+    );
+    expect(find.text('${transaction.totalQuantity} qty'), findsWidgets);
+    expect(find.text('${transaction.lineItemCount} jenis item'), findsWidgets);
+  });
+
+  testWidgets('transaction history tile opens detail transaction screen', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final transaction = container.read(posStateProvider).transactions.first;
+
+    await openCashierHistoryTab(tester);
+    await tester
+        .tap(find.byKey(Key('transaction-history-tile-${transaction.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(transaction.transactionCode), findsWidgets);
+    expect(find.text('Ringkasan Transaksi'), findsOneWidget);
+    expect(find.text('${transaction.totalQuantity}'), findsWidgets);
+    expect(find.text('${transaction.lineItemCount}'), findsWidgets);
+  });
+
+  testWidgets('receipt sheet can open detail transaction after checkout', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+
+    await tester.tap(find.text('Kasir'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tambah').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('cashier-checkout-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Transaksi Berhasil'), findsOneWidget);
+
+    final latestTransaction =
+        container.read(posStateProvider).transactions.first;
+
+    await tester.tap(find.byKey(const Key('receipt-view-detail-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(latestTransaction.transactionCode), findsWidgets);
+    expect(find.text('Detail Item'), findsOneWidget);
+  });
+
   testWidgets('customers search works and customer form opens', (tester) async {
     await pumpApp(tester);
 
@@ -124,6 +191,29 @@ void main() {
     await tester.tap(find.byKey(const Key('customers-add-button')));
     await tester.pumpAndSettle();
     expect(find.text('Pelanggan Baru'), findsOneWidget);
+  });
+
+  testWidgets('customer transaction history opens shared transaction detail', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await openMoreAndTap(tester, 'more-customers-link');
+
+    await tester.enterText(
+      find.byKey(const Key('customers-search-field')),
+      'Slamet',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Buka Profil').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('TRX-20260421-001'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ringkasan Transaksi'), findsOneWidget);
+    expect(find.text('Detail Item'), findsOneWidget);
   });
 
   testWidgets('debt payment updates ui flow', (tester) async {
@@ -184,7 +274,46 @@ void main() {
     expect(created.imagePath, 'C:/mock/product-kopi.png');
   });
 
-  testWidgets('store profile image can be uploaded and cleared', (tester) async {
+  testWidgets('product can be deleted from long press action', (tester) async {
+    final container = await pumpApp(tester);
+
+    await container.read(posStateProvider).saveProduct(
+          name: 'Produk Hapus',
+          categoryId: container.read(posStateProvider).categories.first.id,
+          sellPrice: 13000,
+          costPrice: 6000,
+          stockQty: 5,
+          minStock: 1,
+          unit: 'gelas',
+        );
+    await tester.pumpAndSettle();
+
+    final created = container
+        .read(posStateProvider)
+        .products
+        .firstWhere((item) => item.name == 'Produk Hapus');
+
+    await tester.tap(find.text('Produk'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byKey(Key('product-card-${created.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hapus Produk'), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('product-delete-button-${created.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hapus produk?'), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('product-confirm-delete-${created.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Produk Hapus'), findsNothing);
+  });
+
+  testWidgets('store profile image can be uploaded and cleared',
+      (tester) async {
     final container = await pumpApp(
       tester,
       pickerResponses: ['C:/mock/store-profile.png'],
@@ -218,25 +347,28 @@ void main() {
     expect(container.read(posStateProvider).appProfile.photoPath, isNull);
   });
 
-  test('database migration preserves old data and adds new image/profile fields', () async {
-    sqfliteFfiInit();
-    final factory = databaseFactoryFfi;
-    final name = 'warung_kopi_migration_test_${DateTime.now().microsecondsSinceEpoch}.db';
-    final dbPath = p.join(await factory.getDatabasesPath(), name);
+  test(
+    'database migration preserves old data and adds new image/profile fields',
+    () async {
+      sqfliteFfiInit();
+      final factory = databaseFactoryFfi;
+      final name =
+          'warung_kopi_migration_test_${DateTime.now().microsecondsSinceEpoch}.db';
+      final dbPath = p.join(await factory.getDatabasesPath(), name);
 
-    final oldDb = await factory.openDatabase(
-      dbPath,
-      options: OpenDatabaseOptions(
-        version: 1,
-        onCreate: (db, version) async {
-          await db.execute('''
+      final oldDb = await factory.openDatabase(
+        dbPath,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) async {
+            await db.execute('''
             CREATE TABLE categories (
               id TEXT PRIMARY KEY,
               name TEXT NOT NULL,
               description TEXT
             )
           ''');
-          await db.execute('''
+            await db.execute('''
             CREATE TABLE products (
               id TEXT PRIMARY KEY,
               category_id TEXT NOT NULL,
@@ -250,52 +382,53 @@ void main() {
               is_active INTEGER NOT NULL DEFAULT 1
             )
           ''');
-          await db.insert('categories', {
-            'id': 'cat-1',
-            'name': 'Kopi',
-            'description': null,
-          });
-          await db.insert('products', {
-            'id': 'prd-legacy',
-            'category_id': 'cat-1',
-            'name': 'Produk Lama',
-            'sell_price': 10000,
-            'cost_price': 5000,
-            'stock_qty': 4,
-            'min_stock': 1,
-            'unit': 'gelas',
-            'rack_location': 'Rak A',
-            'is_active': 1,
-          });
-        },
-      ),
-    );
-    await oldDb.close();
+            await db.insert('categories', {
+              'id': 'cat-1',
+              'name': 'Kopi',
+              'description': null,
+            });
+            await db.insert('products', {
+              'id': 'prd-legacy',
+              'category_id': 'cat-1',
+              'name': 'Produk Lama',
+              'sell_price': 10000,
+              'cost_price': 5000,
+              'stock_qty': 4,
+              'min_stock': 1,
+              'unit': 'gelas',
+              'rack_location': 'Rak A',
+              'is_active': 1,
+            });
+          },
+        ),
+      );
+      await oldDb.close();
 
-    final appDatabase = AppDatabase(
-      databaseName: name,
-      databaseFactoryOverride: factory,
-    );
-    final upgraded = await appDatabase.database;
+      final appDatabase = AppDatabase(
+        databaseName: name,
+        databaseFactoryOverride: factory,
+      );
+      final upgraded = await appDatabase.database;
 
-    final productRows = await upgraded.query(
-      'products',
-      where: 'id = ?',
-      whereArgs: ['prd-legacy'],
-    );
-    final profileRows = await upgraded.query('app_profile');
+      final productRows = await upgraded.query(
+        'products',
+        where: 'id = ?',
+        whereArgs: ['prd-legacy'],
+      );
+      final profileRows = await upgraded.query('app_profile');
 
-    expect(productRows.single['name'], 'Produk Lama');
-    expect(productRows.single['image_path'], isNull);
-    expect(profileRows, isNotEmpty);
+      expect(productRows.single['name'], 'Produk Lama');
+      expect(productRows.single['image_path'], isNull);
+      expect(profileRows, isNotEmpty);
 
-    await appDatabase.close();
-    await factory.deleteDatabase(dbPath);
-    final file = File(dbPath);
-    if (file.existsSync()) {
-      file.deleteSync();
-    }
-  });
+      await appDatabase.close();
+      await factory.deleteDatabase(dbPath);
+      final file = File(dbPath);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    },
+  );
 }
 
 class FakeMediaPickerService implements MediaPickerService {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
+import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/widgets/product_form_sheet.dart';
 
@@ -60,8 +62,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    ChoiceChip(
-                      label: const Text('Semua'),
+                    AppFilterChip(
+                      label: 'Semua',
                       selected: _categoryId == null,
                       onSelected: (_) => setState(() => _categoryId = null),
                     ),
@@ -69,8 +71,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     ...state.categories.map(
                       (category) => Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(category.name),
+                        child: AppFilterChip(
+                          label: category.name,
                           selected: _categoryId == category.id,
                           onSelected: (_) =>
                               setState(() => _categoryId = category.id),
@@ -98,15 +100,117 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ProductCard(
+                key: Key('product-card-${product.id}'),
                 product: product,
                 categoryName: category.name,
                 count: state.cart[product.id] ?? 0,
                 onAdd: () => ref.read(posStateProvider).addToCart(product),
-                onEdit: () => showProductFormSheet(context, ref, product: product),
+                onEdit: () =>
+                    showProductFormSheet(context, ref, product: product),
+                onLongPress: () => _showProductActions(context, product),
               ),
             );
           }),
       ],
     );
+  }
+
+  Future<void> _showProductActions(
+    BuildContext context,
+    Product product,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return BottomSheetContainer(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                product.name,
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tahan lama produk untuk membuka aksi cepat seperti edit atau hapus.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  showProductFormSheet(this.context, ref, product: product);
+                },
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Edit Produk'),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                key: Key('product-delete-button-${product.id}'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.danger,
+                ),
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _confirmDeleteProduct(product);
+                },
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Hapus Produk'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteProduct(Product product) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus produk?'),
+          content: Text(
+            'Produk ${product.name} akan dihapus dari katalog. Data ini tidak bisa dikembalikan.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              key: Key('product-confirm-delete-${product.id}'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await ref.read(posStateProvider).deleteProduct(product.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${product.name} berhasil dihapus.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
   }
 }

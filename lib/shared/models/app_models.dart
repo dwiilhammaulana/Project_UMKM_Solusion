@@ -202,6 +202,10 @@ class TransactionRecord {
   final DateTime createdAt;
   final List<TransactionItem> items;
   final String? notes;
+
+  int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
+
+  int get lineItemCount => items.length;
 }
 
 class DebtPayment {

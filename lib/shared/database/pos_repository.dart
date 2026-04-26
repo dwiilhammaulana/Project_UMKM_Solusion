@@ -333,6 +333,42 @@ class PosRepository {
     );
   }
 
+  Future<void> deleteProduct(String productId) async {
+    final db = await _appDatabase.database;
+    final existing = await db.query(
+      'products',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [productId],
+      limit: 1,
+    );
+    if (existing.isEmpty) {
+      throw Exception('Produk tidak ditemukan.');
+    }
+
+    final usedInTransaction = Sqflite.firstIntValue(
+          await db.rawQuery(
+            '''
+            SELECT COUNT(*) FROM transaction_items
+            WHERE product_id = ?
+            ''',
+            [productId],
+          ),
+        ) ??
+        0;
+    if (usedInTransaction > 0) {
+      throw Exception(
+        'Produk sudah dipakai di transaksi dan tidak bisa dihapus.',
+      );
+    }
+
+    await db.delete(
+      'products',
+      where: 'id = ?',
+      whereArgs: [productId],
+    );
+  }
+
   Future<TransactionRecord> checkout({
     required Map<String, int> cart,
     required String? customerId,

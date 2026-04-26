@@ -170,9 +170,10 @@ class PosAppState extends ChangeNotifier {
                 item.monthYear.month == month.month,
           )
           .fold(0.0, (sum, item) => sum + item.amount);
-      final activeDebtForMonth = month.year == now.year && month.month == now.month
-          ? activeDebtTotal
-          : 0.0;
+      final activeDebtForMonth =
+          month.year == now.year && month.month == now.month
+              ? activeDebtTotal
+              : 0.0;
       final rawLabel = monthFormatter.format(month);
       final label = rawLabel.isEmpty
           ? ''
@@ -316,6 +317,13 @@ class PosAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteProduct(String productId) async {
+    await _repository.deleteProduct(productId);
+    _cart.remove(productId);
+    await _reloadPersistedData();
+    notifyListeners();
+  }
+
   Future<TransactionRecord> checkout({String? notes}) async {
     if (_cart.isEmpty) {
       throw Exception('Keranjang masih kosong.');
@@ -376,6 +384,15 @@ class PosAppState extends ChangeNotifier {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
+  TransactionRecord? transactionById(String id) {
+    for (final transaction in _transactions) {
+      if (transaction.id == id) {
+        return transaction;
+      }
+    }
+    return null;
+  }
+
   List<DebtRecord> debtsByCustomer(String customerId) {
     return _debts.where((debt) => debt.customerId == customerId).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -422,8 +439,9 @@ class PosAppState extends ChangeNotifier {
     _payments = results[6] as List<DebtPayment>;
     _stockMovements = results[7] as List<StockMovement>;
     _operationalCosts = results[8] as List<OperationalCost>;
-    _selectedCustomerId = _customers.any((item) => item.id == _selectedCustomerId)
-        ? _selectedCustomerId
-        : null;
+    _selectedCustomerId =
+        _customers.any((item) => item.id == _selectedCustomerId)
+            ? _selectedCustomerId
+            : null;
   }
 }

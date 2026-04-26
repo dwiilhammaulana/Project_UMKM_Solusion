@@ -142,7 +142,7 @@ class _ReportPreviewCard extends StatelessWidget {
       children: [
         SectionHeader(
           title: title,
-          subtitle: 'Preview PDF · $dateLabel',
+          subtitle: 'Preview PDF - $dateLabel',
           action: FilledButton.icon(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -179,12 +179,12 @@ class _ReportPreviewCard extends StatelessWidget {
                 ...highlights.map(
                   (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: Text('• $line'),
+                    child: Text('- $line'),
                   ),
                 ),
                 const Spacer(),
                 const Text(
-                  'Bagian PDF final nantinya berisi tabel detail transaksi, biaya operasional, dan total bon belum lunas.',
+                  'Detail transaksi tetap diakses dari Kasir > Riwayat agar halaman laporan fokus ke ringkasan dan rekap periodik.',
                 ),
               ],
             ),

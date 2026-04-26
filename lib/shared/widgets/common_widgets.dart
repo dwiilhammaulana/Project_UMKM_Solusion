@@ -6,7 +6,19 @@ import '../models/app_models.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_formatters.dart';
 
-const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 120);
+const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
+const double kShellBottomBarHeight = 74;
+const double kShellBottomOverlaySpacing = 44;
+
+double shellBottomClearance(
+  BuildContext context, {
+  double extraSpacing = 0,
+}) {
+  return MediaQuery.viewPaddingOf(context).bottom +
+      kShellBottomBarHeight +
+      kShellBottomOverlaySpacing +
+      extraSpacing;
+}
 
 class AppPageScrollView extends StatelessWidget {
   const AppPageScrollView({
@@ -20,8 +32,17 @@ class AppPageScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final basePadding =
+        padding is EdgeInsets ? padding as EdgeInsets : kPagePadding;
+    final resolvedPadding = EdgeInsets.fromLTRB(
+      basePadding.left,
+      basePadding.top,
+      basePadding.right,
+      basePadding.bottom + shellBottomClearance(context),
+    );
+
     return ListView(
-      padding: padding,
+      padding: resolvedPadding,
       children: children,
     );
   }
@@ -135,13 +156,17 @@ class HeroPanel extends StatelessWidget {
                         ],
                         Text(
                           title,
-                          style: Theme.of(context).textTheme.headlineMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
                               ?.copyWith(color: Colors.white),
                         ),
                         const SizedBox(height: 10),
                         Text(
                           subtitle,
-                          style: Theme.of(context).textTheme.bodyMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
                               ?.copyWith(color: Colors.white70),
                         ),
                       ],
@@ -349,6 +374,40 @@ class AppSearchField extends StatelessWidget {
   }
 }
 
+class AppFilterChip extends StatelessWidget {
+  const AppFilterChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      backgroundColor: Colors.white.withValues(alpha: 0.96),
+      selectedColor: AppTheme.deepTeal,
+      side: BorderSide(
+        color: selected
+            ? AppTheme.deepTeal
+            : AppTheme.deepTeal.withValues(alpha: 0.18),
+      ),
+      labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: selected ? Colors.white : AppTheme.deepTeal,
+            fontWeight: FontWeight.w800,
+          ),
+      onSelected: onSelected,
+    );
+  }
+}
+
 class AppActionTile extends StatelessWidget {
   const AppActionTile({
     super.key,
@@ -449,12 +508,12 @@ class AppMenuLinkTile extends StatelessWidget {
                   children: [
                     Text(title, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                    Text(subtitle,
+                        style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
               ),
-              trailing ??
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              trailing ?? const Icon(Icons.arrow_forward_ios_rounded, size: 16),
             ],
           ),
         ),
@@ -470,6 +529,7 @@ class ProductCard extends StatelessWidget {
     required this.categoryName,
     required this.onAdd,
     this.onEdit,
+    this.onLongPress,
     this.count = 0,
   });
 
@@ -477,82 +537,86 @@ class ProductCard extends StatelessWidget {
   final String categoryName;
   final VoidCallback onAdd;
   final VoidCallback? onEdit;
+  final VoidCallback? onLongPress;
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    return AppSectionCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppMediaPreview(
-                imagePath: product.imagePath,
-                width: 96,
-                height: 96,
-                label: 'Upload\nfoto',
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(categoryName),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        StatusChip(
-                          label: AppFormatters.currency(product.sellPrice),
-                          color: AppTheme.deepTeal,
-                        ),
-                        StatusChip(
-                          label: 'Stok ${product.stockQty} ${product.unit}',
-                          color: product.isLowStock
-                              ? AppTheme.warning
-                              : AppTheme.success,
-                        ),
-                        if ((product.rackLocation ?? '').isNotEmpty)
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: AppSectionCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppMediaPreview(
+                  imagePath: product.imagePath,
+                  width: 96,
+                  height: 96,
+                  label: 'Upload\nfoto',
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(categoryName),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
                           StatusChip(
-                            label: product.rackLocation!,
-                            color: AppTheme.info,
+                            label: AppFormatters.currency(product.sellPrice),
+                            color: AppTheme.deepTeal,
                           ),
-                      ],
-                    ),
-                  ],
+                          StatusChip(
+                            label: 'Stok ${product.stockQty} ${product.unit}',
+                            color: product.isLowStock
+                                ? AppTheme.warning
+                                : AppTheme.success,
+                          ),
+                          if ((product.rackLocation ?? '').isNotEmpty)
+                            StatusChip(
+                              label: product.rackLocation!,
+                              color: AppTheme.info,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onAdd,
-                  icon: const Icon(Icons.add_shopping_cart_rounded),
-                  label: Text(count > 0 ? 'Tambah ($count)' : 'Tambah'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onAdd,
+                    icon: const Icon(Icons.add_shopping_cart_rounded),
+                    label: Text(count > 0 ? 'Tambah ($count)' : 'Tambah'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -732,12 +796,18 @@ class BottomSheetContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = shellBottomClearance(
+          context,
+          extraSpacing: MediaQuery.viewInsetsOf(context).bottom,
+        ) +
+        16;
+
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: bottomPadding,
       ),
       child: Material(
         color: Colors.transparent,
@@ -776,7 +846,8 @@ class AppMediaPreview extends StatelessWidget {
     final trimmedPath = imagePath?.trim();
     final hasPath = trimmedPath != null && trimmedPath.isNotEmpty;
     final isRemote = hasPath &&
-        (trimmedPath.startsWith('http://') || trimmedPath.startsWith('https://'));
+        (trimmedPath.startsWith('http://') ||
+            trimmedPath.startsWith('https://'));
     final localExists = hasPath && !isRemote && File(trimmedPath).existsSync();
 
     Widget child;
@@ -825,7 +896,8 @@ class AppMediaPreview extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(placeholderIcon, color: AppTheme.deepTeal.withValues(alpha: 0.65)),
+          Icon(placeholderIcon,
+              color: AppTheme.deepTeal.withValues(alpha: 0.65)),
           if (label != null) ...[
             const SizedBox(height: 6),
             Text(

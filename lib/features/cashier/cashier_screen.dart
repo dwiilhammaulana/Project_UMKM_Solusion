@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +22,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   String _productQuery = '';
   String? _categoryId;
   String _customerQuery = '';
+  String _historyQuery = '';
   final TextEditingController _notesController = TextEditingController();
 
   @override
@@ -45,11 +48,77 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           (customer.name.toLowerCase().contains(input) ||
               customer.phone.toLowerCase().contains(input));
     }).toList();
+    final filteredTransactions = state.transactions.where((transaction) {
+      final input = _historyQuery.toLowerCase();
+      return input.isEmpty ||
+          transaction.transactionCode.toLowerCase().contains(input) ||
+          transaction.customerName.toLowerCase().contains(input);
+    }).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.foam,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const TabBar(
+                tabs: [
+                  Tab(
+                    key: Key('cashier-tab-new'),
+                    text: 'Transaksi Baru',
+                  ),
+                  Tab(
+                    key: Key('cashier-tab-history'),
+                    text: 'Riwayat Transaksi',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildNewTransactionTab(
+                  context,
+                  state,
+                  filteredProducts,
+                  filteredCustomers,
+                ),
+                _buildHistoryTab(context, state, filteredTransactions),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewTransactionTab(
+    BuildContext context,
+    PosAppState state,
+    List<Product> filteredProducts,
+    List<Customer> filteredCustomers,
+  ) {
+    final bottomOffset = math.max(
+      shellBottomClearance(context),
+      MediaQuery.viewInsetsOf(context).bottom + 20,
+    );
 
     return Stack(
       children: [
         ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 260),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            shellBottomClearance(context, extraSpacing: 160),
+          ),
           children: [
             HeroPanel(
               badge: const StatusChip(
@@ -98,8 +167,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        ChoiceChip(
-                          label: const Text('Semua'),
+                        AppFilterChip(
+                          label: 'Semua',
                           selected: _categoryId == null,
                           onSelected: (_) => setState(() => _categoryId = null),
                         ),
@@ -107,8 +176,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                         ...state.categories.map(
                           (category) => Padding(
                             padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(category.name),
+                            child: AppFilterChip(
+                              label: category.name,
                               selected: _categoryId == category.id,
                               onSelected: (_) =>
                                   setState(() => _categoryId = category.id),
@@ -137,7 +206,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           categoryName: category.name,
                           count: state.cart[product.id] ?? 0,
                           onEdit: null,
-                          onAdd: () => ref.read(posStateProvider).addToCart(product),
+                          onAdd: () =>
+                              ref.read(posStateProvider).addToCart(product),
                         ),
                       );
                     }),
@@ -189,10 +259,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                   children: [
                                     Text(
                                       product.name,
-                                      style: Theme.of(context).textTheme.titleMedium,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(AppFormatters.currency(product.sellPrice)),
+                                    Text(AppFormatters.currency(
+                                        product.sellPrice)),
                                   ],
                                 ),
                               ),
@@ -214,7 +287,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                     Text(
                                       '${entry.value}',
                                       key: Key('cart-qty-${product.id}'),
-                                      style: Theme.of(context).textTheme.titleMedium,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
                                     ),
                                     IconButton(
                                       onPressed: () => ref
@@ -231,7 +306,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                       );
                     }),
                     const Divider(height: 24),
-                    SummaryRow(label: 'Total item', value: '${state.cartCount}'),
+                    SummaryRow(
+                        label: 'Total item', value: '${state.cartCount}'),
                     SummaryRow(
                       label: 'Total belanja',
                       value: AppFormatters.currency(state.cartTotal),
@@ -259,14 +335,17 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           label: const Text('Umum / Tanpa Nama'),
                           selected: state.selectedCustomerId == null,
                           onSelected: (_) {
-                            if (state.selectedPaymentMethod == PaymentMethod.bon) {
+                            if (state.selectedPaymentMethod ==
+                                PaymentMethod.bon) {
                               _showMessage(
                                 context,
                                 'Transaksi BON wajib memilih pelanggan terdaftar.',
                               );
                               return;
                             }
-                            ref.read(posStateProvider).setSelectedCustomer(null);
+                            ref
+                                .read(posStateProvider)
+                                .setSelectedCustomer(null);
                           },
                         ),
                       ),
@@ -274,7 +353,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                       Expanded(
                         child: FilledButton.icon(
                           onPressed: () async {
-                            final customer = await showCustomerFormSheet(context, ref);
+                            final customer =
+                                await showCustomerFormSheet(context, ref);
                             if (!mounted) return;
                             if (customer != null) {
                               ref
@@ -292,7 +372,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   AppSearchField(
                     fieldKey: const Key('cashier-customer-search'),
                     hintText: 'Cari pelanggan aktif',
-                    onChanged: (value) => setState(() => _customerQuery = value),
+                    onChanged: (value) =>
+                        setState(() => _customerQuery = value),
                   ),
                   const SizedBox(height: 12),
                   if (filteredCustomers.isEmpty)
@@ -303,60 +384,63 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     )
                   else
                     ...filteredCustomers.take(5).map(
-                      (customer) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: () => ref
-                              .read(posStateProvider)
-                              .setSelectedCustomer(customer.id),
-                          child: Ink(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: state.selectedCustomerId == customer.id
-                                  ? AppTheme.foam
-                                  : Colors.white.withValues(alpha: 0.55),
+                          (customer) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: InkWell(
                               borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Row(
-                              children: [
-                                const AppMediaPreview(
-                                  width: 54,
-                                  height: 54,
-                                  borderRadius: 27,
-                                  placeholderIcon: Icons.person_outline_rounded,
+                              onTap: () => ref
+                                  .read(posStateProvider)
+                                  .setSelectedCustomer(customer.id),
+                              child: Ink(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: state.selectedCustomerId == customer.id
+                                      ? AppTheme.foam
+                                      : Colors.white.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(24),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        customer.name,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
+                                child: Row(
+                                  children: [
+                                    const AppMediaPreview(
+                                      width: 54,
+                                      height: 54,
+                                      borderRadius: 27,
+                                      placeholderIcon:
+                                          Icons.person_outline_rounded,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            customer.name,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${customer.phone} - ${customer.address}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall,
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${customer.phone} · ${customer.address}',
-                                        style:
-                                            Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                    if (state.selectedCustomerId == customer.id)
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        color: AppTheme.success,
                                       ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
-                                if (state.selectedCustomerId == customer.id)
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: AppTheme.success,
-                                  ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -402,7 +486,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
         Positioned(
           left: 20,
           right: 20,
-          bottom: 100,
+          bottom: bottomOffset,
           child: Container(
             decoration: AppTheme.frostedDecoration(radius: 30),
             padding: const EdgeInsets.all(16),
@@ -418,11 +502,12 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   key: const Key('cashier-checkout-button'),
                   onPressed: () async {
                     try {
-                      final transaction = await ref.read(posStateProvider).checkout(
-                            notes: _notesController.text.trim().isEmpty
-                                ? null
-                                : _notesController.text.trim(),
-                          );
+                      final transaction =
+                          await ref.read(posStateProvider).checkout(
+                                notes: _notesController.text.trim().isEmpty
+                                    ? null
+                                    : _notesController.text.trim(),
+                              );
                       _notesController.clear();
                       if (!context.mounted) return;
                       await _showReceiptSheet(context, transaction);
@@ -449,6 +534,66 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     );
   }
 
+  Widget _buildHistoryTab(
+    BuildContext context,
+    PosAppState state,
+    List<TransactionRecord> filteredTransactions,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      children: [
+        HeroPanel(
+          badge: const StatusChip(
+            label: 'Riwayat transaksi',
+            color: Colors.white,
+            icon: Icons.history_rounded,
+          ),
+          title: 'Semua transaksi tetap rapi dan mudah ditelusuri.',
+          subtitle:
+              'Cari berdasarkan kode transaksi atau pelanggan, lalu buka detail lengkap kapan saja.',
+          bottom: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              StatusChip(
+                label: '${state.transactions.length} transaksi tersimpan',
+                color: Colors.white,
+                icon: Icons.receipt_long_rounded,
+              ),
+              StatusChip(
+                label: AppFormatters.currency(state.totalRevenue),
+                color: Colors.white,
+                icon: Icons.payments_rounded,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        AppSectionCard(
+          child: AppSearchField(
+            fieldKey: const Key('cashier-history-search'),
+            hintText: 'Cari kode transaksi atau nama pelanggan',
+            onChanged: (value) => setState(() => _historyQuery = value),
+          ),
+        ),
+        const SizedBox(height: 20),
+        if (filteredTransactions.isEmpty)
+          const EmptyState(
+            icon: Icons.receipt_long_outlined,
+            title: 'Belum ada transaksi cocok',
+            subtitle: 'Ubah kata kunci pencarian atau buat transaksi baru.',
+          )
+        else
+          ...filteredTransactions.map(
+            (transaction) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TransactionHistoryCard(transaction: transaction),
+            ),
+          ),
+      ],
+    );
+  }
+
   Future<void> _showReceiptSheet(
     BuildContext context,
     TransactionRecord transaction,
@@ -471,7 +616,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${transaction.transactionCode} · ${AppFormatters.dateTime(transaction.createdAt)}',
+                '${transaction.transactionCode} - ${AppFormatters.dateTime(transaction.createdAt)}',
               ),
               const SizedBox(height: 16),
               AppSectionCard(
@@ -479,10 +624,19 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SummaryRow(label: 'Pelanggan', value: transaction.customerName),
+                    SummaryRow(
+                        label: 'Pelanggan', value: transaction.customerName),
                     SummaryRow(
                       label: 'Metode bayar',
                       value: transaction.paymentMethod.label,
+                    ),
+                    SummaryRow(
+                      label: 'Qty total produk',
+                      value: '${transaction.totalQuantity}',
+                    ),
+                    SummaryRow(
+                      label: 'Jumlah jenis item',
+                      value: '${transaction.lineItemCount}',
                     ),
                     SummaryRow(
                       label: 'Total',
@@ -508,21 +662,31 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
+                      key: const Key('receipt-view-detail-button'),
                       onPressed: () {
                         Navigator.of(context).pop();
-                        if (transaction.paymentMethod == PaymentMethod.bon) {
-                          this.context.go('/debts');
-                        }
+                        this
+                            .context
+                            .go('/cashier/transactions/${transaction.id}');
                       },
-                      child: Text(
-                        transaction.paymentMethod == PaymentMethod.bon
-                            ? 'Buka Bon'
-                            : 'Selesai',
-                      ),
+                      child: const Text('Lihat Detail Transaksi'),
                     ),
                   ),
                 ],
               ),
+              if (transaction.paymentMethod == PaymentMethod.bon) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      this.context.go('/debts');
+                    },
+                    child: const Text('Buka daftar BON'),
+                  ),
+                ),
+              ],
             ],
           ),
         );
@@ -531,6 +695,88 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   }
 
   void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _TransactionHistoryCard extends StatelessWidget {
+  const _TransactionHistoryCard({required this.transaction});
+
+  final TransactionRecord transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: Key('transaction-history-tile-${transaction.id}'),
+      borderRadius: BorderRadius.circular(28),
+      onTap: () => context.go('/cashier/transactions/${transaction.id}'),
+      child: Ink(
+        decoration: AppTheme.frostedDecoration(radius: 28),
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transaction.transactionCode,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${transaction.customerName} - ${AppFormatters.dateTime(transaction.createdAt)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  AppFormatters.currency(transaction.totalAmount),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                StatusChip(
+                  label: transaction.paymentMethod.label,
+                  color: AppTheme.deepTeal,
+                  icon: Icons.payments_rounded,
+                ),
+                StatusChip(
+                  label: '${transaction.totalQuantity} qty',
+                  color: AppTheme.info,
+                  icon: Icons.shopping_bag_rounded,
+                ),
+                StatusChip(
+                  label: '${transaction.lineItemCount} jenis item',
+                  color: AppTheme.success,
+                  icon: Icons.list_alt_rounded,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SummaryRow(
+              label: 'Nominal dibayar',
+              value: AppFormatters.currency(transaction.amountPaid),
+            ),
+            SummaryRow(
+              label: 'Kembalian',
+              value: AppFormatters.currency(transaction.changeAmount),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
