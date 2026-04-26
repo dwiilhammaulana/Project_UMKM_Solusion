@@ -116,6 +116,24 @@ class PosAppState extends ChangeNotifier {
   double get totalOperationalCost =>
       _operationalCosts.fold(0.0, (sum, cost) => sum + cost.amount);
 
+  List<OperationalCost> operationalCostsByMonth(DateTime monthYear) {
+    final normalizedMonth = DateTime(monthYear.year, monthYear.month, 1);
+    final result = _operationalCosts
+        .where(
+          (item) =>
+              item.monthYear.year == normalizedMonth.year &&
+              item.monthYear.month == normalizedMonth.month,
+        )
+        .toList();
+    result.sort((a, b) => a.costName.compareTo(b.costName));
+    return result;
+  }
+
+  double operationalCostTotalByMonth(DateTime monthYear) {
+    return operationalCostsByMonth(monthYear)
+        .fold(0.0, (sum, cost) => sum + cost.amount);
+  }
+
   int get todayTransactionCount {
     final now = DateTime.now();
     return _transactions
@@ -328,6 +346,28 @@ class PosAppState extends ChangeNotifier {
   Future<void> deleteProduct(String productId) async {
     await _repository.deleteProduct(productId);
     _cart.remove(productId);
+    await _reloadPersistedData();
+    notifyListeners();
+  }
+
+  Future<void> saveOperationalCost({
+    String? id,
+    required DateTime monthYear,
+    required String costName,
+    required double amount,
+  }) async {
+    await _repository.saveOperationalCost(
+      id: id,
+      monthYear: monthYear,
+      costName: costName,
+      amount: amount,
+    );
+    await _reloadPersistedData();
+    notifyListeners();
+  }
+
+  Future<void> deleteOperationalCost(String id) async {
+    await _repository.deleteOperationalCost(id);
     await _reloadPersistedData();
     notifyListeners();
   }

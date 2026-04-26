@@ -162,6 +162,69 @@ class PosRepository {
         .toList();
   }
 
+  Future<OperationalCost> saveOperationalCost({
+    String? id,
+    required DateTime monthYear,
+    required String costName,
+    required double amount,
+  }) async {
+    final db = await _appDatabase.database;
+    final normalizedMonth = DateTime(monthYear.year, monthYear.month, 1);
+    if (id == null) {
+      final cost = OperationalCost(
+        id: 'opc-${DateTime.now().microsecondsSinceEpoch}',
+        monthYear: normalizedMonth,
+        costName: costName,
+        amount: amount,
+      );
+      await db.insert('operational_costs', _operationalCostValues(cost));
+      return cost;
+    }
+
+    final existing = await db.query(
+      'operational_costs',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (existing.isEmpty) {
+      throw Exception('Biaya operasional tidak ditemukan.');
+    }
+
+    final cost = OperationalCost(
+      id: id,
+      monthYear: normalizedMonth,
+      costName: costName,
+      amount: amount,
+    );
+    await db.update(
+      'operational_costs',
+      _operationalCostValues(cost),
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    return cost;
+  }
+
+  Future<void> deleteOperationalCost(String id) async {
+    final db = await _appDatabase.database;
+    final existing = await db.query(
+      'operational_costs',
+      columns: ['id'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (existing.isEmpty) {
+      throw Exception('Biaya operasional tidak ditemukan.');
+    }
+    await db.delete(
+      'operational_costs',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<Customer> saveCustomer({
     String? id,
     required String name,
@@ -652,6 +715,19 @@ class PosRepository {
       'notes': customer.notes,
       'is_active': customer.isActive ? 1 : 0,
       'created_at': customer.createdAt.toIso8601String(),
+    };
+  }
+
+  Map<String, Object?> _operationalCostValues(OperationalCost cost) {
+    return {
+      'id': cost.id,
+      'month_year': DateTime(
+        cost.monthYear.year,
+        cost.monthYear.month,
+        1,
+      ).toIso8601String(),
+      'cost_name': cost.costName,
+      'amount': cost.amount,
     };
   }
 }

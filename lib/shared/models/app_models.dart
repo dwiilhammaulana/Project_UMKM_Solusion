@@ -322,6 +322,20 @@ class OperationalCost {
   final DateTime monthYear;
   final String costName;
   final double amount;
+
+  OperationalCost copyWith({
+    String? id,
+    DateTime? monthYear,
+    String? costName,
+    double? amount,
+  }) {
+    return OperationalCost(
+      id: id ?? this.id,
+      monthYear: monthYear ?? this.monthYear,
+      costName: costName ?? this.costName,
+      amount: amount ?? this.amount,
+    );
+  }
 }
 
 class ReportSummary {

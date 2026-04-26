@@ -96,6 +96,18 @@ void main() {
     expect(find.text('Tambah Produk'), findsOneWidget);
   });
 
+  testWidgets('reports screen opens without blank state', (tester) async {
+    await pumpApp(tester);
+
+    await openMoreAndTap(tester, 'more-reports-link');
+
+    expect(
+        find.text('Ringkasan bisnis yang lebih enak dibaca.'), findsOneWidget);
+    expect(find.text('Modal Produk'), findsOneWidget);
+    expect(find.text('Komponen Net Profit'), findsOneWidget);
+    expect(find.text('Biaya Operasional Bulanan'), findsOneWidget);
+  });
+
   testWidgets(
     'cashier flow enforces registered customer for BON and can checkout',
     (tester) async {
@@ -317,6 +329,34 @@ void main() {
           contains('Nominal pembayaran melebihi sisa utang'),
         ),
       ),
+    );
+  });
+
+  testWidgets('operational cost input updates monthly cost and net profit', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final now = DateTime.now();
+    final month = DateTime(now.year, now.month, 1);
+    final beforeOperationalCost = state.operationalCostTotalByMonth(month);
+    final beforeNetProfit = state.reportSummaries.last.netProfit;
+
+    await state.saveOperationalCost(
+      monthYear: month,
+      costName: 'Sewa Tambahan',
+      amount: 250000,
+    );
+    await tester.pumpAndSettle();
+
+    final updatedState = container.read(posStateProvider);
+    expect(
+      updatedState.operationalCostTotalByMonth(month),
+      beforeOperationalCost + 250000,
+    );
+    expect(
+      updatedState.reportSummaries.last.netProfit,
+      beforeNetProfit - 250000,
     );
   });
 
