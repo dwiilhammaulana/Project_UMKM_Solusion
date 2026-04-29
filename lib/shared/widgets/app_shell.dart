@@ -90,7 +90,7 @@ class AppShell extends ConsumerWidget {
                   ? const LoadingState()
                   : state.errorMessage != null
                       ? ErrorState(
-                          title: 'Database lokal gagal dimuat',
+                          title: 'Data aplikasi gagal dimuat',
                           subtitle: state.errorMessage!,
                           onRetry: () => ref.read(posStateProvider).reload(),
                         )

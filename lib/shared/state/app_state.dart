@@ -7,16 +7,23 @@ import 'package:intl/intl.dart';
 
 import '../database/app_database.dart';
 import '../database/pos_repository.dart';
+import '../database/sqlite_pos_repository.dart';
+import '../database/supabase_pos_repository.dart';
 import '../models/app_models.dart';
+import '../supabase/supabase_providers.dart';
 
-final appDatabaseProvider = Provider<AppDatabase>((ref) {
+final sqliteAppDatabaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
   ref.onDispose(database.close);
   return database;
 });
 
+final sqlitePosRepositoryProvider = Provider<PosRepository>((ref) {
+  return SqlitePosRepository(ref.watch(sqliteAppDatabaseProvider));
+});
+
 final posRepositoryProvider = Provider<PosRepository>((ref) {
-  return PosRepository(ref.watch(appDatabaseProvider));
+  return SupabasePosRepository(ref.watch(supabaseClientProvider));
 });
 
 final posStateProvider = ChangeNotifierProvider<PosAppState>((ref) {
@@ -29,13 +36,13 @@ class PosAppState extends ChangeNotifier {
   }
 
   final PosRepository _repository;
-
-  AppProfile _appProfile = const AppProfile(
+  static const _fallbackProfile = AppProfile(
     id: 'store-main',
-    storeName: 'Warung Kopi Pertigaan Jati',
-    storeSubtitle: 'Pantau penjualan, stok, dan bon dalam satu aplikasi.',
-    ownerName: 'Pemilik Toko',
+    storeName: 'Warung Kopi',
+    storeSubtitle: 'Lengkapi profil toko untuk mulai memakai aplikasi.',
   );
+
+  AppProfile? _appProfile;
   List<Category> _categories = const [];
   List<Product> _products = const [];
   List<Customer> _customers = const [];
@@ -51,7 +58,8 @@ class PosAppState extends ChangeNotifier {
   bool _isLoading = true;
   String? _errorMessage;
 
-  AppProfile get appProfile => _appProfile;
+  AppProfile get appProfile => _appProfile ?? _fallbackProfile;
+  bool get hasAppProfile => _appProfile != null;
   List<Category> get categories => _categories;
   List<Product> get products => _products;
   List<Customer> get customers => _customers;
@@ -478,7 +486,7 @@ class PosAppState extends ChangeNotifier {
       _repository.fetchOperationalCosts(),
     ]);
 
-    _appProfile = results[0] as AppProfile;
+    _appProfile = results[0] as AppProfile?;
     _categories = results[1] as List<Category>;
     _products = results[2] as List<Product>;
     _customers = results[3] as List<Customer>;

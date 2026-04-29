@@ -7,7 +7,9 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
+import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
 import 'package:warung_kopi_pos/shared/database/app_database.dart';
+import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
 import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
@@ -24,10 +26,17 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
+    final testDatabase = AppDatabase(inMemory: true);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          appDatabaseProvider.overrideWithValue(AppDatabase(inMemory: true)),
+          sqliteAppDatabaseProvider.overrideWithValue(testDatabase),
+          posRepositoryProvider.overrideWithValue(
+            SqlitePosRepository(testDatabase),
+          ),
+          authControllerProvider.overrideWith((ref) {
+            return AuthController.test();
+          }),
           mediaPickerProvider.overrideWithValue(
             FakeMediaPickerService(List<String?>.from(pickerResponses)),
           ),
