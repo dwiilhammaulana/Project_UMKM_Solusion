@@ -1,222 +1,263 @@
 # Dokumentasi Skema Database Warung Kopi POS
 
-Dokumen ini disusun dari schema SQLite aktif pada [lib/shared/database/app_database.dart](/D:/kulyah/smt%206/project%203/Warung%20Kopi/lib/shared/database/app_database.dart:17) dan enum pendukung pada [lib/shared/models/app_models.dart](/D:/kulyah/smt%206/project%203/Warung%20Kopi/lib/shared/models/app_models.dart:1).
+Dokumen ini menjelaskan schema database aktif setelah migrasi ke Supabase. Sumber kebenaran utama adalah migration SQL di `supabase/migrations/` dan repository aktif di `lib/shared/database/supabase_pos_repository.dart`.
+
+---
 
 ## 1. Identitas Schema
 
 | Komponen | Nilai |
 |---|---|
-| Database engine | SQLite |
-| Nama file database | `warung_kopi_pos.db` |
-| Schema version | `3` |
-| Foreign key enforcement | Aktif melalui `PRAGMA foreign_keys = ON` |
-| Sumber kebenaran utama | `lib/shared/database/app_database.dart` |
+| Database engine | Supabase PostgreSQL |
+| Backend client | `supabase_flutter` |
+| Auth | Supabase Auth |
+| Sumber schema | `supabase/migrations/20260426_000001_initial_schema.sql` |
+| Ownership & RLS | `supabase/migrations/20260429_000003_repair_auth_ownership_rls.sql` |
+| Repository aktif | `lib/shared/database/supabase_pos_repository.dart` |
+| Provider aktif | `posRepositoryProvider` di `lib/shared/state/app_state.dart` |
 
-## 2. Daftar Tabel
+Migration awal mempertahankan banyak tipe dari SQLite lama untuk mengurangi risiko migrasi data:
 
-### 2.1 `app_profile`
+- ID operasional masih `text`.
+- Timestamp masih `text` ISO8601.
+- Enum disimpan sebagai `text`.
+- Boolean lama masih memakai integer `0` / `1`.
 
-Fungsi: menyimpan identitas global toko yang dipakai di seluruh aplikasi.
+---
 
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+## 2. Auth, Ownership, dan RLS
+
+Supabase Auth menjadi sumber identitas user. Migration ownership menambahkan tabel `profiles` dan kolom `owner_user_id` ke semua tabel operasional.
+
+### 2.1 `profiles`
+
+Fungsi: menyimpan profil akun yang terhubung ke `auth.users`.
+
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik profil toko. Implementasi saat ini memakai nilai tetap `store-main`. |
-| `store_name` | `TEXT` | `NOT NULL` | Nama toko. |
-| `store_subtitle` | `TEXT` | `NOT NULL` | Subjudul atau deskripsi singkat toko. |
-| `owner_name` | `TEXT` | `NULL` | Nama pemilik toko. |
-| `photo_path` | `TEXT` | `NULL` | Path lokal foto atau logo toko. |
+| `id` | `uuid` | PK, FK ke `auth.users(id)` | ID user Supabase |
+| `email` | `text` | NOT NULL | Email akun |
+| `full_name` | `text` | NULL | Nama lengkap dari metadata auth |
+| `avatar_url` | `text` | NULL | Avatar dari metadata auth |
+| `created_at` | `text` | default waktu UTC | Timestamp pembuatan |
+| `updated_at` | `text` | default waktu UTC | Timestamp update |
 
-Relasi: tidak memiliki foreign key.
+Trigger `on_auth_user_created` membuat atau memperbarui row `profiles` saat user dibuat.
 
-### 2.2 `categories`
+### 2.2 Pola Ownership
 
-Fungsi: menyimpan master kategori untuk pengelompokan produk.
+Tabel operasional berikut memiliki `owner_user_id uuid references auth.users(id) on delete cascade`:
 
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+`app_profile`, `categories`, `products`, `customers`, `transactions`, `transaction_items`, `debts`, `debt_payments`, `stock_movements`, dan `operational_costs`.
+
+RLS aktif dengan policy `*_owner_all`, sehingga operasi data hanya diizinkan ketika:
+
+```sql
+owner_user_id = auth.uid()
+```
+
+Repository Supabase juga selalu memfilter query dengan `owner_user_id` milik user aktif.
+
+---
+
+## 3. Daftar Tabel Operasional
+
+### 3.1 `app_profile`
+
+Fungsi: menyimpan identitas toko milik user.
+
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik kategori. |
-| `name` | `TEXT` | `NOT NULL` | Nama kategori produk. |
-| `description` | `TEXT` | `NULL` | Deskripsi tambahan kategori. |
+| `id` | `text` | PK | ID profil toko |
+| `store_name` | `text` | NOT NULL | Nama toko |
+| `store_subtitle` | `text` | NOT NULL | Subjudul toko |
+| `owner_name` | `text` | NULL | Nama pemilik toko |
+| `photo_path` | `text` | NULL | Path lokal atau URL foto/logo |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
-Relasi: menjadi parent untuk tabel `products`.
+### 3.2 `categories`
 
-### 2.3 `products`
+Fungsi: master kategori produk.
 
-Fungsi: menyimpan data master produk yang dipakai pada kasir, inventori, dan stok.
-
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik produk. |
-| `category_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Mengacu ke kategori produk pada `categories.id`. |
-| `name` | `TEXT` | `NOT NULL` | Nama produk. |
-| `sell_price` | `REAL` | `NOT NULL` | Harga jual produk. |
-| `cost_price` | `REAL` | `NOT NULL` | Harga pokok atau modal produk. |
-| `stock_qty` | `INTEGER` | `NOT NULL DEFAULT 0` | Jumlah stok saat ini. |
-| `min_stock` | `INTEGER` | `NOT NULL DEFAULT 0` | Ambang minimum stok. |
-| `unit` | `TEXT` | `NOT NULL` | Satuan produk, misalnya gelas atau pcs. |
-| `rack_location` | `TEXT` | `NULL` | Lokasi rak atau penyimpanan produk. |
-| `image_path` | `TEXT` | `NULL` | Path lokal gambar produk. |
-| `is_active` | `INTEGER` | `NOT NULL DEFAULT 1` | Status aktif produk dengan representasi boolean semu `1` atau `0`. |
+| `id` | `text` | PK | ID kategori |
+| `name` | `text` | NOT NULL | Nama kategori |
+| `description` | `text` | NULL | Deskripsi kategori |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
+
+### 3.3 `products`
+
+Fungsi: master produk untuk kasir, inventori, dan laporan.
+
+| Field | Tipe | Constraint / Default | Keterangan |
+|---|---|---|---|
+| `id` | `text` | PK | ID produk |
+| `category_id` | `text` | NOT NULL, FK | Mengacu ke `categories.id` |
+| `name` | `text` | NOT NULL | Nama produk |
+| `sell_price` | `double precision` | NOT NULL | Harga jual |
+| `cost_price` | `double precision` | NOT NULL | Harga modal |
+| `stock_qty` | `integer` | NOT NULL default `0` | Stok saat ini |
+| `min_stock` | `integer` | NOT NULL default `0` | Batas stok rendah |
+| `unit` | `text` | NOT NULL | Satuan |
+| `rack_location` | `text` | NULL | Lokasi rak |
+| `image_path` | `text` | NULL | Path lokal atau URL gambar |
+| `is_active` | `integer` | NOT NULL default `1`, check `0/1` | Status aktif |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
+
+Relasi: `category_id -> categories.id` dengan `ON DELETE RESTRICT`.
+
+### 3.4 `customers`
+
+Fungsi: menyimpan pelanggan untuk transaksi dan BON.
+
+| Field | Tipe | Constraint / Default | Keterangan |
+|---|---|---|---|
+| `id` | `text` | PK | ID pelanggan |
+| `name` | `text` | NOT NULL | Nama pelanggan |
+| `phone` | `text` | NOT NULL | Nomor telepon |
+| `address` | `text` | NOT NULL | Alamat |
+| `notes` | `text` | NULL | Catatan |
+| `is_active` | `integer` | NOT NULL default `1`, check `0/1` | Status aktif |
+| `created_at` | `text` | NOT NULL | Timestamp ISO8601 |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
+
+### 3.5 `transactions`
+
+Fungsi: header transaksi kasir.
+
+| Field | Tipe | Constraint / Default | Keterangan |
+|---|---|---|---|
+| `id` | `text` | PK | ID transaksi |
+| `transaction_code` | `text` | NOT NULL UNIQUE | Kode transaksi |
+| `customer_id` | `text` | NULL, FK | Referensi pelanggan |
+| `customer_name` | `text` | NOT NULL | Snapshot nama pelanggan |
+| `total_amount` | `double precision` | NOT NULL | Total transaksi |
+| `payment_method` | `text` | NOT NULL, check enum | `cash`, `qris`, `transfer`, `card`, `bon` |
+| `amount_paid` | `double precision` | NOT NULL default `0` | Dibayar saat transaksi |
+| `change_amount` | `double precision` | NOT NULL default `0` | Kembalian |
+| `notes` | `text` | NULL | Catatan |
+| `created_at` | `text` | NOT NULL | Timestamp ISO8601 |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
+
+Relasi: `customer_id -> customers.id` dengan `ON DELETE SET NULL`.
+
+### 3.6 `transaction_items`
+
+Fungsi: detail item pada transaksi.
+
+| Field | Tipe | Constraint / Default | Keterangan |
+|---|---|---|---|
+| `id` | `bigint` | identity PK | Primary key item |
+| `transaction_id` | `text` | NOT NULL, FK | Referensi transaksi |
+| `product_id` | `text` | NOT NULL, FK | Referensi produk |
+| `product_name` | `text` | NOT NULL | Snapshot nama produk |
+| `quantity` | `integer` | NOT NULL, check `> 0` | Jumlah item |
+| `sell_price` | `double precision` | NOT NULL | Harga saat transaksi |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
 Relasi:
-- `category_id -> categories.id` dengan `ON DELETE RESTRICT`
 
-### 2.4 `customers`
+- `transaction_id -> transactions.id` dengan `ON DELETE CASCADE`.
+- `product_id -> products.id` dengan `ON DELETE RESTRICT`.
 
-Fungsi: menyimpan data pelanggan untuk transaksi BON dan pengelolaan pelanggan.
+### 3.7 `debts`
 
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+Fungsi: menyimpan BON/piutang yang berasal dari transaksi metode `bon`.
+
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik pelanggan. |
-| `name` | `TEXT` | `NOT NULL` | Nama pelanggan. |
-| `phone` | `TEXT` | `NOT NULL` | Nomor telepon pelanggan. |
-| `address` | `TEXT` | `NOT NULL` | Alamat pelanggan. |
-| `notes` | `TEXT` | `NULL` | Catatan tambahan pelanggan. |
-| `is_active` | `INTEGER` | `NOT NULL DEFAULT 1` | Status aktif pelanggan dengan representasi boolean semu `1` atau `0`. |
-| `created_at` | `TEXT` | `NOT NULL` | Timestamp pembuatan data pelanggan dalam format ISO8601. |
-
-Relasi: menjadi parent untuk `transactions`, `debts`, dan `debt_payments`.
-
-### 2.5 `transactions`
-
-Fungsi: menyimpan header transaksi kasir.
-
-| Nama field | Tipe data | Constraint / Default | Keterangan |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik transaksi. |
-| `transaction_code` | `TEXT` | `NOT NULL UNIQUE` | Kode transaksi harian yang unik. |
-| `customer_id` | `TEXT` | `NULL`, `FOREIGN KEY` | Referensi ke pelanggan jika transaksi terkait pelanggan tertentu. |
-| `customer_name` | `TEXT` | `NOT NULL` | Snapshot nama pelanggan saat transaksi dibuat. Nilai ini disimpan langsung, bukan hasil join dinamis. |
-| `total_amount` | `REAL` | `NOT NULL` | Total nilai transaksi. |
-| `payment_method` | `TEXT` | `NOT NULL` | Metode pembayaran. Nilai valid: `cash`, `qris`, `transfer`, `card`, `bon`. |
-| `amount_paid` | `REAL` | `NOT NULL DEFAULT 0` | Jumlah yang dibayar saat transaksi dibuat. |
-| `change_amount` | `REAL` | `NOT NULL DEFAULT 0` | Nilai kembalian transaksi. |
-| `notes` | `TEXT` | `NULL` | Catatan transaksi. |
-| `created_at` | `TEXT` | `NOT NULL` | Timestamp transaksi dalam format ISO8601. |
+| `id` | `text` | PK | ID BON |
+| `transaction_id` | `text` | NOT NULL UNIQUE, FK | Transaksi sumber |
+| `customer_id` | `text` | NOT NULL, FK | Pelanggan yang berutang |
+| `customer_name` | `text` | NOT NULL | Snapshot nama pelanggan |
+| `original_amount` | `double precision` | NOT NULL | Nilai awal utang |
+| `paid_amount` | `double precision` | NOT NULL default `0` | Total sudah dibayar |
+| `due_date` | `text` | NULL | Tanggal jatuh tempo |
+| `notes` | `text` | NULL | Catatan |
+| `created_at` | `text` | NOT NULL | Timestamp dibuat |
+| `updated_at` | `text` | NOT NULL | Timestamp update |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
 Relasi:
-- `customer_id -> customers.id` dengan `ON DELETE SET NULL`
 
-### 2.6 `transaction_items`
+- `transaction_id -> transactions.id` dengan `ON DELETE CASCADE`.
+- `customer_id -> customers.id` dengan `ON DELETE RESTRICT`.
 
-Fungsi: menyimpan detail item pada setiap transaksi.
+Status BON dihitung di aplikasi dari `original_amount` dan `paid_amount`, bukan dari kolom `status`.
 
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+### 3.8 `debt_payments`
+
+Fungsi: histori cicilan atau pelunasan BON.
+
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Primary key numerik yang bertambah otomatis. |
-| `transaction_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Referensi ke header transaksi. |
-| `product_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Referensi ke produk yang dijual. |
-| `product_name` | `TEXT` | `NOT NULL` | Snapshot nama produk saat transaksi dibuat. Nilai ini disimpan langsung, bukan hasil join dinamis. |
-| `quantity` | `INTEGER` | `NOT NULL` | Jumlah unit produk pada baris transaksi. |
-| `sell_price` | `REAL` | `NOT NULL` | Harga jual per unit saat transaksi dibuat. |
+| `id` | `text` | PK | ID pembayaran |
+| `debt_id` | `text` | NOT NULL, FK | BON yang dibayar |
+| `customer_id` | `text` | NOT NULL, FK | Pelanggan pembayar |
+| `amount` | `double precision` | NOT NULL, check `> 0` | Nominal pembayaran |
+| `payment_method` | `text` | NOT NULL, check enum | `cash`, `qris`, `transfer`, `card`, `bon` |
+| `notes` | `text` | NULL | Catatan |
+| `paid_at` | `text` | NOT NULL | Timestamp pembayaran |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
 Relasi:
-- `transaction_id -> transactions.id` dengan `ON DELETE CASCADE`
-- `product_id -> products.id` dengan `ON DELETE RESTRICT`
 
-### 2.7 `debts`
+- `debt_id -> debts.id` dengan `ON DELETE CASCADE`.
+- `customer_id -> customers.id` dengan `ON DELETE RESTRICT`.
 
-Fungsi: menyimpan data BON atau piutang yang berasal dari transaksi.
+### 3.9 `stock_movements`
 
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+Fungsi: histori pergerakan stok produk.
+
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik BON atau piutang. |
-| `transaction_id` | `TEXT` | `NOT NULL UNIQUE`, `FOREIGN KEY` | Referensi ke transaksi sumber. Sifat `UNIQUE` membuat relasi efektif `transactions 1..1 debts`. |
-| `customer_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Referensi ke pelanggan pemilik BON. |
-| `customer_name` | `TEXT` | `NOT NULL` | Snapshot nama pelanggan saat BON dibuat. |
-| `original_amount` | `REAL` | `NOT NULL` | Nilai awal utang. |
-| `paid_amount` | `REAL` | `NOT NULL DEFAULT 0` | Total nominal yang sudah dibayar. |
-| `due_date` | `TEXT` | `NULL` | Tanggal jatuh tempo dalam format ISO8601. |
-| `notes` | `TEXT` | `NULL` | Catatan terkait BON. |
-| `created_at` | `TEXT` | `NOT NULL` | Timestamp pembuatan BON dalam format ISO8601. |
-| `updated_at` | `TEXT` | `NOT NULL` | Timestamp pembaruan BON dalam format ISO8601. |
+| `id` | `text` | PK | ID pergerakan stok |
+| `product_id` | `text` | NULL, FK | Produk terkait |
+| `reference_name` | `text` | NOT NULL | Nama referensi |
+| `quantity` | `double precision` | NOT NULL | Jumlah pergerakan |
+| `type` | `text` | NOT NULL, check enum | `stockIn`, `stockOut` |
+| `notes` | `text` | NULL | Catatan |
+| `created_at` | `text` | NOT NULL | Timestamp |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
-Relasi:
-- `transaction_id -> transactions.id` dengan `ON DELETE CASCADE`
-- `customer_id -> customers.id` dengan `ON DELETE RESTRICT`
+Relasi: `product_id -> products.id` dengan `ON DELETE SET NULL`.
 
-Catatan implementasi:
-- Tabel ini hanya dibuat oleh aplikasi saat checkout menggunakan metode pembayaran `bon` dan `customer_id` tersedia.
+### 3.10 `operational_costs`
 
-### 2.8 `debt_payments`
+Fungsi: menyimpan biaya operasional untuk laporan dan perhitungan laba bersih.
 
-Fungsi: menyimpan histori pembayaran cicilan atau pelunasan BON.
-
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+| Field | Tipe | Constraint / Default | Keterangan |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik pembayaran BON. |
-| `debt_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Referensi ke data BON yang dibayar. |
-| `customer_id` | `TEXT` | `NOT NULL`, `FOREIGN KEY` | Referensi ke pelanggan yang melakukan pembayaran. |
-| `amount` | `REAL` | `NOT NULL` | Nominal pembayaran BON. |
-| `payment_method` | `TEXT` | `NOT NULL` | Metode pembayaran. Nilai valid: `cash`, `qris`, `transfer`, `card`, `bon`. |
-| `notes` | `TEXT` | `NULL` | Catatan pembayaran. |
-| `paid_at` | `TEXT` | `NOT NULL` | Timestamp pembayaran dalam format ISO8601. |
+| `id` | `text` | PK | ID biaya |
+| `month_year` | `text` | NOT NULL | Periode bulan ISO8601 |
+| `cost_name` | `text` | NOT NULL | Nama biaya |
+| `amount` | `double precision` | NOT NULL | Nominal biaya |
+| `owner_user_id` | `uuid` | FK ke `auth.users(id)` | Pemilik data |
 
-Relasi:
-- `debt_id -> debts.id` dengan `ON DELETE CASCADE`
-- `customer_id -> customers.id` dengan `ON DELETE RESTRICT`
+---
 
-### 2.9 `stock_movements`
+## 4. Relasi Antar Tabel
 
-Fungsi: menyimpan histori pergerakan stok produk.
-
-| Nama field | Tipe data | Constraint / Default | Keterangan |
+| Relasi | Kardinalitas | Foreign key | Aksi `ON DELETE` |
 |---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik pergerakan stok. |
-| `product_id` | `TEXT` | `NULL`, `FOREIGN KEY` | Referensi ke produk terkait. Dapat menjadi `NULL` jika produk terhapus dan foreign key menjalankan `SET NULL`. |
-| `reference_name` | `TEXT` | `NOT NULL` | Nama referensi pergerakan, saat ini biasanya nama produk. |
-| `quantity` | `REAL` | `NOT NULL` | Jumlah pergerakan stok. |
-| `type` | `TEXT` | `NOT NULL` | Jenis pergerakan stok. Nilai valid: `stockIn`, `stockOut`. |
-| `notes` | `TEXT` | `NULL` | Catatan pergerakan stok. |
-| `created_at` | `TEXT` | `NOT NULL` | Timestamp pergerakan stok dalam format ISO8601. |
+| `auth.users -> profiles` | `1..1` | `profiles.id` | `CASCADE` |
+| `auth.users -> tabel operasional` | `1..*` | `owner_user_id` | `CASCADE` |
+| `categories -> products` | `1..*` | `products.category_id` | `RESTRICT` |
+| `customers -> transactions` | `1..*` | `transactions.customer_id` | `SET NULL` |
+| `transactions -> transaction_items` | `1..*` | `transaction_items.transaction_id` | `CASCADE` |
+| `products -> transaction_items` | `1..*` | `transaction_items.product_id` | `RESTRICT` |
+| `transactions -> debts` | `1..1` | `debts.transaction_id` | `CASCADE` |
+| `customers -> debts` | `1..*` | `debts.customer_id` | `RESTRICT` |
+| `debts -> debt_payments` | `1..*` | `debt_payments.debt_id` | `CASCADE` |
+| `customers -> debt_payments` | `1..*` | `debt_payments.customer_id` | `RESTRICT` |
+| `products -> stock_movements` | `1..*` | `stock_movements.product_id` | `SET NULL` |
 
-Relasi:
-- `product_id -> products.id` dengan `ON DELETE SET NULL`
+---
 
-Catatan implementasi:
-- Pada implementasi aktif, data `stock_movements` otomatis ditambahkan saat checkout untuk mencatat pengurangan stok.
+## 5. Indeks
 
-### 2.10 `operational_costs`
-
-Fungsi: menyimpan biaya operasional yang dipakai untuk laporan dan perhitungan laba bersih.
-
-| Nama field | Tipe data | Constraint / Default | Keterangan |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | ID unik biaya operasional. |
-| `month_year` | `TEXT` | `NOT NULL` | Periode bulan yang dinormalisasi ke tanggal awal bulan dalam format ISO8601. |
-| `cost_name` | `TEXT` | `NOT NULL` | Nama komponen biaya operasional. |
-| `amount` | `REAL` | `NOT NULL` | Nominal biaya operasional. |
-
-Relasi: tidak memiliki foreign key.
-
-## 3. Relasi Antar Tabel
-
-| Relasi | Kardinalitas | Foreign key | Aksi `ON DELETE` | Keterangan |
-|---|---|---|---|---|
-| `categories -> products` | `1..*` | `products.category_id` | `RESTRICT` | Satu kategori dapat dipakai banyak produk. |
-| `customers -> transactions` | `1..*` | `transactions.customer_id` | `SET NULL` | Pelanggan pada transaksi bersifat opsional. |
-| `transactions -> transaction_items` | `1..*` | `transaction_items.transaction_id` | `CASCADE` | Detail item ikut terhapus saat transaksi dihapus. |
-| `products -> transaction_items` | `1..*` | `transaction_items.product_id` | `RESTRICT` | Produk yang sudah pernah dipakai transaksi tidak boleh dihapus lewat foreign key. |
-| `transactions -> debts` | `1..1` | `debts.transaction_id` | `CASCADE` | Dibatasi `UNIQUE`, sehingga satu transaksi hanya dapat memiliki satu BON. |
-| `customers -> debts` | `1..*` | `debts.customer_id` | `RESTRICT` | Satu pelanggan dapat memiliki banyak BON. |
-| `debts -> debt_payments` | `1..*` | `debt_payments.debt_id` | `CASCADE` | Riwayat pembayaran ikut terhapus saat BON dihapus. |
-| `customers -> debt_payments` | `1..*` | `debt_payments.customer_id` | `RESTRICT` | Setiap pembayaran BON terkait pelanggan tertentu. |
-| `products -> stock_movements` | `1..*` | `stock_movements.product_id` | `SET NULL` | Riwayat stok tetap dipertahankan walau produk terhapus. |
-
-## 4. Catatan Implementasi
-
-- Semua field tanggal dan waktu disimpan sebagai `TEXT` dalam format ISO8601, misalnya `created_at`, `updated_at`, `paid_at`, `due_date`, dan `month_year`.
-- Field enum disimpan sebagai `TEXT`.
-- Nilai enum `payment_method`: `cash`, `qris`, `transfer`, `card`, `bon`.
-- Nilai enum `stock_movements.type`: `stockIn`, `stockOut`.
-- Field boolean semu disimpan sebagai `INTEGER` dengan pola `1` untuk aktif atau benar dan `0` untuk nonaktif atau salah.
-- `transactions.customer_name` disimpan sebagai snapshot nama pelanggan saat transaksi dibuat.
-- `transaction_items.product_name` disimpan sebagai snapshot nama produk saat transaksi dibuat.
-- Tabel `raw_materials` tidak termasuk karena tidak ada pada schema SQLite aktif.
-
-## 5. Catatan Indeks
-
-Schema aktif juga membuat beberapa indeks untuk optimasi query:
+Schema aktif membuat indeks berikut:
 
 | Nama indeks | Tabel | Kolom |
 |---|---|---|
@@ -227,7 +268,24 @@ Schema aktif juga membuat beberapa indeks untuk optimasi query:
 | `idx_debts_updated_at` | `debts` | `updated_at` |
 | `idx_debt_payments_debt_id` | `debt_payments` | `debt_id` |
 | `idx_stock_movements_product_created_at` | `stock_movements` | `product_id`, `created_at` |
+| `idx_*_owner_user_id` | Semua tabel operasional | `owner_user_id` |
 
-## 6. Kesimpulan Singkat
+---
 
-Schema database Warung Kopi POS terdiri dari 10 tabel utama yang mencakup profil toko, master data, transaksi, BON, histori pembayaran, pergerakan stok, dan biaya operasional. Struktur relasinya sudah mendukung kebutuhan kasir lokal berbasis SQLite dengan pemisahan yang jelas antara data master, header transaksi, detail transaksi, dan data turunan seperti BON serta histori stok.
+## 6. Catatan Implementasi
+
+- Backend aktif adalah Supabase PostgreSQL.
+- SQLite lama masih ada di kode sebagai repository alternatif/testing, tetapi bukan jalur data utama aplikasi.
+- Field tanggal dan waktu masih disimpan sebagai `text` ISO8601 untuk kompatibilitas migrasi.
+- Nilai enum `payment_method`: `cash`, `qris`, `transfer`, `card`, `bon`.
+- Nilai enum `stock_movements.type`: `stockIn`, `stockOut`.
+- Field boolean lama disimpan sebagai integer `1`/`0`.
+- `transactions.customer_name` dan `transaction_items.product_name` disimpan sebagai snapshot.
+- Tabel `raw_materials` tidak ada pada schema Supabase aktif.
+- Upload media ke Supabase Storage belum diimplementasikan; field media masih berupa path lokal atau URL.
+
+---
+
+## 7. Kesimpulan Singkat
+
+Schema Warung Kopi POS sekarang berjalan di Supabase PostgreSQL dengan Supabase Auth, ownership per user, dan RLS. Struktur tabel tetap mengikuti model POS yang sudah ada: profil toko, kategori, produk, pelanggan, transaksi, BON, pembayaran BON, stok, dan biaya operasional.
