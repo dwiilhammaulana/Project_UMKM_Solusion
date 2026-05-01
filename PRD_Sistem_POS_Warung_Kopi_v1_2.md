@@ -1,15 +1,14 @@
-# PRD - Sistem POS Warung Kopi
+# SISTEM KASIR DIGITAL WARUNG TOSERBA DENGAN INTEGRASI STOK DAN PENCATATAN BON BERBASIS FLUTTER
 
 ## Product Requirements Document
 
-**Sistem Point of Sale (POS)**  
-**Warung Kopi Sederhana - Pertigaan Jati**
+**Sistem Kasir Digital Warung Toserba dengan Integrasi Stok dan Pencatatan BON Berbasis Flutter**
 
 | Atribut | Detail |
 |---|---|
 | Versi Dokumen | 1.3 - Sinkronisasi dengan implementasi Supabase |
 | Tanggal | 1 Mei 2026 |
-| Klien | Warung Kopi - Pertigaan Jati |
+| Klien | Warung Toserba |
 | Frontend | Flutter |
 | Backend | Supabase BaaS |
 | Database | Supabase PostgreSQL |

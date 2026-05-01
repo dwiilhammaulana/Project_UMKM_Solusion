@@ -1,4 +1,4 @@
-# Warung Kopi POS
+# SISTEM KASIR DIGITAL WARUNG TOSERBA DENGAN INTEGRASI STOK DAN PENCATATAN BON BERBASIS FLUTTER
 
 Aplikasi Point of Sale (POS) berbasis Flutter untuk warung kopi. Sistem saat ini sudah memakai Supabase sebagai backend utama untuk autentikasi, database PostgreSQL, dan isolasi data per pengguna melalui Row Level Security (RLS).
 

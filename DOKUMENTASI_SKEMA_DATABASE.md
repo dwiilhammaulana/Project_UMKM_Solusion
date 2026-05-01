@@ -1,4 +1,4 @@
-# Dokumentasi Skema Database Warung Kopi POS
+# SISTEM KASIR DIGITAL WARUNG TOSERBA DENGAN INTEGRASI STOK DAN PENCATATAN BON BERBASIS FLUTTER
 
 Dokumen ini menjelaskan schema database aktif setelah migrasi ke Supabase. Sumber kebenaran utama adalah migration SQL di `supabase/migrations/` dan repository aktif di `lib/shared/database/supabase_pos_repository.dart`.
 
