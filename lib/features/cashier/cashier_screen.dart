@@ -19,6 +19,12 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen> {
+  static const _cashierPaymentMethods = [
+    PaymentMethod.cash,
+    PaymentMethod.qris,
+    PaymentMethod.bon,
+  ];
+
   String _productQuery = '';
   String? _categoryId;
   String _customerQuery = '';
@@ -139,7 +145,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     icon: Icons.shopping_cart_rounded,
                   ),
                   StatusChip(
-                    label: state.selectedPaymentMethod.label,
+                    label: _cashierPaymentLabel(state.selectedPaymentMethod),
                     color: Colors.white,
                     icon: Icons.payments_rounded,
                   ),
@@ -189,10 +195,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (filteredProducts.isEmpty)
-                    const EmptyState(
-                      icon: Icons.search_off_rounded,
-                      title: 'Produk tidak ditemukan',
-                      subtitle: 'Coba ubah kata kunci atau filter kategori.',
+                    const Center(
+                      child: EmptyState(
+                        icon: Icons.search_off_rounded,
+                        title: 'Produk tidak ditemukan',
+                        subtitle: 'Coba ubah kata kunci atau filter kategori.',
+                        maxWidth: 320,
+                      ),
                     )
                   else
                     ...filteredProducts.map((product) {
@@ -205,6 +214,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           product: product,
                           categoryName: category.name,
                           count: state.cart[product.id] ?? 0,
+                          mediaPlaceholderLabel: null,
                           onEdit: null,
                           onAdd: () {
                             try {
@@ -235,10 +245,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (state.cart.isEmpty)
-                    const EmptyState(
-                      icon: Icons.shopping_cart_outlined,
-                      title: 'Keranjang kosong',
-                      subtitle: 'Tambahkan produk dari daftar di atas.',
+                    const Center(
+                      child: EmptyState(
+                        icon: Icons.shopping_cart_outlined,
+                        title: 'Keranjang kosong',
+                        subtitle: 'Tambahkan produk dari daftar di atas.',
+                        maxWidth: 320,
+                      ),
                     )
                   else ...[
                     ...state.cart.entries.map((entry) {
@@ -350,11 +363,21 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: ChoiceChip(
+                        child: FilledButton(
                           key: const Key('customer-general-chip'),
-                          label: const Text('Umum / Tanpa Nama'),
-                          selected: state.selectedCustomerId == null,
-                          onSelected: (_) {
+                          style: FilledButton.styleFrom(
+                            backgroundColor: state.selectedCustomerId == null
+                                ? AppTheme.deepTeal
+                                : Colors.white,
+                            foregroundColor: state.selectedCustomerId == null
+                                ? Colors.white
+                                : AppTheme.deepTeal,
+                            side: BorderSide(
+                              color: AppTheme.deepTeal.withValues(alpha: 0.18),
+                            ),
+                            minimumSize: const Size.fromHeight(56),
+                          ),
+                          onPressed: () {
                             if (state.selectedPaymentMethod ==
                                 PaymentMethod.bon) {
                               _showMessage(
@@ -367,6 +390,10 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                 .read(posStateProvider)
                                 .setSelectedCustomer(null);
                           },
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text('Umum / Tanpa Nama'),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -524,18 +551,26 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           ),
                         ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: PaymentMethod.values.map((method) {
-                      return ChoiceChip(
-                        key: Key('payment-${method.name}'),
-                        label: Text(method.label),
-                        selected: state.selectedPaymentMethod == method,
-                        onSelected: (_) =>
-                            ref.read(posStateProvider).setPaymentMethod(method),
-                      );
-                    }).toList(),
+                  Row(
+                    children: [
+                      for (final method in _cashierPaymentMethods) ...[
+                        Expanded(
+                          child: _PaymentMethodButton(
+                            key: Key('payment-${method.name}'),
+                            label: _cashierPaymentLabel(method),
+                            selected: _isCashierPaymentSelected(
+                              method,
+                              state.selectedPaymentMethod,
+                            ),
+                            onTap: () => ref
+                                .read(posStateProvider)
+                                .setPaymentMethod(method),
+                          ),
+                        ),
+                        if (method != _cashierPaymentMethods.last)
+                          const SizedBox(width: 6),
+                      ],
+                    ],
                   ),
                   if (state.selectedPaymentMethod == PaymentMethod.bon &&
                       state.selectedCustomerId == null) ...[
@@ -780,6 +815,26 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
+
+  String _cashierPaymentLabel(PaymentMethod method) {
+    return switch (method) {
+      PaymentMethod.cash => 'Tunai',
+      PaymentMethod.bon => 'BON',
+      _ => 'Non Tunai',
+    };
+  }
+
+  bool _isCashierPaymentSelected(
+    PaymentMethod option,
+    PaymentMethod selected,
+  ) {
+    if (option == PaymentMethod.qris) {
+      return selected == PaymentMethod.qris ||
+          selected == PaymentMethod.transfer ||
+          selected == PaymentMethod.card;
+    }
+    return selected == option;
+  }
 }
 
 class _TransactionHistoryCard extends StatelessWidget {
@@ -796,67 +851,75 @@ class _TransactionHistoryCard extends StatelessWidget {
       child: Ink(
         decoration: AppTheme.frostedDecoration(radius: 28),
         padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction.transactionCode,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${transaction.customerName} - ${AppFormatters.dateTime(transaction.createdAt)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  AppFormatters.currency(transaction.totalAmount),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
+            Expanded(
+              child: Text(
+                transaction.transactionCode,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                StatusChip(
-                  label: transaction.paymentMethod.label,
-                  color: AppTheme.deepTeal,
-                  icon: Icons.payments_rounded,
-                ),
-                StatusChip(
-                  label: '${transaction.totalQuantity} qty',
-                  color: AppTheme.info,
-                  icon: Icons.shopping_bag_rounded,
-                ),
-                StatusChip(
-                  label: '${transaction.lineItemCount} jenis item',
-                  color: AppTheme.success,
-                  icon: Icons.list_alt_rounded,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SummaryRow(
-              label: 'Nominal dibayar',
-              value: AppFormatters.currency(transaction.amountPaid),
-            ),
-            SummaryRow(
-              label: 'Kembalian',
-              value: AppFormatters.currency(transaction.changeAmount),
+            const SizedBox(width: 12),
+            Text(
+              AppFormatters.currency(transaction.totalAmount),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentMethodButton extends StatelessWidget {
+  const _PaymentMethodButton({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundColor = selected ? Colors.white : AppTheme.deepTeal;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.deepTeal : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.deepTeal
+                  : AppTheme.deepTeal.withValues(alpha: 0.28),
+              width: 1.2,
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                color: foregroundColor,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w800,
+              ),
+            ),
+          ),
         ),
       ),
     );

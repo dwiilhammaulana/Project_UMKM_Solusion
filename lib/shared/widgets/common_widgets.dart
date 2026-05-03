@@ -8,7 +8,7 @@ import '../utils/app_formatters.dart';
 
 const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
 const double kShellBottomBarHeight = 74;
-const double kShellBottomOverlaySpacing = 44;
+const double kShellBottomOverlaySpacing = 20;
 
 double shellBottomClearance(
   BuildContext context, {
@@ -531,6 +531,7 @@ class ProductCard extends StatelessWidget {
     this.onEdit,
     this.onLongPress,
     this.count = 0,
+    this.mediaPlaceholderLabel = 'Upload\nfoto',
   });
 
   final Product product;
@@ -539,6 +540,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onLongPress;
   final int count;
+  final String? mediaPlaceholderLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +557,7 @@ class ProductCard extends StatelessWidget {
                   imagePath: product.imagePath,
                   width: 96,
                   height: 96,
-                  label: 'Upload\nfoto',
+                  label: mediaPlaceholderLabel,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -656,42 +658,49 @@ class EmptyState extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.action,
+    this.maxWidth,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final Widget? action;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      child: AppSectionCard(
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.foam,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth ?? double.infinity,
+        ),
+        child: AppSectionCard(
+          child: Column(
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.foam,
+                ),
+                child: Icon(icon, size: 34, color: AppTheme.deepTeal),
               ),
-              child: Icon(icon, size: 34, color: AppTheme.deepTeal),
-            ),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (action != null) ...[
               const SizedBox(height: 16),
-              action!,
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (action != null) ...[
+                const SizedBox(height: 16),
+                action!,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

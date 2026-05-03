@@ -12,6 +12,7 @@ import 'package:warung_kopi_pos/shared/database/app_database.dart';
 import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
+import 'package:warung_kopi_pos/shared/utils/app_formatters.dart';
 import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
 
 void main() {
@@ -205,7 +206,7 @@ void main() {
     );
   });
 
-  testWidgets('cashier history tab shows seeded transactions and metrics', (
+  testWidgets('cashier history tab shows transaction code and total amount', (
     tester,
   ) async {
     final container = await pumpApp(tester);
@@ -214,12 +215,25 @@ void main() {
 
     await openCashierHistoryTab(tester);
 
+    final historyTile =
+        find.byKey(Key('transaction-history-tile-${transaction.id}'));
+    expect(historyTile, findsOneWidget);
     expect(
-      find.byKey(Key('transaction-history-tile-${transaction.id}')),
+      find.descendant(
+        of: historyTile,
+        matching: find.text(transaction.transactionCode),
+      ),
       findsOneWidget,
     );
-    expect(find.text('${transaction.totalQuantity} qty'), findsWidgets);
-    expect(find.text('${transaction.lineItemCount} jenis item'), findsWidgets);
+    expect(
+      find.descendant(
+        of: historyTile,
+        matching: find.text(AppFormatters.currency(transaction.totalAmount)),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('${transaction.totalQuantity} qty'), findsNothing);
+    expect(find.text('${transaction.lineItemCount} jenis item'), findsNothing);
   });
 
   testWidgets('transaction history tile opens detail transaction screen', (

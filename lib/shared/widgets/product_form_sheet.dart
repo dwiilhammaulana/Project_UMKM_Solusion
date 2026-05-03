@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_models.dart';
 import '../state/app_state.dart';
+import '../theme/app_theme.dart';
 import '../utils/media_picker.dart';
 import 'common_widgets.dart';
 
@@ -145,6 +146,17 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _categoryId,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppTheme.deepTeal,
+                ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTheme.ink,
+                      fontWeight: FontWeight.w800,
+                    ),
                 items: categories
                     .map<DropdownMenuItem<String>>(
                       (category) => DropdownMenuItem<String>(
@@ -156,7 +168,19 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                 onChanged: _isSaving
                     ? null
                     : (value) => setState(() => _categoryId = value!),
-                decoration: const InputDecoration(labelText: 'Kategori'),
+                decoration: InputDecoration(
+                  labelText: 'Kategori',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.sell_outlined),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(22),
+                    borderSide: BorderSide(
+                      color: AppTheme.deepTeal.withValues(alpha: 0.20),
+                      width: 1.2,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
