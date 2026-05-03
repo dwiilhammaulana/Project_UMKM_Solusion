@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
@@ -12,6 +14,67 @@ class TransactionDetailScreen extends ConsumerWidget {
   const TransactionDetailScreen({super.key, required this.transactionId});
 
   final String transactionId;
+  Future<void> _printReceipt(
+      BuildContext context, TransactionRecord transaction) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'STRUK PEMBELIAN',
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Text('Kode: ${transaction.transactionCode}'),
+              pw.Text(
+                  'Tanggal: ${AppFormatters.dateTime(transaction.createdAt)}'),
+              pw.Text('Pelanggan: ${transaction.customerName}'),
+              pw.Text('Metode: ${transaction.paymentMethod.label}'),
+
+              pw.Divider(),
+
+              ...transaction.items.map(
+                (item) => pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(item.productName),
+                    pw.Text(
+                        '${item.quantity} x ${AppFormatters.currency(item.sellPrice)}'),
+                    pw.Text(
+                        'Subtotal: ${AppFormatters.currency(item.subtotal)}'),
+                    pw.SizedBox(height: 5),
+                  ],
+                ),
+              ),
+
+              pw.Divider(),
+
+              pw.Text(
+                  'Total: ${AppFormatters.currency(transaction.totalAmount)}'),
+              pw.Text(
+                  'Bayar: ${AppFormatters.currency(transaction.amountPaid)}'),
+              pw.Text(
+                  'Kembali: ${AppFormatters.currency(transaction.changeAmount)}'),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -148,6 +211,28 @@ class TransactionDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(height: 24),
+
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              _printReceipt(context, transaction);
+            },
+            icon: const Icon(Icons.print_rounded),
+            label: const Text('Cetak Struk'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: AppTheme.deepTeal,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ),
+
+        
         const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
@@ -227,7 +312,7 @@ class _TransactionItemCard extends StatelessWidget {
                   '${item.quantity} x ${AppFormatters.currency(item.sellPrice)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],
+              ],  
             ),
           ),
           const SizedBox(width: 12),
@@ -235,7 +320,7 @@ class _TransactionItemCard extends StatelessWidget {
             AppFormatters.currency(item.subtotal),
             style: Theme.of(context).textTheme.titleMedium,
           ),
-        ],
+          ],
       ),
     );
   }
