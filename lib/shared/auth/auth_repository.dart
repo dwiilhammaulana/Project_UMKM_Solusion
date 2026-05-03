@@ -1,5 +1,7 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart' as launcher;
+
+import '../config/app_environment.dart';
 
 enum AuthFailureCode {
   emailNotConfirmed,
@@ -22,6 +24,7 @@ class AuthRepository {
   AuthRepository(this._client);
 
   static const authCallbackUrl = 'com.warungkopi.pos://login-callback';
+  static Future<void>? _googleSignInInit;
 
   final SupabaseClient _client;
 
@@ -61,13 +64,69 @@ class AuthRepository {
 
   Future<void> signInWithGoogle() async {
     try {
-      await _client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: authCallbackUrl,
-        authScreenLaunchMode: launcher.LaunchMode.externalApplication,
+      final googleAccount = await _authenticateWithNativeGoogle();
+      if (googleAccount == null) {
+        return;
+      }
+      final idToken = googleAccount.authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw const AuthFailure(
+          AuthFailureCode.unknown,
+          'Token login Google tidak tersedia. Coba lagi.',
+        );
+      }
+
+      await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+    } on GoogleSignInException catch (error) {
+      if (error.code == GoogleSignInExceptionCode.canceled) {
+        throw const AuthFailure(
+          AuthFailureCode.unknown,
+          'Login Google gagal setelah akun dipilih. Pastikan Android OAuth client memakai package com.warungkopi.pos, SHA-1 debug/release yang benar, dan GOOGLE_WEB_CLIENT_ID dari Web OAuth client project yang sama.',
+        );
+      }
+      throw AuthFailure(
+        AuthFailureCode.unknown,
+        error.description ?? 'Login Google dibatalkan atau gagal.',
       );
     } on AuthException catch (error) {
       throw _mapAuthException(error);
+    }
+  }
+
+  Future<GoogleSignInAccount?> _authenticateWithNativeGoogle() async {
+    final serverClientId = AppEnvironment.googleWebClientId;
+    if (serverClientId == null) {
+      throw const AuthFailure(
+        AuthFailureCode.unknown,
+        'GOOGLE_WEB_CLIENT_ID belum diatur. Isi Web OAuth Client ID agar login Google native bisa dipakai.',
+      );
+    }
+
+    _googleSignInInit ??= GoogleSignIn.instance.initialize(
+      serverClientId: serverClientId,
+    );
+    await _googleSignInInit;
+
+    if (!GoogleSignIn.instance.supportsAuthenticate()) {
+      throw const AuthFailure(
+        AuthFailureCode.unknown,
+        'Login Google native belum didukung di platform ini.',
+      );
+    }
+
+    try {
+      return await GoogleSignIn.instance.authenticate();
+    } on GoogleSignInException catch (error) {
+      if (error.code == GoogleSignInExceptionCode.clientConfigurationError) {
+        throw const AuthFailure(
+          AuthFailureCode.unknown,
+          'Konfigurasi Google Sign-In belum cocok. Pastikan GOOGLE_WEB_CLIENT_ID adalah Web OAuth client ID dan Android OAuth client memakai package com.warungkopi.pos dengan SHA-1 aplikasi ini.',
+        );
+      }
+      rethrow;
     }
   }
 
@@ -83,7 +142,19 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() => _client.auth.signOut();
+  Future<void> signOut() async {
+    await _client.auth.signOut();
+    final googleSignInInit = _googleSignInInit;
+    if (googleSignInInit == null) {
+      return;
+    }
+    try {
+      await googleSignInInit;
+      await GoogleSignIn.instance.signOut();
+    } on GoogleSignInException {
+      // Supabase logout already succeeded; Google cache cleanup can be retried.
+    }
+  }
 
   AuthFailure _mapAuthException(AuthException error) {
     final message = error.message.toLowerCase();

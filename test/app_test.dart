@@ -18,6 +18,7 @@ void main() {
   Future<ProviderContainer> pumpApp(
     WidgetTester tester, {
     List<String?> pickerResponses = const [],
+    AuthController? authController,
   }) async {
     tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 1.0;
@@ -35,7 +36,7 @@ void main() {
             SqlitePosRepository(testDatabase),
           ),
           authControllerProvider.overrideWith((ref) {
-            return AuthController.test();
+            return authController ?? AuthController.test();
           }),
           mediaPickerProvider.overrideWithValue(
             FakeMediaPickerService(List<String?>.from(pickerResponses)),
@@ -115,6 +116,36 @@ void main() {
     expect(find.text('Modal Produk'), findsOneWidget);
     expect(find.text('Komponen Net Profit'), findsOneWidget);
     expect(find.text('Biaya Operasional Bulanan'), findsOneWidget);
+  });
+
+  testWidgets('logout asks confirmation and redirects to login',
+      (tester) async {
+    final authController = FakeLogoutAuthController();
+    await pumpApp(tester, authController: authController);
+
+    await tester.tap(find.text('Lainnya'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('more-logout-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('more-logout-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar dari aplikasi?'), findsOneWidget);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(authController.signOutCallCount, 0);
+    expect(find.text('Masuk ke Warung Kopi'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('more-logout-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keluar').last);
+    await tester.pumpAndSettle();
+
+    expect(authController.signOutCallCount, 1);
+    expect(find.text('Masuk ke Warung Kopi'), findsOneWidget);
   });
 
   testWidgets(
@@ -559,6 +590,26 @@ void main() {
       }
     },
   );
+}
+
+class FakeLogoutAuthController extends AuthController {
+  FakeLogoutAuthController() : super.test();
+
+  AuthStatus _status = AuthStatus.authenticated;
+  int signOutCallCount = 0;
+
+  @override
+  AuthStatus get status => _status;
+
+  @override
+  bool get isAuthenticated => _status == AuthStatus.authenticated;
+
+  @override
+  Future<void> signOut() async {
+    signOutCallCount++;
+    _status = AuthStatus.unauthenticated;
+    notifyListeners();
+  }
 }
 
 class FakeMediaPickerService implements MediaPickerService {

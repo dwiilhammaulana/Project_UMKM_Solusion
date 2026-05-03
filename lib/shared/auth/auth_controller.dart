@@ -120,7 +120,7 @@ class AuthController extends ChangeNotifier {
   }) async {
     await _repository!.signInWithEmail(email: email, password: password);
     _pendingVerificationEmail = null;
-    notifyListeners();
+    await _syncCurrentAuthState();
   }
 
   Future<void> signUpWithEmail({
@@ -137,7 +137,11 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signInWithGoogle() => _repository!.signInWithGoogle();
+  Future<void> signInWithGoogle() async {
+    await _repository!.signInWithGoogle();
+    _pendingVerificationEmail = null;
+    await _syncCurrentAuthState();
+  }
 
   Future<void> resendSignupVerification() async {
     final email = _pendingVerificationEmail;
@@ -182,6 +186,20 @@ class AuthController extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     }
+  }
+
+  Future<void> _syncCurrentAuthState() async {
+    final repository = _repository!;
+    _session = repository.currentSession;
+    _user = repository.currentUser;
+    if (_user != null) {
+      await _refreshProfileStatus();
+      return;
+    }
+    _hasStoreProfile = false;
+    _isCheckingProfile = false;
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> _refreshProfileStatus() async {

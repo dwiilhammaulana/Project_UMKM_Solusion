@@ -81,12 +81,16 @@ Aplikasi membutuhkan konfigurasi Supabase sebelum dijalankan.
 ```env
 SUPABASE_URL=https://your-project-id.supabase.co
 SUPABASE_ANON_KEY=your-public-anon-key
+GOOGLE_WEB_CLIENT_ID=your-google-web-client-id.apps.googleusercontent.com
 ```
 
 Konfigurasi dapat diberikan lewat:
 
 - file `.env` yang dibuat dari `.env.example`, atau
 - `--dart-define=SUPABASE_URL=...` dan `--dart-define=SUPABASE_ANON_KEY=...`.
+
+Untuk Google Sign-In Android, cocokkan OAuth client dengan
+[`GOOGLE_SIGN_IN_SETUP.md`](GOOGLE_SIGN_IN_SETUP.md).
 
 File kunci:
 

@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/auth/auth_controller.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/utils/app_formatters.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/widgets/store_profile_sheet.dart';
 
-class MoreScreen extends ConsumerWidget {
+class MoreScreen extends ConsumerStatefulWidget {
   const MoreScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends ConsumerState<MoreScreen> {
+  bool _isSigningOut = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
     final profile = state.appProfile;
 
@@ -43,7 +51,8 @@ class MoreScreen extends ConsumerWidget {
             children: [
               SectionHeader(
                 title: profile.storeName,
-                subtitle: '${profile.ownerName ?? 'Pemilik toko'} · ${profile.storeSubtitle}',
+                subtitle:
+                    '${profile.ownerName ?? 'Pemilik toko'} · ${profile.storeSubtitle}',
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -109,7 +118,77 @@ class MoreScreen extends ConsumerWidget {
           subtitle: 'Visual performa usaha dalam chart.',
           onTap: () => context.go('/analytics'),
         ),
+        AppMenuLinkTile(
+          key: const Key('more-logout-button'),
+          icon: Icons.logout_rounded,
+          title: 'Keluar',
+          subtitle: 'Akhiri sesi akun dan kembali ke halaman login.',
+          onTap: _isSigningOut ? null : _confirmSignOut,
+          trailing: _isSigningOut
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                )
+              : const Icon(Icons.logout_rounded, size: 20),
+        ),
       ],
     );
+  }
+
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Keluar dari aplikasi?'),
+          content: const Text(
+            'Sesi akun akan diakhiri dan kamu perlu login lagi untuk masuk.',
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Keluar'),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Batal'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _isSigningOut = true);
+    try {
+      await ref.read(authControllerProvider).signOut();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSigningOut = false);
+      }
+    }
   }
 }
