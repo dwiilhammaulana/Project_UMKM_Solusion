@@ -25,6 +25,11 @@ class AppEnvironment {
         label: 'SUPABASE_ANON_KEY',
       );
 
+  static String? get googleWebClientId => _readOptionalValue(
+        dotenvKey: 'GOOGLE_WEB_CLIENT_ID',
+        dartDefine: const String.fromEnvironment('GOOGLE_WEB_CLIENT_ID'),
+      );
+
   static String _readValue({
     required String dotenvKey,
     required String dartDefine,
@@ -42,5 +47,16 @@ class AppEnvironment {
       );
     }
     return value;
+  }
+
+  static String? _readOptionalValue({
+    required String dotenvKey,
+    required String dartDefine,
+  }) {
+    final envValue = dotenv.maybeGet(dotenvKey);
+    final value = (envValue?.trim().isNotEmpty ?? false)
+        ? envValue!.trim()
+        : dartDefine.trim();
+    return value.isEmpty ? null : value;
   }
 }

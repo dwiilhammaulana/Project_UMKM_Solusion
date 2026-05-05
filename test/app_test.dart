@@ -12,12 +12,14 @@ import 'package:warung_kopi_pos/shared/database/app_database.dart';
 import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
+import 'package:warung_kopi_pos/shared/utils/app_formatters.dart';
 import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
 
 void main() {
   Future<ProviderContainer> pumpApp(
     WidgetTester tester, {
     List<String?> pickerResponses = const [],
+    AuthController? authController,
   }) async {
     tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 1.0;
@@ -35,7 +37,7 @@ void main() {
             SqlitePosRepository(testDatabase),
           ),
           authControllerProvider.overrideWith((ref) {
-            return AuthController.test();
+            return authController ?? AuthController.test();
           }),
           mediaPickerProvider.overrideWithValue(
             FakeMediaPickerService(List<String?>.from(pickerResponses)),
@@ -117,6 +119,36 @@ void main() {
     expect(find.text('Biaya Operasional Bulanan'), findsOneWidget);
   });
 
+  testWidgets('logout asks confirmation and redirects to login',
+      (tester) async {
+    final authController = FakeLogoutAuthController();
+    await pumpApp(tester, authController: authController);
+
+    await tester.tap(find.text('Lainnya'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('more-logout-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('more-logout-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar dari aplikasi?'), findsOneWidget);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(authController.signOutCallCount, 0);
+    expect(find.text('Masuk ke Warung Kopi'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('more-logout-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keluar').last);
+    await tester.pumpAndSettle();
+
+    expect(authController.signOutCallCount, 1);
+    expect(find.text('Masuk ke Warung Kopi'), findsOneWidget);
+  });
+
   testWidgets(
     'cashier flow enforces registered customer for BON and can checkout',
     (tester) async {
@@ -174,7 +206,7 @@ void main() {
     );
   });
 
-  testWidgets('cashier history tab shows seeded transactions and metrics', (
+  testWidgets('cashier history tab shows transaction code and total amount', (
     tester,
   ) async {
     final container = await pumpApp(tester);
@@ -183,12 +215,25 @@ void main() {
 
     await openCashierHistoryTab(tester);
 
+    final historyTile =
+        find.byKey(Key('transaction-history-tile-${transaction.id}'));
+    expect(historyTile, findsOneWidget);
     expect(
-      find.byKey(Key('transaction-history-tile-${transaction.id}')),
+      find.descendant(
+        of: historyTile,
+        matching: find.text(transaction.transactionCode),
+      ),
       findsOneWidget,
     );
-    expect(find.text('${transaction.totalQuantity} qty'), findsWidgets);
-    expect(find.text('${transaction.lineItemCount} jenis item'), findsWidgets);
+    expect(
+      find.descendant(
+        of: historyTile,
+        matching: find.text(AppFormatters.currency(transaction.totalAmount)),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('${transaction.totalQuantity} qty'), findsNothing);
+    expect(find.text('${transaction.lineItemCount} jenis item'), findsNothing);
   });
 
   testWidgets('transaction history tile opens detail transaction screen', (
@@ -559,6 +604,26 @@ void main() {
       }
     },
   );
+}
+
+class FakeLogoutAuthController extends AuthController {
+  FakeLogoutAuthController() : super.test();
+
+  AuthStatus _status = AuthStatus.authenticated;
+  int signOutCallCount = 0;
+
+  @override
+  AuthStatus get status => _status;
+
+  @override
+  bool get isAuthenticated => _status == AuthStatus.authenticated;
+
+  @override
+  Future<void> signOut() async {
+    signOutCallCount++;
+    _status = AuthStatus.unauthenticated;
+    notifyListeners();
+  }
 }
 
 class FakeMediaPickerService implements MediaPickerService {

@@ -28,18 +28,11 @@ class AppTheme {
     Border? border,
   }) {
     return BoxDecoration(
+      color: tint ?? Colors.white,
       borderRadius: BorderRadius.circular(radius),
-      gradient: LinearGradient(
-        colors: [
-          (tint ?? Colors.white).withValues(alpha: 0.92),
-          Colors.white.withValues(alpha: 0.84),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
       border: border ??
           Border.all(
-            color: Colors.white.withValues(alpha: 0.58),
+            color: AppTheme.deepTeal.withValues(alpha: 0.08),
           ),
       boxShadow: [
         BoxShadow(
