@@ -124,22 +124,6 @@ class HeroPanel extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned(
-            right: -10,
-            top: -16,
-            child: _GlowOrb(
-              size: 140,
-              color: AppTheme.mint.withValues(alpha: 0.18),
-            ),
-          ),
-          Positioned(
-            left: -18,
-            bottom: -28,
-            child: _GlowOrb(
-              size: 120,
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

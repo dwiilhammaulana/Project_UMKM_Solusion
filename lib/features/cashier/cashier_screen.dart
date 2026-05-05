@@ -263,8 +263,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.54),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
                           ),
                           child: Row(
                             children: [
@@ -475,7 +476,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.55),
+                        color: Colors.white,
+                        border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -505,7 +507,10 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                 decoration: BoxDecoration(
                                   color: state.selectedCustomerId == customer.id
                                       ? AppTheme.foam
-                                      : Colors.white.withValues(alpha: 0.55),
+                                      : Colors.white,
+                                  border: state.selectedCustomerId == customer.id
+                                      ? null
+                                      : Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                                 child: Row(
