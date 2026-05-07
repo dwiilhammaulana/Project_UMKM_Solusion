@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
+import '../../shared/utils/app_formatters.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/widgets/product_form_sheet.dart';
 
@@ -41,17 +42,46 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           title: 'Produk lebih visual dan siap diberi foto.',
           subtitle:
               'Setiap item memiliki slot thumbnail utama agar katalog dan kasir terasa lebih menarik.',
-          bottom: FilledButton.icon(
-            key: const Key('products-add-button'),
-            onPressed: () => showProductFormSheet(context, ref),
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Tambah Produk'),
+          bottom: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              StatusChip(
+                label: '${state.products.length} produk',
+                color: Colors.white,
+                icon: Icons.inventory_2_rounded,
+              ),
+              StatusChip(
+                label: '${state.lowStockProducts.length} stok tipis',
+                color: Colors.white,
+                icon: Icons.warning_amber_rounded,
+              ),
+              FilledButton.icon(
+                key: const Key('products-add-button'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.deepTeal,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                onPressed: () => showProductFormSheet(context, ref),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Tambah Produk'),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SectionHeader(
+                title: 'Etalase Produk',
+                subtitle:
+                    '${filtered.length} item tampil dari ${state.products.length} produk.',
+              ),
+              const SizedBox(height: 14),
               AppSearchField(
                 hintText: 'Cari produk...',
                 onChanged: (value) => setState(() => _query = value),
@@ -93,24 +123,53 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             subtitle: 'Coba ubah kata kunci atau filter kategori.',
           )
         else
-          ...filtered.map((product) {
-            final category = state.categories.firstWhere(
-              (item) => item.id == product.categoryId,
-            );
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ProductCard(
-                key: Key('product-card-${product.id}'),
-                product: product,
-                categoryName: category.name,
-                count: state.cart[product.id] ?? 0,
-                onAdd: () => ref.read(posStateProvider).addToCart(product),
-                onEdit: () =>
-                    showProductFormSheet(context, ref, product: product),
-                onLongPress: () => _showProductActions(context, product),
-              ),
-            );
-          }),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width >= 820
+                  ? 4
+                  : width >= 560
+                      ? 3
+                      : 2;
+              const gridGap = 12.0;
+              final cardWidth =
+                  (width - (crossAxisCount - 1) * gridGap) / crossAxisCount;
+              final cardHeight = cardWidth + 224;
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filtered.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: gridGap,
+                  mainAxisSpacing: gridGap,
+                  mainAxisExtent: cardHeight,
+                ),
+                itemBuilder: (context, index) {
+                  final product = filtered[index];
+                  final category = state.categories.firstWhere(
+                    (item) => item.id == product.categoryId,
+                    orElse: () => const Category(
+                      id: 'unknown',
+                      name: 'Tanpa kategori',
+                    ),
+                  );
+
+                  return _ProductShowcaseCard(
+                    key: Key('product-card-${product.id}'),
+                    product: product,
+                    categoryName: category.name,
+                    count: state.cart[product.id] ?? 0,
+                    onAdd: () => ref.read(posStateProvider).addToCart(product),
+                    onEdit: () =>
+                        showProductFormSheet(context, ref, product: product),
+                    onLongPress: () => _showProductActions(context, product),
+                  );
+                },
+              );
+            },
+          ),
       ],
     );
   }
@@ -212,5 +271,242 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ),
       );
     }
+  }
+}
+
+class _ProductShowcaseCard extends StatelessWidget {
+  const _ProductShowcaseCard({
+    super.key,
+    required this.product,
+    required this.categoryName,
+    required this.count,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onLongPress,
+  });
+
+  final Product product;
+  final String categoryName;
+  final int count;
+  final VoidCallback onAdd;
+  final VoidCallback onEdit;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final stockColor = product.isLowStock ? AppTheme.warning : AppTheme.success;
+    final stockLabel = product.isLowStock ? 'Stok tipis' : 'Tersedia';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onLongPress: onLongPress,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: AppTheme.deepTeal.withValues(alpha: 0.08),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.midnight.withValues(alpha: 0.07),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: AppMediaPreview(
+                        imagePath: product.imagePath,
+                        width: double.infinity,
+                        height: double.infinity,
+                        label: 'Foto\nproduk',
+                        borderRadius: 0,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    right: 10,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _ShowcaseBadge(
+                            label: categoryName,
+                            color: AppTheme.deepTeal,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _ShowcaseIconButton(
+                          tooltip: 'Edit produk',
+                          icon: Icons.edit_outlined,
+                          onPressed: onEdit,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          AppFormatters.currency(product.sellPrice),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: AppTheme.deepTeal,
+                                  ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ShowcaseBadge(
+                              label:
+                                  '$stockLabel ${product.stockQty} ${product.unit}',
+                              color: stockColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if ((product.rackLocation ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _ShowcaseBadge(
+                          label: product.rackLocation!,
+                          color: AppTheme.info,
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(42),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: onAdd,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.add_shopping_cart_rounded,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  count > 0 ? 'Tambah ($count)' : 'Tambah',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShowcaseBadge extends StatelessWidget {
+  const _ShowcaseBadge({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 10,
+            ),
+      ),
+    );
+  }
+}
+
+class _ShowcaseIconButton extends StatelessWidget {
+  const _ShowcaseIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: IconButton.filled(
+          padding: EdgeInsets.zero,
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.92),
+            foregroundColor: AppTheme.deepTeal,
+          ),
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+        ),
+      ),
+    );
   }
 }
