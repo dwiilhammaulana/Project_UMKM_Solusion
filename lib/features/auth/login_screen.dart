@@ -40,7 +40,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.alternate_email_rounded),
+              ),
               validator: (value) {
                 final text = value?.trim() ?? '';
                 if (text.isEmpty) {
@@ -56,7 +59,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icon(Icons.lock_outline_rounded),
+              ),
               validator: (value) {
                 if ((value ?? '').isEmpty) {
                   return 'Password wajib diisi';

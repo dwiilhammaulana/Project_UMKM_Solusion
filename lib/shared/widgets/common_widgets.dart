@@ -268,11 +268,13 @@ class StatusChip extends StatelessWidget {
     required this.label,
     required this.color,
     this.icon,
+    this.iconColor,
   });
 
   final String label;
   final Color color;
   final IconData? icon;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +288,7 @@ class StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: color),
+            Icon(icon, size: 14, color: iconColor ?? color),
             const SizedBox(width: 6),
           ],
           Text(

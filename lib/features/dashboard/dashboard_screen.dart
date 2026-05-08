@@ -93,12 +93,40 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  String _greetingFor(DateTime now) {
-    if (now.hour < 11) return 'Pagi cerah';
-    if (now.hour < 15) return 'Siang produktif';
-    if (now.hour < 18) return 'Sore semangat';
-    return 'Malam hangat';
+  _GreetingData _greetingFor(DateTime now) {
+    if (now.hour < 11) {
+      return const _GreetingData(
+        label: 'Selamat pagi',
+        icon: Icons.wb_sunny_rounded,
+      );
+    }
+    if (now.hour < 15) {
+      return const _GreetingData(
+        label: 'Selamat siang',
+        icon: Icons.light_mode_rounded,
+      );
+    }
+    if (now.hour < 18) {
+      return const _GreetingData(
+        label: 'Selamat sore',
+        icon: Icons.wb_twilight_rounded,
+      );
+    }
+    return const _GreetingData(
+      label: 'Selamat malam',
+      icon: Icons.nights_stay_rounded,
+    );
   }
+}
+
+class _GreetingData {
+  const _GreetingData({
+    required this.label,
+    required this.icon,
+  });
+
+  final String label;
+  final IconData icon;
 }
 
 class _DashboardHero extends StatelessWidget {
@@ -113,7 +141,7 @@ class _DashboardHero extends StatelessWidget {
   });
 
   final AppProfile profile;
-  final String greeting;
+  final _GreetingData greeting;
   final double revenue;
   final int todayTransactions;
   final VoidCallback onEditProfile;
@@ -163,9 +191,10 @@ class _DashboardHero extends StatelessWidget {
                           runSpacing: 8,
                           children: [
                             StatusChip(
-                              label: greeting,
+                              label: greeting.label,
                               color: Colors.white,
-                              icon: Icons.wb_sunny_rounded,
+                              icon: greeting.icon,
+                              iconColor: const Color(0xFFFFD54F),
                             ),
                             StatusChip(
                               label: profile.ownerName ?? 'Pemilik toko',
