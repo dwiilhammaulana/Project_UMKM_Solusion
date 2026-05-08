@@ -30,8 +30,8 @@ class _AuthScaffoldState extends State<AuthScaffold>
     super.initState();
     _motionController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
+      duration: const Duration(seconds: 8),
+    )..forward();
   }
 
   @override
@@ -42,7 +42,6 @@ class _AuthScaffoldState extends State<AuthScaffold>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -59,7 +58,14 @@ class _AuthScaffoldState extends State<AuthScaffold>
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _motionController,
-            builder: (context, _) {
+            child: RepaintBoundary(
+              child: _AuthGlassCard(
+                title: widget.title,
+                subtitle: widget.subtitle,
+                child: widget.child,
+              ),
+            ),
+            builder: (context, child) {
               final phase = _motionController.value * math.pi * 2;
               return Stack(
                 children: [
@@ -98,111 +104,123 @@ class _AuthScaffoldState extends State<AuthScaffold>
                       ),
                     ),
                   ),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(34),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-                            child: Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.62),
-                                borderRadius: BorderRadius.circular(34),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.midnight
-                                        .withValues(alpha: 0.10),
-                                    blurRadius: 40,
-                                    offset: const Offset(0, 24),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 62,
-                                        height: 62,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFFFFFFF),
-                                              Color(0xFFDDF6F2),
-                                            ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(22),
-                                          border: Border.all(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.86),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppTheme.deepTeal
-                                                  .withValues(alpha: 0.14),
-                                              blurRadius: 24,
-                                              offset: const Offset(0, 14),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.local_cafe_rounded,
-                                          color: AppTheme.deepTeal,
-                                          size: 31,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Text(
-                                          'Warung Kopi POS',
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                            color: AppTheme.deepTeal,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Text(
-                                    widget.title,
-                                    style: theme.textTheme.headlineMedium
-                                        ?.copyWith(
-                                      height: 1.08,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    widget.subtitle,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          AppTheme.ink.withValues(alpha: 0.64),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 26),
-                                  widget.child,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  child!,
                 ],
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthGlassCard extends StatelessWidget {
+  const _AuthGlassCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(34),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.72),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.midnight.withValues(alpha: 0.10),
+                      blurRadius: 40,
+                      offset: const Offset(0, 24),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 62,
+                          height: 62,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFFFFFF),
+                                Color(0xFFDDF6F2),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.86),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    AppTheme.deepTeal.withValues(alpha: 0.14),
+                                blurRadius: 24,
+                                offset: const Offset(0, 14),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.local_cafe_rounded,
+                            color: AppTheme.deepTeal,
+                            size: 31,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            'Warung Kopi POS',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: AppTheme.deepTeal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      title,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        height: 1.08,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.ink.withValues(alpha: 0.64),
+                      ),
+                    ),
+                    const SizedBox(height: 26),
+                    child,
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
