@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import 'auth_scaffold.dart';
@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final supabase = Supabase.instance.client;
   bool _isSubmitting = false;
 
   @override
@@ -70,7 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),  
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -101,40 +102,87 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submitEmailLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(authControllerProvider).signInWithEmail(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
-    } on AuthFailure catch (error) {
-      _showMessage(error.message);
-    } catch (error) {
-      _showMessage(error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
+  if (!_formKey.currentState!.validate()) {
+    return;
   }
 
-  Future<void> _submitGoogleLogin() async {
-    setState(() => _isSubmitting = true);
-    try {
-      await ref.read(authControllerProvider).signInWithGoogle();
-    } on AuthFailure catch (error) {
-      _showMessage(error.message);
-    } catch (error) {
-      _showMessage(error.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+  setState(() => _isSubmitting = true);
+
+  try {
+    await ref.read(authControllerProvider).signInWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('User tidak ditemukan');
+    }
+
+    final profile = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    final role = profile['role'];
+
+    if (!mounted) return;
+
+    if (role == 'admin') {
+      context.go('/admin');
+    } else {
+      context.go('/kasir');
+    }
+  } on AuthFailure catch (error) {
+    _showMessage(error.message);
+  } catch (error) {
+    _showMessage(error.toString());
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
+
+  Future<void> _submitGoogleLogin() async {
+  setState(() => _isSubmitting = true);
+
+  try {
+    await ref.read(authControllerProvider).signInWithGoogle();
+
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('User tidak ditemukan');
+    }
+
+    final profile = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    final role = profile['role'];
+
+    if (!mounted) return;
+
+    if (role == 'admin') {
+      context.go('/admin');
+    } else {
+      context.go('/kasir');
+    }
+  } on AuthFailure catch (error) {
+    _showMessage(error.message);
+  } catch (error) {
+    _showMessage(error.toString());
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+    }
+  }
+}
 
   void _showMessage(String message) {
     if (!mounted) {

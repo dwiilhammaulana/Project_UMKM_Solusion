@@ -55,9 +55,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthRoute || isLoadingRoute || isOnboardingRoute) {
+      if (auth.role == 'admin') {
         return '/dashboard';
+      } else {
+        return '/cashier';
       }
-      return null;
+    }
     },
     routes: [
       GoRoute(

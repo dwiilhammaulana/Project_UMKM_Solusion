@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import 'auth_scaffold.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -19,6 +20,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
+  String _selectedRole = 'kasir';
 
   @override
   void dispose() {
@@ -71,6 +73,104 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               },
             ),
             const SizedBox(height: 20),
+
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Pilih Role',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedRole = 'admin';
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _selectedRole == 'admin'
+                            ? Colors.teal.withOpacity(0.1)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _selectedRole == 'admin'
+                              ? Colors.teal
+                              : Colors.grey.shade300,
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        children: const [
+                          Icon(
+                            Icons.admin_panel_settings,
+                            size: 40,
+                            color: Colors.teal,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Admin',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedRole = 'kasir';
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _selectedRole == 'kasir'
+                            ? Colors.orange.withOpacity(0.1)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _selectedRole == 'kasir'
+                              ? Colors.orange
+                              : Colors.grey.shade300,
+                          width: 2,
+                        ),
+                      ),
+                      child: Column(
+                        children: const [
+                          Icon(
+                            Icons.point_of_sale,
+                            size: 40,
+                            color: Colors.orange,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Kasir',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -113,6 +213,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ? null
                 : _fullNameController.text.trim(),
           );
+      final supabase = Supabase.instance.client;
+
+      final user = supabase.auth.currentUser;
+
+      if (user != null) {
+        await supabase.from('profiles').upsert({
+          'id': user.id,
+          'email': user.email,
+          'full_name': _fullNameController.text.trim(),
+          'role': _selectedRole,
+        });
+      }
       if (!mounted) {
         return;
       }
