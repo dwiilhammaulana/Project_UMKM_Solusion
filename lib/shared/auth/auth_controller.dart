@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:warung_kopi_pos/shared/models/app_models.dart';
 
 import '../supabase/supabase_providers.dart';
 import 'auth_repository.dart';
@@ -64,6 +65,7 @@ class AuthController extends ChangeNotifier {
   bool _isCheckingProfile = false;
   bool _hasStoreProfile = false;
   String? _pendingVerificationEmail;
+  String? _role;
 
   Session? get session => _session;
   User? get user => _user;
@@ -71,6 +73,7 @@ class AuthController extends ChangeNotifier {
   bool get isCheckingProfile => _isCheckingProfile;
   bool get hasStoreProfile => _hasStoreProfile;
   String? get pendingVerificationEmail => _pendingVerificationEmail;
+  String? get role => _role;
 
   bool get isAuthenticated {
     if (_testStatus != null) {
@@ -203,31 +206,41 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> _refreshProfileStatus() async {
-    final userId = _user?.id;
-    if (userId == null) {
-      _hasStoreProfile = false;
-      _isCheckingProfile = false;
-      _isInitialized = true;
-      notifyListeners();
-      return;
-    }
+  final userId = _user?.id;
 
-    _isCheckingProfile = true;
+  if (userId == null) {
+    _hasStoreProfile = false;
+    _isCheckingProfile = false;
+    _isInitialized = true;
     notifyListeners();
-
-    try {
-      final row = await _client!
-          .from('app_profile')
-          .select('id')
-          .eq('owner_user_id', userId)
-          .maybeSingle();
-      _hasStoreProfile = row != null;
-    } finally {
-      _isCheckingProfile = false;
-      _isInitialized = true;
-      notifyListeners();
-    }
+    return;
   }
+
+  _isCheckingProfile = true;
+  notifyListeners();
+
+  try {
+    final appProfile = await _client!
+        .from('app_profile')
+        .select('id')
+        .eq('owner_user_id', userId)
+        .maybeSingle();
+
+    _hasStoreProfile = appProfile != null;
+
+    final profile = await _client!
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+
+    _role = profile?['role'];
+  } finally {
+    _isCheckingProfile = false;
+    _isInitialized = true;
+    notifyListeners();
+  }
+}
 
   @override
   void dispose() {
