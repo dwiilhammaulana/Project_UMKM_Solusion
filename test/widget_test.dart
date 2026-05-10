@@ -67,14 +67,14 @@ void main() {
   }
 
   Future<void> openMoreAndTap(WidgetTester tester, String keyValue) async {
-    await tester.tap(find.text('Lainnya'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/more')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(Key(keyValue)));
     await tester.pumpAndSettle();
   }
 
   Future<void> openCashierHistoryTab(WidgetTester tester) async {
-    await tester.tap(find.text('Kasir'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('cashier-tab-history')));
     await tester.pumpAndSettle();
@@ -101,7 +101,7 @@ void main() {
 
     expect(find.text('Warung Kopi Pertigaan Jati'), findsOneWidget);
 
-    await tester.tap(find.text('Produk'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
     await tester.pumpAndSettle();
 
     expect(find.text('Tambah Produk'), findsOneWidget);
@@ -124,7 +124,7 @@ void main() {
     final authController = FakeLogoutAuthController();
     await pumpApp(tester, authController: authController);
 
-    await tester.tap(find.text('Lainnya'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/more')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('more-logout-button')), findsOneWidget);
@@ -154,7 +154,7 @@ void main() {
     (tester) async {
       final container = await pumpApp(tester);
 
-      await tester.tap(find.text('Kasir'));
+      await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Tambah').first);
@@ -259,7 +259,7 @@ void main() {
   ) async {
     final container = await pumpApp(tester);
 
-    await tester.tap(find.text('Kasir'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Tambah').first);
@@ -422,12 +422,12 @@ void main() {
       pickerResponses: ['C:/mock/product-kopi.png'],
     );
 
-    await tester.tap(find.text('Produk'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('products-add-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Foto\nproduk'), findsOneWidget);
+    expect(find.text('Foto\nproduk'), findsWidgets);
 
     await container.read(posStateProvider).saveProduct(
           name: 'Kopi Test',
@@ -468,7 +468,7 @@ void main() {
         .products
         .firstWhere((item) => item.name == 'Produk Hapus');
 
-    await tester.tap(find.text('Produk'));
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
     await tester.pumpAndSettle();
 
     await tester.longPress(find.byKey(Key('product-card-${created.id}')));

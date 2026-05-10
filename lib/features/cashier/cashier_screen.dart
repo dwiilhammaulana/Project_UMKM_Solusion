@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/auth/auth_controller.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
@@ -40,6 +41,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
+    final auth = ref.watch(authControllerProvider);
     final filteredProducts = state.products.where((product) {
       final matchesQuery = product.name.toLowerCase().contains(
             _productQuery.toLowerCase(),
@@ -93,10 +95,11 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                 _buildNewTransactionTab(
                   context,
                   state,
+                  auth,
                   filteredProducts,
                   filteredCustomers,
                 ),
-                _buildHistoryTab(context, state, filteredTransactions),
+                _buildHistoryTab(context, state, auth, filteredTransactions),
               ],
             ),
           ),
@@ -108,6 +111,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget _buildNewTransactionTab(
     BuildContext context,
     PosAppState state,
+    AuthController auth,
     List<Product> filteredProducts,
     List<Customer> filteredCustomers,
   ) {
@@ -127,12 +131,14 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
           ),
           children: [
             HeroPanel(
-              badge: const StatusChip(
-                label: 'Kasir aktif',
+              badge: StatusChip(
+                label: state.appProfile.storeName,
                 color: Colors.white,
                 icon: Icons.flash_on_rounded,
               ),
-              title: 'Flow kasir yang cepat dan tetap rapi.',
+              title: auth.isKasir
+                  ? 'Halo kasir ${auth.displayName ?? auth.emailAddress}'
+                  : 'Flow kasir yang cepat dan tetap rapi.',
               subtitle:
                   'Pilih produk, tentukan pelanggan, lalu checkout tunai atau BON tanpa meninggalkan layar utama.',
               bottom: Wrap(
@@ -265,7 +271,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
+                            border: Border.all(
+                                color:
+                                    AppTheme.deepTeal.withValues(alpha: 0.08)),
                           ),
                           child: Row(
                             children: [
@@ -477,7 +485,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
+                        border: Border.all(
+                            color: AppTheme.deepTeal.withValues(alpha: 0.08)),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -508,9 +517,12 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                   color: state.selectedCustomerId == customer.id
                                       ? AppTheme.foam
                                       : Colors.white,
-                                  border: state.selectedCustomerId == customer.id
-                                      ? null
-                                      : Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
+                                  border:
+                                      state.selectedCustomerId == customer.id
+                                          ? null
+                                          : Border.all(
+                                              color: AppTheme.deepTeal
+                                                  .withValues(alpha: 0.08)),
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                                 child: Row(
@@ -659,6 +671,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget _buildHistoryTab(
     BuildContext context,
     PosAppState state,
+    AuthController auth,
     List<TransactionRecord> filteredTransactions,
   ) {
     return ListView(
@@ -670,7 +683,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
             color: Colors.white,
             icon: Icons.history_rounded,
           ),
-          title: 'Semua transaksi tetap rapi dan mudah ditelusuri.',
+          title: auth.isKasir
+              ? 'Halo kasir ${auth.displayName ?? auth.emailAddress}'
+              : 'Semua transaksi tetap rapi dan mudah ditelusuri.',
           subtitle:
               'Cari berdasarkan kode transaksi atau pelanggan, lalu buka detail lengkap kapan saja.',
           bottom: Wrap(

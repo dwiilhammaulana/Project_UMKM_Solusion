@@ -12,7 +12,7 @@ Dokumen ini menjelaskan schema database aktif setelah migrasi ke Supabase. Sumbe
 | Backend client | `supabase_flutter` |
 | Auth | Supabase Auth |
 | Sumber schema | `supabase/migrations/20260426_000001_initial_schema.sql` |
-| Ownership & RLS | `supabase/migrations/20260429_000003_repair_auth_ownership_rls.sql` |
+| Ownership, role & RLS | `supabase/migrations/20260510_000004_admin_owner_cashier_roles.sql` |
 | Repository aktif | `lib/shared/database/supabase_pos_repository.dart` |
 | Provider aktif | `posRepositoryProvider` di `lib/shared/state/app_state.dart` |
 
@@ -27,7 +27,7 @@ Migration awal mempertahankan banyak tipe dari SQLite lama untuk mengurangi risi
 
 ## 2. Auth, Ownership, dan RLS
 
-Supabase Auth menjadi sumber identitas user. Migration ownership menambahkan tabel `profiles` dan kolom `owner_user_id` ke semua tabel operasional.
+Supabase Auth menjadi sumber identitas user. Migration ownership menambahkan tabel `profiles` dan kolom `owner_user_id` ke semua tabel operasional. Migration role menambahkan model admin owner dan kasir karyawan melalui `profiles.role` dan `profiles.store_owner_user_id`.
 
 ### 2.1 `profiles`
 
@@ -41,8 +41,10 @@ Fungsi: menyimpan profil akun yang terhubung ke `auth.users`.
 | `avatar_url` | `text` | NULL | Avatar dari metadata auth |
 | `created_at` | `text` | default waktu UTC | Timestamp pembuatan |
 | `updated_at` | `text` | default waktu UTC | Timestamp update |
+| `role` | `text` | NOT NULL default `admin`, check `admin/kasir` | Role akun aplikasi |
+| `store_owner_user_id` | `uuid` | NOT NULL, FK ke `auth.users(id)` | Owner toko yang datanya dipakai akun ini |
 
-Trigger `on_auth_user_created` membuat atau memperbarui row `profiles` saat user dibuat.
+Trigger `on_auth_user_created` membuat atau memperbarui row `profiles` saat user dibuat. Signup publik menjadi admin owner toko baru dengan `store_owner_user_id = id`. Akun kasir dibuat oleh admin owner dan memakai `store_owner_user_id` milik admin tersebut.
 
 ### 2.2 Pola Ownership
 
@@ -53,10 +55,10 @@ Tabel operasional berikut memiliki `owner_user_id uuid references auth.users(id)
 RLS aktif dengan policy `*_owner_all`, sehingga operasi data hanya diizinkan ketika:
 
 ```sql
-owner_user_id = auth.uid()
+owner_user_id = public.current_store_owner_user_id()
 ```
 
-Repository Supabase juga selalu memfilter query dengan `owner_user_id` milik user aktif.
+Repository Supabase juga selalu memfilter query dengan `owner_user_id` milik owner toko aktif, bukan selalu ID user login. Ini membuat admin owner dan kasir karyawan berbagi data toko yang sama.
 
 ---
 

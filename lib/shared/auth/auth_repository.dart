@@ -54,6 +54,7 @@ class AuthRepository {
         password: password,
         data: {
           if ((fullName ?? '').trim().isNotEmpty) 'full_name': fullName!.trim(),
+          'role': 'admin',
         },
         emailRedirectTo: authCallbackUrl,
       );

@@ -20,7 +20,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
-  String _selectedRole = 'kasir';
 
   @override
   void dispose() {
@@ -72,104 +71,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 20),
-
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Pilih Role',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedRole = 'admin';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _selectedRole == 'admin'
-                            ? Colors.teal.withOpacity(0.1)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _selectedRole == 'admin'
-                              ? Colors.teal
-                              : Colors.grey.shade300,
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        children: const [
-                          Icon(
-                            Icons.admin_panel_settings,
-                            size: 40,
-                            color: Colors.teal,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Admin',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedRole = 'kasir';
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _selectedRole == 'kasir'
-                            ? Colors.orange.withOpacity(0.1)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _selectedRole == 'kasir'
-                              ? Colors.orange
-                              : Colors.grey.shade300,
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        children: const [
-                          Icon(
-                            Icons.point_of_sale,
-                            size: 40,
-                            color: Colors.orange,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Kasir',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -218,11 +119,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       final user = supabase.auth.currentUser;
 
       if (user != null) {
-        await supabase.from('profiles').upsert({
+        await _upsertAdminProfile(supabase, {
           'id': user.id,
           'email': user.email,
           'full_name': _fullNameController.text.trim(),
-          'role': _selectedRole,
+          'role': 'admin',
+          'store_owner_user_id': user.id,
         });
       }
       if (!mounted) {
@@ -244,6 +146,25 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authControllerProvider).signInWithGoogle();
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user != null) {
+        final profile = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+        if (profile == null) {
+          await _upsertAdminProfile(supabase, {
+            'id': user.id,
+            'email': user.email,
+            'full_name': user.userMetadata?['full_name'] as String?,
+            'avatar_url': user.userMetadata?['avatar_url'] as String?,
+            'role': 'admin',
+            'store_owner_user_id': user.id,
+          });
+        }
+      }
     } on AuthFailure catch (error) {
       _showMessage(error.message);
     } catch (error) {
@@ -253,6 +174,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _upsertAdminProfile(
+    SupabaseClient supabase,
+    Map<String, Object?> values,
+  ) async {
+    try {
+      await supabase.from('profiles').upsert(values);
+    } on PostgrestException catch (error) {
+      if (!_isStoreOwnerColumnMissing(error)) {
+        rethrow;
+      }
+      final fallbackValues = Map<String, Object?>.from(values)
+        ..remove('store_owner_user_id');
+      await supabase.from('profiles').upsert(fallbackValues);
+    }
+  }
+
+  bool _isStoreOwnerColumnMissing(PostgrestException error) {
+    final text = '${error.code} ${error.message}';
+    return text.contains('42703') || text.contains('store_owner_user_id');
   }
 
   void _showMessage(String message) {

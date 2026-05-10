@@ -193,7 +193,7 @@ class _AuthGlassCard extends StatelessWidget {
                         const SizedBox(width: 14),
                         Expanded(
                           child: Text(
-                            'Warung Kopi POS',
+                            'Toko Saku',
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: AppTheme.deepTeal,
                             ),

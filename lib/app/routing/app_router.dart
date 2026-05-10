@@ -18,6 +18,7 @@ import '../../features/more/more_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
+import '../../features/users/users_screen.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../../shared/widgets/common_widgets.dart';
@@ -41,7 +42,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (auth.status == AuthStatus.unauthenticated) {
-        if (auth.pendingVerificationEmail != null && location != '/verify-email') {
+        if (auth.pendingVerificationEmail != null &&
+            location != '/verify-email') {
           return '/verify-email';
         }
         if (isAuthRoute) {
@@ -54,13 +56,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isOnboardingRoute ? null : '/onboarding';
       }
 
+      final homeLocation = auth.isAdmin ? '/dashboard' : '/cashier';
       if (isAuthRoute || isLoadingRoute || isOnboardingRoute) {
-      if (auth.role == 'admin') {
-        return '/dashboard';
-      } else {
+        return homeLocation;
+      }
+
+      if (!auth.isAdmin && !_isCashierAllowedLocation(location)) {
         return '/cashier';
       }
-    }
+
+      return null;
     },
     routes: [
       GoRoute(
@@ -147,11 +152,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/analytics',
             builder: (context, state) => const AnalyticsScreen(),
           ),
+          GoRoute(
+            path: '/users',
+            builder: (context, state) => const UsersScreen(),
+          ),
         ],
       ),
     ],
   );
 });
+
+bool _isCashierAllowedLocation(String location) {
+  return location == '/cashier' ||
+      location.startsWith('/cashier/transactions/') ||
+      location == '/debts' ||
+      location.startsWith('/debts/');
+}
 
 class _RouteLoadingScreen extends StatelessWidget {
   const _RouteLoadingScreen();

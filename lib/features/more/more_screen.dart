@@ -119,6 +119,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
           onTap: () => context.go('/analytics'),
         ),
         AppMenuLinkTile(
+          key: const Key('more-users-link'),
+          icon: Icons.manage_accounts_rounded,
+          title: 'Kelola Akun',
+          subtitle: 'Lihat user toko dan buat akun kasir karyawan.',
+          onTap: () => context.go('/users'),
+        ),
+        AppMenuLinkTile(
           key: const Key('more-logout-button'),
           icon: Icons.logout_rounded,
           title: 'Keluar',

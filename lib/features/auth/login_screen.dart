@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import 'auth_scaffold.dart';
@@ -17,7 +16,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final supabase = Supabase.instance.client;
   bool _isSubmitting = false;
 
   @override
@@ -30,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Masuk ke Warung Kopi',
+      title: 'Masuk ke Toko Saku',
       subtitle:
           'Gunakan email dan password, atau masuk cepat dengan akun Google.',
       child: Form(
@@ -71,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 24),  
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -102,87 +100,51 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submitEmailLogin() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() => _isSubmitting = true);
-
-  try {
-    await ref.read(authControllerProvider).signInWithEmail(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-
-    final user = supabase.auth.currentUser;
-
-    if (user == null) {
-      throw Exception('User tidak ditemukan');
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
 
-    final profile = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
+    setState(() => _isSubmitting = true);
 
-    final role = profile['role'];
+    try {
+      final auth = ref.read(authControllerProvider);
+      await auth.signInWithEmail(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
-
-    if (role == 'admin') {
-      context.go('/admin');
-    } else {
-      context.go('/kasir');
-    }
-  } on AuthFailure catch (error) {
-    _showMessage(error.message);
-  } catch (error) {
-    _showMessage(error.toString());
-  } finally {
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      context.go(auth.isAdmin ? '/dashboard' : '/cashier');
+    } on AuthFailure catch (error) {
+      _showMessage(error.message);
+    } catch (error) {
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
 
   Future<void> _submitGoogleLogin() async {
-  setState(() => _isSubmitting = true);
+    setState(() => _isSubmitting = true);
 
-  try {
-    await ref.read(authControllerProvider).signInWithGoogle();
+    try {
+      final auth = ref.read(authControllerProvider);
+      await auth.signInWithGoogle();
 
-    final user = supabase.auth.currentUser;
-
-    if (user == null) {
-      throw Exception('User tidak ditemukan');
-    }
-
-    final profile = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-    final role = profile['role'];
-
-    if (!mounted) return;
-
-    if (role == 'admin') {
-      context.go('/admin');
-    } else {
-      context.go('/kasir');
-    }
-  } on AuthFailure catch (error) {
-    _showMessage(error.message);
-  } catch (error) {
-    _showMessage(error.toString());
-  } finally {
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      context.go(auth.isAdmin ? '/dashboard' : '/cashier');
+    } on AuthFailure catch (error) {
+      _showMessage(error.message);
+    } catch (error) {
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
 
   void _showMessage(String message) {
     if (!mounted) {

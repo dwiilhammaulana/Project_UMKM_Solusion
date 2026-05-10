@@ -1,5 +1,5 @@
 name: warung_kopi_pos
-description: Dummy UI POS Warung Kopi Android-first built with Flutter.
+description: Toko Saku POS Android-first built with Flutter.
 publish_to: "none"
 version: 0.1.0+1
 
@@ -38,3 +38,4 @@ flutter:
   assets:
     - .env
     - .env.example
+    - ls.png

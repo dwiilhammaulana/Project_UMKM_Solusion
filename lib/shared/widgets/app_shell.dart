@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../auth/auth_controller.dart';
 import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
@@ -16,7 +17,7 @@ class AppShell extends ConsumerWidget {
   final String currentLocation;
   final Widget child;
 
-  static const _items = [
+  static const _adminItems = [
     _NavItem(
       label: 'Beranda',
       path: '/dashboard',
@@ -43,16 +44,27 @@ class AppShell extends ConsumerWidget {
     ),
   ];
 
-  int get _selectedIndex {
-    if (currentLocation.startsWith('/cashier')) return 1;
-    if (currentLocation.startsWith('/products')) return 2;
-    if (currentLocation.startsWith('/dashboard')) return 0;
-    return 3;
-  }
+  static const _cashierItems = [
+    _NavItem(
+      label: 'Kasir',
+      path: '/cashier',
+      icon: Icons.point_of_sale_outlined,
+      selectedIcon: Icons.point_of_sale_rounded,
+    ),
+    _NavItem(
+      label: 'BON',
+      path: '/debts',
+      icon: Icons.receipt_long_outlined,
+      selectedIcon: Icons.receipt_long_rounded,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
+    final auth = ref.watch(authControllerProvider);
+    final items = auth.isAdmin ? _adminItems : _cashierItems;
+    final selectedIndex = _selectedIndex(items);
 
     return Scaffold(
       extendBody: true,
@@ -116,20 +128,37 @@ class AppShell extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                for (var index = 0; index < _items.length; index++)
+                for (var index = 0; index < items.length; index++)
                   Expanded(
                     child: _BottomNavDestination(
-                      item: _items[index],
-                      selected: index == _selectedIndex,
-                      onTap: () => context.go(_items[index].path),
+                      key: Key('bottom-nav-${items[index].path}'),
+                      item: items[index],
+                      selected: index == selectedIndex,
+                      onTap: () => context.go(items[index].path),
                     ),
                   ),
+                if (!auth.isAdmin) ...[
+                  const SizedBox(width: 6),
+                  _SignOutNavButton(
+                    onPressed: () => ref.read(authControllerProvider).signOut(),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  int _selectedIndex(List<_NavItem> items) {
+    for (var index = 0; index < items.length; index++) {
+      final path = items[index].path;
+      if (currentLocation == path || currentLocation.startsWith('$path/')) {
+        return index;
+      }
+    }
+    return 0;
   }
 }
 
@@ -149,6 +178,7 @@ class _NavItem {
 
 class _BottomNavDestination extends StatelessWidget {
   const _BottomNavDestination({
+    super.key,
     required this.item,
     required this.selected,
     required this.onTap,
@@ -200,6 +230,33 @@ class _BottomNavDestination extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SignOutNavButton extends StatelessWidget {
+  const _SignOutNavButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Keluar',
+      child: SizedBox(
+        width: 56,
+        height: 58,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+          ),
+          child: const Icon(Icons.logout_rounded, size: 22),
         ),
       ),
     );

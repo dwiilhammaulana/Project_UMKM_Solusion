@@ -9,6 +9,8 @@ class SupabasePosRepository implements PosRepository {
   SupabasePosRepository(this._client);
 
   final SupabaseClient _client;
+  String? _cachedAuthUserId;
+  String? _cachedDataOwnerUserId;
 
   static const _defaultCategories = <Map<String, String?>>[
     {'slug': 'coffee', 'name': 'Kopi', 'description': 'Minuman kopi utama'},
@@ -19,10 +21,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<AppProfile?> fetchAppProfile() async {
+    final userId = await _requireDataOwnerUserId();
     final row = await _client
         .from('app_profile')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .maybeSingle();
     if (row == null) {
       return null;
@@ -32,10 +35,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<Category>> fetchCategories() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('categories')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('name');
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -51,10 +55,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<Product>> fetchProducts() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('products')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('name');
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -64,10 +69,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<Customer>> fetchCustomers() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('customers')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('created_at', ascending: false);
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -77,6 +83,7 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<TransactionRecord>> fetchTransactions() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('transactions')
         .select(
@@ -84,7 +91,7 @@ class SupabasePosRepository implements PosRepository {
           'payment_method, amount_paid, change_amount, notes, created_at, '
           'transaction_items(product_id, product_name, quantity, sell_price)',
         )
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('created_at', ascending: false);
 
     return (rows as List<dynamic>).cast<Map<String, dynamic>>().map((row) {
@@ -119,10 +126,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<DebtRecord>> fetchDebts() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('debts')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('created_at', ascending: false);
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -147,10 +155,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<DebtPayment>> fetchPayments() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('debt_payments')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('paid_at', ascending: false);
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -171,10 +180,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<StockMovement>> fetchStockMovements() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('stock_movements')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('created_at', ascending: false);
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -194,10 +204,11 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<List<OperationalCost>> fetchOperationalCosts() async {
+    final userId = await _requireDataOwnerUserId();
     final rows = await _client
         .from('operational_costs')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .order('month_year');
     return (rows as List<dynamic>)
         .cast<Map<String, dynamic>>()
@@ -219,7 +230,7 @@ class SupabasePosRepository implements PosRepository {
     required String costName,
     required double amount,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final normalizedMonth = DateTime(monthYear.year, monthYear.month, 1);
     if (id == null) {
       final cost = OperationalCost(
@@ -253,11 +264,12 @@ class SupabasePosRepository implements PosRepository {
   @override
   Future<void> deleteOperationalCost(String id) async {
     await _ensureRecordExists('operational_costs', id);
+    final userId = await _requireDataOwnerUserId();
     await _client
         .from('operational_costs')
         .delete()
         .eq('id', id)
-        .eq('owner_user_id', _requireUserId());
+        .eq('owner_user_id', userId);
   }
 
   @override
@@ -269,7 +281,7 @@ class SupabasePosRepository implements PosRepository {
     String? notes,
     required bool isActive,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final now = DateTime.now();
 
     if (id == null) {
@@ -325,13 +337,14 @@ class SupabasePosRepository implements PosRepository {
     String? ownerName,
     String? photoPath,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final existing = await _client
         .from('app_profile')
         .select('id')
         .eq('owner_user_id', userId)
         .maybeSingle();
-    final existingMap = existing == null ? null : Map<String, dynamic>.from(existing);
+    final existingMap =
+        existing == null ? null : Map<String, dynamic>.from(existing);
     final profile = AppProfile(
       id: existingMap?.stringValue('id') ?? 'store-$userId',
       storeName: storeName,
@@ -357,11 +370,12 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<void> toggleCustomerActive(String customerId) async {
+    final userId = await _requireDataOwnerUserId();
     final row = await _client
         .from('customers')
         .select('is_active')
         .eq('id', customerId)
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .maybeSingle();
     if (row == null) {
       throw Exception('Pelanggan tidak ditemukan.');
@@ -371,7 +385,7 @@ class SupabasePosRepository implements PosRepository {
         .from('customers')
         .update({'is_active': current == 1 ? 0 : 1})
         .eq('id', customerId)
-        .eq('owner_user_id', _requireUserId());
+        .eq('owner_user_id', userId);
   }
 
   @override
@@ -387,7 +401,7 @@ class SupabasePosRepository implements PosRepository {
     String? rackLocation,
     String? imagePath,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     if (id == null) {
       final product = Product(
         id: 'prd-${DateTime.now().microsecondsSinceEpoch}',
@@ -440,7 +454,7 @@ class SupabasePosRepository implements PosRepository {
 
   @override
   Future<void> deleteProduct(String productId) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     await _ensureRecordExists('products', productId);
     final usedRows = await _client
         .from('transaction_items')
@@ -449,7 +463,8 @@ class SupabasePosRepository implements PosRepository {
         .eq('owner_user_id', userId)
         .limit(1);
     if ((usedRows as List<dynamic>).isNotEmpty) {
-      throw Exception('Produk sudah dipakai di transaksi dan tidak bisa dihapus.');
+      throw Exception(
+          'Produk sudah dipakai di transaksi dan tidak bisa dihapus.');
     }
     await _client
         .from('products')
@@ -466,7 +481,7 @@ class SupabasePosRepository implements PosRepository {
     required PaymentMethod paymentMethod,
     String? notes,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final now = DateTime.now();
     final productRows = await _fetchProductsByIds(cart.keys.toList());
     if (productRows.length != cart.length) {
@@ -601,7 +616,7 @@ class SupabasePosRepository implements PosRepository {
     required PaymentMethod paymentMethod,
     String? notes,
   }) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final now = DateTime.now();
     final row = await _client
         .from('debts')
@@ -647,11 +662,12 @@ class SupabasePosRepository implements PosRepository {
   }
 
   Future<void> _ensureRecordExists(String table, String id) async {
+    final userId = await _requireDataOwnerUserId();
     final row = await _client
         .from(table)
         .select('id')
         .eq('id', id)
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', userId)
         .maybeSingle();
     if (row == null) {
       throw Exception('Data tidak ditemukan.');
@@ -688,7 +704,7 @@ class SupabasePosRepository implements PosRepository {
     final rows = await _client
         .from('products')
         .select()
-        .eq('owner_user_id', _requireUserId())
+        .eq('owner_user_id', await _requireDataOwnerUserId())
         .inFilter('id', ids);
     return {
       for (final row in (rows as List<dynamic>).cast<Map<String, dynamic>>())
@@ -697,10 +713,9 @@ class SupabasePosRepository implements PosRepository {
   }
 
   Future<String> _buildTransactionCode(DateTime now) async {
-    final userId = _requireUserId();
+    final userId = await _requireDataOwnerUserId();
     final start = DateTime(now.year, now.month, now.day).toIso8601String();
-    final end =
-        DateTime(now.year, now.month, now.day + 1).toIso8601String();
+    final end = DateTime(now.year, now.month, now.day + 1).toIso8601String();
     final rows = await _client
         .from('transactions')
         .select('id')
@@ -806,6 +821,37 @@ class SupabasePosRepository implements PosRepository {
       throw Exception('Sesi login tidak ditemukan. Silakan login ulang.');
     }
     return userId;
+  }
+
+  Future<String> _requireDataOwnerUserId() async {
+    final userId = _requireUserId();
+    if (_cachedAuthUserId == userId && _cachedDataOwnerUserId != null) {
+      return _cachedDataOwnerUserId!;
+    }
+
+    Map<String, dynamic>? profile;
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('store_owner_user_id')
+          .eq('id', userId)
+          .maybeSingle();
+      profile = row == null ? null : Map<String, dynamic>.from(row);
+    } on PostgrestException catch (error) {
+      if (!_isStoreOwnerColumnMissing(error)) {
+        rethrow;
+      }
+      profile = null;
+    }
+    final ownerUserId = profile?['store_owner_user_id'] as String? ?? userId;
+    _cachedAuthUserId = userId;
+    _cachedDataOwnerUserId = ownerUserId;
+    return ownerUserId;
+  }
+
+  bool _isStoreOwnerColumnMissing(PostgrestException error) {
+    final text = '${error.code} ${error.message}';
+    return text.contains('42703') || text.contains('store_owner_user_id');
   }
 }
 

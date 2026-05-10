@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:warung_kopi_pos/shared/models/app_models.dart';
 
 import '../supabase/supabase_providers.dart';
 import 'auth_repository.dart';
@@ -43,6 +42,7 @@ class AuthController extends ChangeNotifier {
     String? emailAddress,
     String? displayName,
     String? pendingVerificationEmail,
+    String role = 'admin',
   })  : _repository = null,
         _client = null,
         _testStatus = status,
@@ -50,7 +50,8 @@ class AuthController extends ChangeNotifier {
         _testDisplayName = displayName,
         _isInitialized = true,
         _hasStoreProfile = status == AuthStatus.authenticated,
-        _pendingVerificationEmail = pendingVerificationEmail;
+        _pendingVerificationEmail = pendingVerificationEmail,
+        _role = role;
 
   final AuthRepository? _repository;
   final SupabaseClient? _client;
@@ -66,6 +67,7 @@ class AuthController extends ChangeNotifier {
   bool _hasStoreProfile = false;
   String? _pendingVerificationEmail;
   String? _role;
+  String? _storeOwnerUserId;
 
   Session? get session => _session;
   User? get user => _user;
@@ -73,7 +75,10 @@ class AuthController extends ChangeNotifier {
   bool get isCheckingProfile => _isCheckingProfile;
   bool get hasStoreProfile => _hasStoreProfile;
   String? get pendingVerificationEmail => _pendingVerificationEmail;
-  String? get role => _role;
+  String get role => _role == 'admin' ? 'admin' : 'kasir';
+  bool get isAdmin => role == 'admin';
+  bool get isKasir => role == 'kasir';
+  String? get storeOwnerUserId => _storeOwnerUserId;
 
   bool get isAuthenticated {
     if (_testStatus != null) {
@@ -158,6 +163,8 @@ class AuthController extends ChangeNotifier {
     await _repository!.signOut();
     _pendingVerificationEmail = null;
     _hasStoreProfile = false;
+    _role = null;
+    _storeOwnerUserId = null;
     notifyListeners();
   }
 
@@ -174,6 +181,8 @@ class AuthController extends ChangeNotifier {
       _user = event.session?.user;
       if (_user == null) {
         _hasStoreProfile = false;
+        _role = null;
+        _storeOwnerUserId = null;
         _pendingVerificationEmail = null;
         _isCheckingProfile = false;
         _isInitialized = true;
@@ -206,41 +215,73 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> _refreshProfileStatus() async {
-  final userId = _user?.id;
+    final userId = _user?.id;
 
-  if (userId == null) {
-    _hasStoreProfile = false;
-    _isCheckingProfile = false;
-    _isInitialized = true;
+    if (userId == null) {
+      _hasStoreProfile = false;
+      _role = null;
+      _storeOwnerUserId = null;
+      _isCheckingProfile = false;
+      _isInitialized = true;
+      notifyListeners();
+      return;
+    }
+
+    _isCheckingProfile = true;
     notifyListeners();
-    return;
+
+    try {
+      final client = _client!;
+      final profile = await _fetchProfileForRole(client, userId);
+      final profileMap =
+          profile == null ? null : Map<String, dynamic>.from(profile);
+      _role = profileMap?['role'] as String?;
+      final storeOwnerUserId =
+          profileMap?['store_owner_user_id'] as String? ?? userId;
+      _storeOwnerUserId = storeOwnerUserId;
+
+      final appProfile = await client
+          .from('app_profile')
+          .select('id')
+          .eq('owner_user_id', storeOwnerUserId)
+          .maybeSingle();
+
+      _hasStoreProfile = appProfile != null;
+    } finally {
+      _isCheckingProfile = false;
+      _isInitialized = true;
+      notifyListeners();
+    }
   }
 
-  _isCheckingProfile = true;
-  notifyListeners();
-
-  try {
-    final appProfile = await _client!
-        .from('app_profile')
-        .select('id')
-        .eq('owner_user_id', userId)
-        .maybeSingle();
-
-    _hasStoreProfile = appProfile != null;
-
-    final profile = await _client!
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .maybeSingle();
-
-    _role = profile?['role'];
-  } finally {
-    _isCheckingProfile = false;
-    _isInitialized = true;
-    notifyListeners();
+  Future<Map<String, dynamic>?> _fetchProfileForRole(
+    SupabaseClient client,
+    String userId,
+  ) async {
+    try {
+      final profile = await client
+          .from('profiles')
+          .select('role, store_owner_user_id')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile == null ? null : Map<String, dynamic>.from(profile);
+    } on PostgrestException catch (error) {
+      if (!_isStoreOwnerColumnMissing(error)) {
+        rethrow;
+      }
+      final profile = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile == null ? null : Map<String, dynamic>.from(profile);
+    }
   }
-}
+
+  bool _isStoreOwnerColumnMissing(PostgrestException error) {
+    final text = '${error.code} ${error.message}';
+    return text.contains('42703') || text.contains('store_owner_user_id');
+  }
 
   @override
   void dispose() {
