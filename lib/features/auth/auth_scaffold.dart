@@ -11,11 +11,13 @@ class AuthScaffold extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.backgroundColor,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final Color? backgroundColor;
 
   @override
   State<AuthScaffold> createState() => _AuthScaffoldState();
@@ -44,17 +46,20 @@ class _AuthScaffoldState extends State<AuthScaffold>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFF9FCFB),
-              Color(0xFFEAF7F4),
-              Color(0xFFFFF6E1),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        color: widget.backgroundColor,
+        decoration: widget.backgroundColor == null
+            ? const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFF9FCFB),
+                    Color(0xFFEAF7F4),
+                    Color(0xFFFFF6E1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              )
+            : null,
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _motionController,

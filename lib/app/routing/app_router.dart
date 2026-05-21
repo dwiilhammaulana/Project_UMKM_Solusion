@@ -21,7 +21,6 @@ import '../../features/reports/reports_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../../shared/widgets/common_widgets.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
@@ -174,8 +173,13 @@ class _RouteLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: LoadingState(label: 'Menyiapkan sesi dan profil toko...'),
+    return Scaffold(
+      body: SizedBox.expand(
+        child: Image.asset(
+          'assets/images/splash_screen_load.png',
+          fit: BoxFit.fill,
+        ),
+      ),
     );
   }
 }

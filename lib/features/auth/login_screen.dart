@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
+import '../../shared/theme/app_theme.dart';
 import 'auth_scaffold.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       title: 'Masuk ke Toko Saku',
       subtitle:
           'Gunakan email dan password, atau masuk cepat dengan akun Google.',
+      backgroundColor: AppTheme.deepTeal,
       child: Form(
         key: _formKey,
         child: Column(
