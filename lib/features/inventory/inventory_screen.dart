@@ -94,7 +94,8 @@ class InventoryScreen extends ConsumerWidget {
                               children: [
                                 Text(
                                   product.name,
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -162,19 +163,20 @@ class InventoryScreen extends ConsumerWidget {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color:
-                                    movement.type == StockMovementType.stockIn
-                                        ? AppTheme.success.withValues(alpha: 0.12)
-                                        : AppTheme.warning.withValues(alpha: 0.12),
+                                color: movement.type ==
+                                        StockMovementType.stockIn
+                                    ? AppTheme.success.withValues(alpha: 0.12)
+                                    : AppTheme.warning.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(16),
                               ),
-                              child: Icon(
+                              child: AppIcon(
                                 movement.type == StockMovementType.stockIn
                                     ? Icons.arrow_downward_rounded
                                     : Icons.arrow_upward_rounded,
-                                color: movement.type == StockMovementType.stockIn
-                                    ? AppTheme.success
-                                    : AppTheme.warning,
+                                color:
+                                    movement.type == StockMovementType.stockIn
+                                        ? AppTheme.success
+                                        : AppTheme.warning,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -184,10 +186,12 @@ class InventoryScreen extends ConsumerWidget {
                                 children: [
                                   Text(
                                     movement.referenceName,
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(AppFormatters.dateTime(movement.createdAt)),
+                                  Text(AppFormatters.dateTime(
+                                      movement.createdAt)),
                                 ],
                               ),
                             ),

@@ -147,7 +147,7 @@ class _DebtSummaryPanel extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(18),
                   ),
-                  child: const Icon(
+                  child: const AppIcon(
                     Icons.account_balance_wallet_rounded,
                     color: Colors.white,
                   ),
@@ -241,7 +241,7 @@ class _DebtInsightPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 18),
+          AppIcon(icon, color: color, size: 18),
           const SizedBox(width: 7),
           Expanded(
             child: FittedBox(
@@ -490,7 +490,7 @@ class _EmptyDebtAgeChart extends StatelessWidget {
           color: AppTheme.foam,
           border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.08)),
         ),
-        child: const Icon(
+        child: const AppIcon(
           Icons.verified_user_rounded,
           color: AppTheme.deepTeal,
           size: 42,
@@ -603,7 +603,7 @@ class _DebtListCard extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
+                child: AppIcon(
                   Icons.person_search_rounded,
                   color: statusColor,
                   size: 22,
@@ -698,20 +698,20 @@ class _DebtListCard extends StatelessWidget {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: onPayDebt,
-                  icon: const Icon(Icons.payments_outlined),
+                  icon: const AppIcon(Icons.payments_outlined),
                   label: const Text('Bayar Cicilan'),
                 ),
               ),
               const SizedBox(width: 8),
               _DebtIconButton(
                 onPressed: onMarkPaid,
-                icon: const Icon(Icons.done_all_rounded),
+                icon: const AppIcon(Icons.done_all_rounded),
                 tooltip: 'Tandai lunas',
               ),
               const SizedBox(width: 8),
               _DebtIconButton(
                 onPressed: onOpenDetail,
-                icon: const Icon(Icons.open_in_new_rounded),
+                icon: const AppIcon(Icons.open_in_new_rounded),
                 tooltip: 'Buka detail',
               ),
             ],

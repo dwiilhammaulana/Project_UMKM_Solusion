@@ -65,6 +65,14 @@ class AppShell extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final items = auth.isAdmin ? _adminItems : _cashierItems;
     final selectedIndex = _selectedIndex(items);
+    final drawBehindStatusBar = currentLocation == '/dashboard' ||
+        currentLocation.startsWith('/dashboard/') ||
+        currentLocation == '/cashier' ||
+        currentLocation.startsWith('/cashier/') ||
+        currentLocation == '/products' ||
+        currentLocation.startsWith('/products/') ||
+        currentLocation == '/more' ||
+        currentLocation.startsWith('/more/');
 
     return Scaffold(
       extendBody: true,
@@ -97,6 +105,7 @@ class AppShell extends ConsumerWidget {
               ),
             ),
             SafeArea(
+              top: !drawBehindStatusBar,
               bottom: false,
               child: state.isLoading
                   ? const LoadingState()
@@ -213,7 +222,7 @@ class _BottomNavDestination extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: foregroundColor, size: 23),
+                AppIcon(icon, color: foregroundColor, size: 23),
                 const SizedBox(height: 4),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -256,7 +265,7 @@ class _SignOutNavButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
             ),
           ),
-          child: const Icon(Icons.logout_rounded, size: 22),
+          child: const AppIcon(Icons.logout_rounded, size: 22),
         ),
       ),
     );

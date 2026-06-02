@@ -250,7 +250,7 @@ class _ModernChartCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded, size: 18),
+                const AppIcon(Icons.info_outline_rounded, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -600,7 +600,7 @@ class _AnalyticsMetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 22),
+          AppIcon(icon, color: color, size: 22),
           const Spacer(),
           Text(title, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 4),
@@ -722,7 +722,7 @@ class _EmptyChartMessage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 42, color: AppTheme.deepTeal),
+          AppIcon(icon, size: 42, color: AppTheme.deepTeal),
           const SizedBox(height: 10),
           Text(title, style: Theme.of(context).textTheme.titleMedium),
         ],

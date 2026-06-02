@@ -49,7 +49,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                   backgroundColor: Colors.white,
                   foregroundColor: AppTheme.deepTeal,
                 ),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const AppIcon(Icons.arrow_back_rounded),
               ),
               const SizedBox(height: 12),
               const AppMediaPreview(
@@ -208,7 +208,7 @@ class CustomerDetailScreen extends ConsumerWidget {
                         ],
                         if (item.onTap != null) ...[
                           const SizedBox(width: 12),
-                          const Icon(Icons.open_in_new_rounded, size: 18),
+                          const AppIcon(Icons.open_in_new_rounded, size: 18),
                         ],
                       ],
                     ),

@@ -22,30 +22,36 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
+    final query = _query.trim().toLowerCase();
     final filtered = state.products.where((product) {
-      final matchesQuery = product.name.toLowerCase().contains(
-            _query.toLowerCase(),
-          );
+      final matchesQuery =
+          query.isEmpty || product.name.toLowerCase().contains(query);
       final matchesCategory =
           _categoryId == null || product.categoryId == _categoryId;
       return matchesQuery && matchesCategory;
     }).toList();
 
     return AppPageScrollView(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
       children: [
-        HeroPanel(
-          badge: const StatusChip(
-            label: 'Katalog produk',
-            color: Colors.white,
-            icon: Icons.photo_library_outlined,
-          ),
-          title: 'Produk lebih visual dan siap diberi foto.',
+        AppCleanTopHero(
+          title: 'Produk',
           subtitle:
               'Setiap item memiliki slot thumbnail utama agar katalog dan kasir terasa lebih menarik.',
+          accentIcon: Icons.inventory_2_rounded,
+          accentLabel: 'Katalog',
+          heightFactor: 0.38,
+          minHeight: 300,
+          maxHeight: 390,
           bottom: Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
+              const StatusChip(
+                label: 'Katalog produk',
+                color: Colors.white,
+                icon: Icons.photo_library_outlined,
+              ),
               StatusChip(
                 label: '${state.products.length} produk',
                 color: Colors.white,
@@ -65,110 +71,113 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
                 onPressed: () => showProductFormSheet(context, ref),
-                icon: const Icon(Icons.add_rounded),
+                icon: const AppIcon(Icons.add_rounded),
                 label: const Text('Tambah Produk'),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        AppSectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SectionHeader(
-                title: 'Etalase Produk',
-                subtitle:
-                    '${filtered.length} item tampil dari ${state.products.length} produk.',
-              ),
-              const SizedBox(height: 14),
-              AppSearchField(
-                hintText: 'Cari produk...',
-                onChanged: (value) => setState(() => _query = value),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 42,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    AppFilterChip(
-                      label: 'Semua',
-                      selected: _categoryId == null,
-                      onSelected: (_) => setState(() => _categoryId = null),
-                    ),
-                    const SizedBox(width: 8),
-                    ...state.categories.map(
-                      (category) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: AppFilterChip(
-                          label: category.name,
-                          selected: _categoryId == category.id,
-                          onSelected: (_) =>
-                              setState(() => _categoryId = category.id),
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: AppSectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionHeader(
+                  title: 'Etalase Produk',
+                  subtitle:
+                      '${filtered.length} item tampil dari ${state.products.length} produk.',
+                ),
+                const SizedBox(height: 14),
+                AppSearchField(
+                  hintText: 'Cari produk...',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 42,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      AppFilterChip(
+                        label: 'Semua',
+                        selected: _categoryId == null,
+                        onSelected: (_) => setState(() => _categoryId = null),
+                      ),
+                      const SizedBox(width: 8),
+                      ...state.categories.map(
+                        (category) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: AppFilterChip(
+                            label: category.name,
+                            selected: _categoryId == category.id,
+                            onSelected: (_) =>
+                                setState(() => _categoryId = category.id),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 20),
         if (filtered.isEmpty)
-          const EmptyState(
-            icon: Icons.search_off_rounded,
-            title: 'Produk tidak ditemukan',
-            subtitle: 'Coba ubah kata kunci atau filter kategori.',
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Produk tidak ditemukan',
+              subtitle: 'Coba ubah kata kunci atau filter kategori.',
+            ),
           )
         else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final crossAxisCount = width >= 820
-                  ? 4
-                  : width >= 560
-                      ? 3
-                      : 2;
-              const gridGap = 12.0;
-              final cardWidth =
-                  (width - (crossAxisCount - 1) * gridGap) / crossAxisCount;
-              final cardHeight = cardWidth + 224;
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final crossAxisCount = width >= 820
+                    ? 4
+                    : width >= 560
+                        ? 3
+                        : 2;
+                const gridGap = 12.0;
+                final cardWidth =
+                    (width - (crossAxisCount - 1) * gridGap) / crossAxisCount;
+                final cardHeight = cardWidth + 224;
 
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: gridGap,
-                  mainAxisSpacing: gridGap,
-                  mainAxisExtent: cardHeight,
-                ),
-                itemBuilder: (context, index) {
-                  final product = filtered[index];
-                  final category = state.categories.firstWhere(
-                    (item) => item.id == product.categoryId,
-                    orElse: () => const Category(
-                      id: 'unknown',
-                      name: 'Tanpa kategori',
-                    ),
-                  );
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: gridGap,
+                    mainAxisSpacing: gridGap,
+                    mainAxisExtent: cardHeight,
+                  ),
+                  itemBuilder: (context, index) {
+                    final product = filtered[index];
 
-                  return _ProductShowcaseCard(
-                    key: Key('product-card-${product.id}'),
-                    product: product,
-                    categoryName: category.name,
-                    count: state.cart[product.id] ?? 0,
-                    onAdd: () => ref.read(posStateProvider).addToCart(product),
-                    onEdit: () =>
-                        showProductFormSheet(context, ref, product: product),
-                    onLongPress: () => _showProductActions(context, product),
-                  );
-                },
-              );
-            },
+                    return _ProductShowcaseCard(
+                      key: Key('product-card-${product.id}'),
+                      product: product,
+                      categoryName: state.categoryNameById(product.categoryId),
+                      count: state.cart[product.id] ?? 0,
+                      onAdd: () =>
+                          ref.read(posStateProvider).addToCart(product),
+                      onEdit: () =>
+                          showProductFormSheet(context, ref, product: product),
+                      onLongPress: () => _showProductActions(context, product),
+                    );
+                  },
+                );
+              },
+            ),
           ),
       ],
     );
@@ -203,7 +212,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   Navigator.of(context).pop();
                   showProductFormSheet(this.context, ref, product: product);
                 },
-                icon: const Icon(Icons.edit_outlined),
+                icon: const AppIcon(Icons.edit_outlined),
                 label: const Text('Edit Produk'),
               ),
               const SizedBox(height: 10),
@@ -216,7 +225,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   Navigator.of(context).pop();
                   await _confirmDeleteProduct(product);
                 },
-                icon: const Icon(Icons.delete_outline_rounded),
+                icon: const AppIcon(Icons.delete_outline_rounded),
                 label: const Text('Hapus Produk'),
               ),
             ],
@@ -419,7 +428,7 @@ class _ProductShowcaseCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
+                              const AppIcon(
                                 Icons.add_shopping_cart_rounded,
                                 size: 18,
                               ),
@@ -504,7 +513,7 @@ class _ShowcaseIconButton extends StatelessWidget {
             foregroundColor: AppTheme.deepTeal,
           ),
           onPressed: onPressed,
-          icon: Icon(icon, size: 18),
+          icon: AppIcon(icon, size: 18),
         ),
       ),
     );

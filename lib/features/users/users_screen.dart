@@ -36,7 +36,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
               'Admin owner bisa melihat daftar user toko dan membuat akun kasir karyawan.',
           bottom: FilledButton.icon(
             onPressed: _showCreateCashierSheet,
-            icon: const Icon(Icons.person_add_alt_1_rounded),
+            icon: const AppIcon(Icons.person_add_alt_1_rounded),
             label: const Text('Tambah kasir'),
           ),
         ),
@@ -143,7 +143,7 @@ class _UserTile extends StatelessWidget {
           CircleAvatar(
             backgroundColor: roleColor.withValues(alpha: 0.12),
             foregroundColor: roleColor,
-            child: Icon(
+            child: AppIcon(
               user.role == 'admin'
                   ? Icons.admin_panel_settings_rounded
                   : Icons.point_of_sale_rounded,
@@ -270,7 +270,7 @@ class _CreateCashierSheetState extends ConsumerState<_CreateCashierSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2.2),
                         )
-                      : const Icon(Icons.person_add_alt_1_rounded),
+                      : const AppIcon(Icons.person_add_alt_1_rounded),
                   label:
                       Text(_isSaving ? 'Membuat akun...' : 'Buat akun kasir'),
                 ),

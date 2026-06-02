@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/common_widgets.dart';
 
 class AuthScaffold extends StatefulWidget {
   const AuthScaffold({
@@ -208,7 +209,7 @@ class _AuthContent extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
+              child: const AppIcon(
                 Icons.local_cafe_rounded,
                 color: AppTheme.deepTeal,
                 size: 31,

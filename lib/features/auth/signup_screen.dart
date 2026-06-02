@@ -6,6 +6,7 @@ import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/common_widgets.dart';
 import 'auth_scaffold.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -115,7 +116,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                icon: const Icon(Icons.account_circle_outlined),
+                icon: const AppIcon(Icons.account_circle_outlined),
                 label: const Text('Daftar dengan Google'),
               ),
             ),
@@ -142,7 +143,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     return InputDecoration(
       labelText: labelText,
       labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
-      prefixIcon: Icon(
+      prefixIcon: AppIcon(
         prefixIcon,
         color: AppTheme.deepTeal,
       ),
@@ -211,9 +212,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authControllerProvider).signInWithGoogle();
-      ref
-          .read(biometricLockControllerProvider)
-          .markUnlockedForCurrentSession();
+      ref.read(biometricLockControllerProvider).markUnlockedForCurrentSession();
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
       if (user != null) {

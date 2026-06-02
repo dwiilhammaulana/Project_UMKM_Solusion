@@ -21,10 +21,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
+    final query = _query.trim().toLowerCase();
     final filtered = state.customers.where((customer) {
-      final input = _query.toLowerCase();
-      return customer.name.toLowerCase().contains(input) ||
-          customer.phone.toLowerCase().contains(input);
+      return query.isEmpty ||
+          customer.name.toLowerCase().contains(query) ||
+          customer.phone.toLowerCase().contains(query);
     }).toList();
 
     return AppPageScrollView(
@@ -41,7 +42,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           bottom: FilledButton.icon(
             key: const Key('customers-add-button'),
             onPressed: () async => showCustomerFormSheet(context, ref),
-            icon: const Icon(Icons.person_add_alt_1_rounded),
+            icon: const AppIcon(Icons.person_add_alt_1_rounded),
             label: const Text('Tambah Pelanggan'),
           ),
         ),
@@ -58,7 +59,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           const EmptyState(
             icon: Icons.people_outline_rounded,
             title: 'Belum ada pelanggan cocok',
-            subtitle: 'Tambah pelanggan baru agar bisa dipakai di transaksi BON.',
+            subtitle:
+                'Tambah pelanggan baru agar bisa dipakai di transaksi BON.',
           )
         else
           ...filtered.map((customer) {
@@ -128,7 +130,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                               ref,
                               customer: customer,
                             ),
-                            icon: const Icon(Icons.edit_outlined),
+                            icon: const AppIcon(Icons.edit_outlined),
                             label: const Text('Edit'),
                           ),
                         ),
@@ -140,7 +142,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                   .read(posStateProvider)
                                   .toggleCustomerActive(customer.id);
                             },
-                            icon: Icon(
+                            icon: AppIcon(
                               customer.isActive
                                   ? Icons.person_off_outlined
                                   : Icons.person_outline_rounded,
@@ -155,7 +157,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     const SizedBox(height: 10),
                     FilledButton.icon(
                       onPressed: () => context.go('/customers/${customer.id}'),
-                      icon: const Icon(Icons.arrow_forward_rounded),
+                      icon: const AppIcon(Icons.arrow_forward_rounded),
                       label: const Text('Buka Profil'),
                     ),
                   ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
@@ -51,6 +52,27 @@ class PosAppState extends ChangeNotifier {
   List<DebtPayment> _payments = const [];
   List<StockMovement> _stockMovements = const [];
   List<OperationalCost> _operationalCosts = const [];
+  Map<String, Category> _categoryById = const {};
+  Map<String, Product> _productById = const {};
+  Map<String, Customer> _customerById = const {};
+  List<Product> _cartProducts = const [];
+  int _cartCount = 0;
+  double _cartTotal = 0;
+  late final Map<String, int> _cartView = UnmodifiableMapView(_cart);
+  List<DebtRecord> _activeDebtsSorted = const [];
+  List<Product> _lowStockProducts = const [];
+  Map<int, List<OperationalCost>> _operationalCostsByMonth = const {};
+  Map<int, double> _operationalCostTotalByMonth = const {};
+  Map<String, List<TransactionRecord>> _transactionsByCustomer = const {};
+  Map<String, List<DebtRecord>> _debtsByCustomer = const {};
+  Map<String, List<DebtPayment>> _paymentsByCustomer = const {};
+  Map<String, double> _totalPurchaseByCustomer = const {};
+  Map<String, double> _activeDebtByCustomer = const {};
+  double _totalRevenue = 0;
+  double _activeDebtTotal = 0;
+  double _totalOperationalCost = 0;
+  List<ReportSummary> _reportSummaries = const [];
+  DateTime? _reportSummaryMonth;
 
   final Map<String, int> _cart = {};
   String? _selectedCustomerId;
@@ -70,76 +92,42 @@ class PosAppState extends ChangeNotifier {
   List<OperationalCost> get operationalCosts => _operationalCosts;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  Product? productById(String productId) => _productById[productId];
+  Customer? customerById(String customerId) => _customerById[customerId];
+  String categoryNameById(String categoryId) {
+    return _categoryById[categoryId]?.name ?? 'Tanpa kategori';
+  }
 
-  Map<String, int> get cart => Map.unmodifiable(_cart);
+  Map<String, int> get cart => _cartView;
   String? get selectedCustomerId => _selectedCustomerId;
   PaymentMethod get selectedPaymentMethod => _selectedPaymentMethod;
   Customer? get selectedCustomer {
     final selectedId = _selectedCustomerId;
-    if (selectedId == null) {
-      return null;
-    }
-    for (final customer in _customers) {
-      if (customer.id == selectedId) {
-        return customer;
-      }
-    }
-    return null;
+    return selectedId == null ? null : _customerById[selectedId];
   }
 
-  List<Product> get cartProducts => _cart.entries
-      .map(
-        (entry) => _products.firstWhere((product) => product.id == entry.key),
-      )
-      .toList();
+  List<Product> get cartProducts => _cartProducts;
 
-  double get cartTotal => _cart.entries.fold(0.0, (sum, entry) {
-        final product =
-            _products.firstWhere((product) => product.id == entry.key);
-        return sum + (product.sellPrice * entry.value);
-      });
+  double get cartTotal => _cartTotal;
 
-  int get cartCount => _cart.values.fold(0, (sum, value) => sum + value);
+  int get cartCount => _cartCount;
 
-  List<DebtRecord> get activeDebtsSorted {
-    final result =
-        _debts.where((debt) => debt.status != DebtStatus.paid).toList();
-    result.sort((a, b) => b.ageInDays.compareTo(a.ageInDays));
-    return result;
-  }
+  List<DebtRecord> get activeDebtsSorted => _activeDebtsSorted;
 
-  List<Product> get lowStockProducts {
-    final result = _products.where((product) => product.isLowStock).toList();
-    result.sort((a, b) => a.stockQty.compareTo(b.stockQty));
-    return result;
-  }
+  List<Product> get lowStockProducts => _lowStockProducts;
 
-  double get totalRevenue =>
-      _transactions.fold(0.0, (sum, trx) => sum + trx.amountPaid) +
-      _payments.fold(0.0, (sum, payment) => sum + payment.amount);
+  double get totalRevenue => _totalRevenue;
 
-  double get activeDebtTotal =>
-      _debts.fold(0.0, (sum, debt) => sum + max(0, debt.remainingAmount));
+  double get activeDebtTotal => _activeDebtTotal;
 
-  double get totalOperationalCost =>
-      _operationalCosts.fold(0.0, (sum, cost) => sum + cost.amount);
+  double get totalOperationalCost => _totalOperationalCost;
 
   List<OperationalCost> operationalCostsByMonth(DateTime monthYear) {
-    final normalizedMonth = DateTime(monthYear.year, monthYear.month, 1);
-    final result = _operationalCosts
-        .where(
-          (item) =>
-              item.monthYear.year == normalizedMonth.year &&
-              item.monthYear.month == normalizedMonth.month,
-        )
-        .toList();
-    result.sort((a, b) => a.costName.compareTo(b.costName));
-    return result;
+    return _operationalCostsByMonth[_monthKey(monthYear)] ?? const [];
   }
 
   double operationalCostTotalByMonth(DateTime monthYear) {
-    return operationalCostsByMonth(monthYear)
-        .fold(0.0, (sum, cost) => sum + cost.amount);
+    return _operationalCostTotalByMonth[_monthKey(monthYear)] ?? 0.0;
   }
 
   int get todayTransactionCount {
@@ -156,63 +144,11 @@ class PosAppState extends ChangeNotifier {
 
   List<ReportSummary> get reportSummaries {
     final now = DateTime.now();
-    final monthFormatter = DateFormat('MMM', 'id_ID');
-    final productCostById = {
-      for (final product in _products) product.id: product.costPrice,
-    };
-
-    return List.generate(6, (index) {
-      final month = DateTime(now.year, now.month - 5 + index, 1);
-      final nextMonth = DateTime(month.year, month.month + 1, 1);
-
-      final transactions = _transactions
-          .where(
-            (transaction) =>
-                !transaction.createdAt.isBefore(month) &&
-                transaction.createdAt.isBefore(nextMonth),
-          )
-          .toList();
-      final payments = _payments
-          .where(
-            (payment) =>
-                !payment.paidAt.isBefore(month) &&
-                payment.paidAt.isBefore(nextMonth),
-          )
-          .toList();
-      final revenue =
-          transactions.fold(0.0, (sum, trx) => sum + trx.amountPaid) +
-              payments.fold(0.0, (sum, payment) => sum + payment.amount);
-      final cost = transactions.fold(0.0, (sum, transaction) {
-        return sum +
-            transaction.items.fold(0.0, (itemSum, item) {
-              return itemSum +
-                  ((productCostById[item.productId] ?? 0) * item.quantity);
-            });
-      });
-      final operationalCost = _operationalCosts
-          .where(
-            (item) =>
-                item.monthYear.year == month.year &&
-                item.monthYear.month == month.month,
-          )
-          .fold(0.0, (sum, item) => sum + item.amount);
-      final activeDebtForMonth =
-          month.year == now.year && month.month == now.month
-              ? activeDebtTotal
-              : 0.0;
-      final rawLabel = monthFormatter.format(month);
-      final label = rawLabel.isEmpty
-          ? ''
-          : '${rawLabel[0].toUpperCase()}${rawLabel.substring(1)}';
-
-      return ReportSummary(
-        label: label,
-        revenue: revenue,
-        cost: cost,
-        operationalCost: operationalCost,
-        activeDebtTotal: activeDebtForMonth,
-      );
-    });
+    final currentMonth = DateTime(now.year, now.month, 1);
+    if (_reportSummaryMonth != currentMonth) {
+      _rebuildReportSummaries(now);
+    }
+    return _reportSummaries;
   }
 
   Future<void> initialize() async {
@@ -237,6 +173,7 @@ class PosAppState extends ChangeNotifier {
     final nextQty = (_cart[product.id] ?? 0) + 1;
     _ensureCartQtyWithinStock(product.id, nextQty);
     _cart[product.id] = nextQty;
+    _rebuildCartDerivedData();
     notifyListeners();
   }
 
@@ -248,6 +185,7 @@ class PosAppState extends ChangeNotifier {
     final nextQty = current + 1;
     _ensureCartQtyWithinStock(productId, nextQty);
     _cart[productId] = nextQty;
+    _rebuildCartDerivedData();
     notifyListeners();
   }
 
@@ -261,11 +199,13 @@ class PosAppState extends ChangeNotifier {
     } else {
       _cart[productId] = current - 1;
     }
+    _rebuildCartDerivedData();
     notifyListeners();
   }
 
   void clearCart() {
     _cart.clear();
+    _rebuildCartDerivedData();
     notifyListeners();
   }
 
@@ -401,6 +341,7 @@ class PosAppState extends ChangeNotifier {
     _cart.clear();
     _selectedCustomerId = null;
     _selectedPaymentMethod = PaymentMethod.cash;
+    _rebuildCartDerivedData();
     notifyListeners();
     return transaction;
   }
@@ -436,8 +377,7 @@ class PosAppState extends ChangeNotifier {
   }
 
   List<TransactionRecord> transactionsByCustomer(String customerId) {
-    return _transactions.where((trx) => trx.customerId == customerId).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return _transactionsByCustomer[customerId] ?? const [];
   }
 
   TransactionRecord? transactionById(String id) {
@@ -450,27 +390,19 @@ class PosAppState extends ChangeNotifier {
   }
 
   List<DebtRecord> debtsByCustomer(String customerId) {
-    return _debts.where((debt) => debt.customerId == customerId).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return _debtsByCustomer[customerId] ?? const [];
   }
 
   List<DebtPayment> paymentsByCustomer(String customerId) {
-    return _payments
-        .where((payment) => payment.customerId == customerId)
-        .toList()
-      ..sort((a, b) => b.paidAt.compareTo(a.paidAt));
+    return _paymentsByCustomer[customerId] ?? const [];
   }
 
   double totalPurchaseByCustomer(String customerId) {
-    return transactionsByCustomer(
-      customerId,
-    ).fold(0.0, (sum, transaction) => sum + transaction.totalAmount);
+    return _totalPurchaseByCustomer[customerId] ?? 0.0;
   }
 
   double activeDebtByCustomer(String customerId) {
-    return debtsByCustomer(
-      customerId,
-    ).fold(0.0, (sum, debt) => sum + max(0, debt.remainingAmount));
+    return _activeDebtByCustomer[customerId] ?? 0.0;
   }
 
   Future<void> _reloadPersistedData() async {
@@ -495,6 +427,7 @@ class PosAppState extends ChangeNotifier {
     _payments = results[6] as List<DebtPayment>;
     _stockMovements = results[7] as List<StockMovement>;
     _operationalCosts = results[8] as List<OperationalCost>;
+    _rebuildDerivedData();
     _selectedCustomerId =
         _customers.any((item) => item.id == _selectedCustomerId)
             ? _selectedCustomerId
@@ -502,10 +435,7 @@ class PosAppState extends ChangeNotifier {
   }
 
   void _ensureCartQtyWithinStock(String productId, int requestedQty) {
-    final product = _products.cast<Product?>().firstWhere(
-          (item) => item?.id == productId,
-          orElse: () => null,
-        );
+    final product = _productById[productId];
     if (product == null) {
       throw Exception('Produk tidak ditemukan.');
     }
@@ -515,4 +445,165 @@ class PosAppState extends ChangeNotifier {
       );
     }
   }
+
+  void _rebuildDerivedData() {
+    _categoryById = {for (final category in _categories) category.id: category};
+    _productById = {for (final product in _products) product.id: product};
+    _customerById = {for (final customer in _customers) customer.id: customer};
+
+    _activeDebtsSorted = _debts
+        .where((debt) => debt.status != DebtStatus.paid)
+        .toList()
+      ..sort((a, b) => b.ageInDays.compareTo(a.ageInDays));
+    _lowStockProducts = _products
+        .where((product) => product.isLowStock)
+        .toList()
+      ..sort((a, b) => a.stockQty.compareTo(b.stockQty));
+    _totalRevenue =
+        _transactions.fold(0.0, (sum, trx) => sum + trx.amountPaid) +
+            _payments.fold(0.0, (sum, payment) => sum + payment.amount);
+    _activeDebtTotal =
+        _debts.fold(0.0, (sum, debt) => sum + max(0, debt.remainingAmount));
+    _totalOperationalCost =
+        _operationalCosts.fold(0.0, (sum, cost) => sum + cost.amount);
+    _rebuildOperationalCostIndexes();
+    _rebuildCustomerIndexes();
+    _rebuildReportSummaries(DateTime.now());
+    _rebuildCartDerivedData();
+  }
+
+  void _rebuildCartDerivedData() {
+    var count = 0;
+    var total = 0.0;
+    final products = <Product>[];
+
+    for (final entry in _cart.entries) {
+      final product = _productById[entry.key];
+      if (product == null) {
+        continue;
+      }
+      count += entry.value;
+      total += product.sellPrice * entry.value;
+      products.add(product);
+    }
+
+    _cartCount = count;
+    _cartTotal = total;
+    _cartProducts = products;
+  }
+
+  void _rebuildOperationalCostIndexes() {
+    final byMonth = <int, List<OperationalCost>>{};
+    final totalsByMonth = <int, double>{};
+
+    for (final cost in _operationalCosts) {
+      final key = _monthKey(cost.monthYear);
+      (byMonth[key] ??= []).add(cost);
+      totalsByMonth[key] = (totalsByMonth[key] ?? 0) + cost.amount;
+    }
+
+    for (final entries in byMonth.values) {
+      entries.sort((a, b) => a.costName.compareTo(b.costName));
+    }
+
+    _operationalCostsByMonth = byMonth;
+    _operationalCostTotalByMonth = totalsByMonth;
+  }
+
+  void _rebuildCustomerIndexes() {
+    final transactionsByCustomer = <String, List<TransactionRecord>>{};
+    final debtsByCustomer = <String, List<DebtRecord>>{};
+    final paymentsByCustomer = <String, List<DebtPayment>>{};
+    final totalPurchaseByCustomer = <String, double>{};
+    final activeDebtByCustomer = <String, double>{};
+
+    for (final transaction in _transactions) {
+      final customerId = transaction.customerId;
+      if (customerId == null) {
+        continue;
+      }
+      (transactionsByCustomer[customerId] ??= []).add(transaction);
+      totalPurchaseByCustomer[customerId] =
+          (totalPurchaseByCustomer[customerId] ?? 0) + transaction.totalAmount;
+    }
+
+    for (final debt in _debts) {
+      (debtsByCustomer[debt.customerId] ??= []).add(debt);
+      activeDebtByCustomer[debt.customerId] =
+          (activeDebtByCustomer[debt.customerId] ?? 0) +
+              max(0, debt.remainingAmount);
+    }
+
+    for (final payment in _payments) {
+      (paymentsByCustomer[payment.customerId] ??= []).add(payment);
+    }
+
+    for (final transactions in transactionsByCustomer.values) {
+      transactions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    for (final debts in debtsByCustomer.values) {
+      debts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    for (final payments in paymentsByCustomer.values) {
+      payments.sort((a, b) => b.paidAt.compareTo(a.paidAt));
+    }
+
+    _transactionsByCustomer = transactionsByCustomer;
+    _debtsByCustomer = debtsByCustomer;
+    _paymentsByCustomer = paymentsByCustomer;
+    _totalPurchaseByCustomer = totalPurchaseByCustomer;
+    _activeDebtByCustomer = activeDebtByCustomer;
+  }
+
+  void _rebuildReportSummaries(DateTime now) {
+    final monthFormatter = DateFormat('MMM', 'id_ID');
+    final productCostById = {
+      for (final product in _products) product.id: product.costPrice,
+    };
+
+    _reportSummaryMonth = DateTime(now.year, now.month, 1);
+    _reportSummaries = List.generate(6, (index) {
+      final month = DateTime(now.year, now.month - 5 + index, 1);
+      final nextMonth = DateTime(month.year, month.month + 1, 1);
+
+      final transactions = _transactions.where(
+        (transaction) =>
+            !transaction.createdAt.isBefore(month) &&
+            transaction.createdAt.isBefore(nextMonth),
+      );
+      final payments = _payments.where(
+        (payment) =>
+            !payment.paidAt.isBefore(month) &&
+            payment.paidAt.isBefore(nextMonth),
+      );
+      final revenue =
+          transactions.fold(0.0, (sum, trx) => sum + trx.amountPaid) +
+              payments.fold(0.0, (sum, payment) => sum + payment.amount);
+      final cost = transactions.fold(0.0, (sum, transaction) {
+        return sum +
+            transaction.items.fold(0.0, (itemSum, item) {
+              return itemSum +
+                  ((productCostById[item.productId] ?? 0) * item.quantity);
+            });
+      });
+      final activeDebtForMonth =
+          month.year == now.year && month.month == now.month
+              ? _activeDebtTotal
+              : 0.0;
+      final rawLabel = monthFormatter.format(month);
+      final label = rawLabel.isEmpty
+          ? ''
+          : '${rawLabel[0].toUpperCase()}${rawLabel.substring(1)}';
+
+      return ReportSummary(
+        label: label,
+        revenue: revenue,
+        cost: cost,
+        operationalCost: _operationalCostTotalByMonth[_monthKey(month)] ?? 0,
+        activeDebtTotal: activeDebtForMonth,
+      );
+    });
+  }
+
+  int _monthKey(DateTime date) => date.year * 12 + date.month;
 }

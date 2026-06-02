@@ -1,10 +1,136 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:iconify_flutter/iconify_flutter.dart';
+import 'package:iconify_flutter/icons/ic.dart';
 
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_formatters.dart';
+
+class AppIcon extends StatelessWidget {
+  const AppIcon(
+    this.icon, {
+    super.key,
+    this.color,
+    this.size,
+    this.visualScale = 0.86,
+  });
+
+  final IconData icon;
+  final Color? color;
+  final double? size;
+  final double visualScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconTheme = IconTheme.of(context);
+    final resolvedSize = (size ?? iconTheme.size ?? 24) * visualScale;
+
+    return Iconify(
+      _iconifyAppIcon(icon),
+      color: color ?? iconTheme.color,
+      size: resolvedSize,
+    );
+  }
+
+  static String _iconifyAppIcon(IconData icon) {
+    return switch (icon) {
+      Icons.account_balance_wallet_rounded => Ic.round_account_balance_wallet,
+      Icons.account_circle_outlined => Ic.round_account_circle,
+      Icons.add_a_photo_outlined => Ic.round_add_a_photo,
+      Icons.add_box_rounded => Ic.round_add_box,
+      Icons.add_rounded => Ic.round_add,
+      Icons.add_shopping_cart_rounded => Ic.round_add_shopping_cart,
+      Icons.admin_panel_settings_rounded => Ic.round_admin_panel_settings,
+      Icons.alternate_email_rounded => Ic.round_alternate_email,
+      Icons.arrow_back_rounded => Ic.round_arrow_back,
+      Icons.arrow_downward_rounded => Ic.round_arrow_downward,
+      Icons.arrow_forward_ios_rounded => Ic.round_arrow_forward_ios,
+      Icons.arrow_forward_rounded => Ic.round_arrow_forward,
+      Icons.arrow_upward_rounded => Ic.round_arrow_upward,
+      Icons.bar_chart_rounded => Ic.round_bar_chart,
+      Icons.calendar_month_rounded => Ic.round_calendar_month,
+      Icons.category_rounded => Ic.round_category,
+      Icons.check_circle_rounded => Ic.round_check_circle,
+      Icons.check_rounded => Ic.round_check,
+      Icons.close_rounded => Ic.round_close,
+      Icons.credit_score_rounded => Ic.round_credit_score,
+      Icons.delete_outline_rounded => Ic.round_delete_outline,
+      Icons.description_rounded => Ic.round_description,
+      Icons.done_all_rounded => Ic.round_done_all,
+      Icons.done_rounded => Ic.round_done,
+      Icons.edit_outlined => Ic.round_edit,
+      Icons.emoji_events_rounded => Ic.round_emoji_events,
+      Icons.error_outline_rounded => Ic.round_error_outline,
+      Icons.fingerprint_rounded => Ic.round_fingerprint,
+      Icons.flash_on_rounded => Ic.round_flash_on,
+      Icons.grid_view_rounded => Ic.round_grid_view,
+      Icons.groups_rounded => Ic.round_groups,
+      Icons.history_rounded => Ic.round_history,
+      Icons.home_filled => Ic.round_home,
+      Icons.home_rounded => Ic.round_home,
+      Icons.image_outlined => Ic.round_image,
+      Icons.info_outline_rounded => Ic.info_outline,
+      Icons.insights_rounded => Ic.round_insights,
+      Icons.inventory_2_outlined => Ic.round_inventory_2,
+      Icons.inventory_2_rounded => Ic.round_inventory_2,
+      Icons.inventory_rounded => Ic.round_inventory,
+      Icons.keyboard_arrow_down_rounded => Ic.round_keyboard_arrow_down,
+      Icons.list_alt_rounded => Ic.round_list_alt,
+      Icons.local_cafe_rounded => Ic.round_local_cafe,
+      Icons.local_drink_rounded => Ic.round_local_drink,
+      Icons.lock_outline_rounded => Ic.lock_outline,
+      Icons.lock_rounded => Ic.round_lock,
+      Icons.logout_rounded => Ic.round_logout,
+      Icons.manage_accounts_rounded => Ic.round_manage_accounts,
+      Icons.note_alt_outlined => Ic.round_note_alt,
+      Icons.open_in_new_rounded => Ic.round_open_in_new,
+      Icons.payments_outlined => Ic.round_payments,
+      Icons.payments_rounded => Ic.round_payments,
+      Icons.pending_actions_rounded => Ic.round_pending_actions,
+      Icons.people_alt_rounded => Ic.round_people_alt,
+      Icons.people_outline_rounded => Ic.round_people_outline,
+      Icons.percent_rounded => Ic.round_percent,
+      Icons.person_add_alt_1_rounded => Ic.round_person_add_alt_1,
+      Icons.person_off_outlined => Ic.round_person_off,
+      Icons.person_outline_rounded => Ic.round_person_outline,
+      Icons.person_search_rounded => Ic.round_person_search,
+      Icons.photo_library_outlined => Ic.round_photo_library,
+      Icons.picture_as_pdf_rounded => Ic.round_picture_as_pdf,
+      Icons.pie_chart_outline_rounded => Ic.round_pie_chart_outline,
+      Icons.point_of_sale_outlined => Ic.round_point_of_sale,
+      Icons.point_of_sale_rounded => Ic.round_point_of_sale,
+      Icons.print_rounded => Ic.round_print,
+      Icons.priority_high_rounded => Ic.round_priority_high,
+      Icons.receipt_long_outlined => Ic.round_receipt_long,
+      Icons.receipt_long_rounded => Ic.round_receipt_long,
+      Icons.receipt_rounded => Ic.round_receipt,
+      Icons.refresh_rounded => Ic.round_refresh,
+      Icons.remove_rounded => Ic.round_remove,
+      Icons.schedule_rounded => Ic.round_schedule,
+      Icons.search_off_rounded => Ic.round_search_off,
+      Icons.search_rounded => Ic.round_search,
+      Icons.sell_outlined => Ic.round_sell,
+      Icons.shopping_bag_outlined => Ic.round_shopping_bag,
+      Icons.shopping_bag_rounded => Ic.round_shopping_bag,
+      Icons.shopping_cart_outlined => Ic.round_shopping_cart,
+      Icons.shopping_cart_rounded => Ic.round_shopping_cart,
+      Icons.show_chart_rounded => Ic.round_show_chart,
+      Icons.stacked_line_chart_rounded => Ic.round_stacked_line_chart,
+      Icons.storefront_rounded => Ic.round_storefront,
+      Icons.swap_vert_circle_rounded => Ic.round_swap_vertical_circle,
+      Icons.trending_up_rounded => Ic.round_trending_up,
+      Icons.upload_file_rounded => Ic.round_upload_file,
+      Icons.verified_rounded => Ic.round_verified,
+      Icons.verified_user_rounded => Ic.round_verified_user,
+      Icons.wallet_rounded => Ic.round_wallet,
+      Icons.warning_amber_rounded => Ic.round_warning_amber,
+      Icons.widgets_rounded => Ic.round_widgets,
+      _ => Ic.round_help_outline,
+    };
+  }
+}
 
 const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
 const double kShellBottomBarHeight = 74;
@@ -174,6 +300,145 @@ class HeroPanel extends StatelessWidget {
   }
 }
 
+class AppCleanTopHero extends StatelessWidget {
+  const AppCleanTopHero({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    this.bottom,
+    this.accentIcon,
+    this.accentLabel,
+    this.accentColor = Colors.white,
+    this.heightFactor = 0.40,
+    this.minHeight = 300,
+    this.maxHeight = 430,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget? bottom;
+  final IconData? accentIcon;
+  final String? accentLabel;
+  final Color accentColor;
+  final double heightFactor;
+  final double minHeight;
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final heroHeight = (screenHeight * heightFactor).clamp(
+      minHeight,
+      maxHeight,
+    );
+
+    return SizedBox(
+      height: heroHeight,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppTheme.deepTeal,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(46),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.midnight.withValues(alpha: 0.22),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(30, topInset + 42, 30, 34),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.82),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (accentIcon != null) ...[
+                    const SizedBox(width: 18),
+                    Container(
+                      width: 82,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.26),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          AppIcon(
+                            accentIcon!,
+                            color: accentColor,
+                            size: accentLabel == null ? 34 : 30,
+                          ),
+                          if (accentLabel != null) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              accentLabel!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: accentColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (bottom != null) ...[
+                const Spacer(),
+                bottom!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppSectionCard extends StatelessWidget {
   const AppSectionCard({
     super.key,
@@ -246,7 +511,7 @@ class KpiCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.62),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, color: color),
+            child: AppIcon(icon, color: color),
           ),
           const Spacer(),
           Text(title, style: theme.textTheme.bodyMedium),
@@ -288,7 +553,7 @@ class StatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? color),
+            AppIcon(icon!, size: 14, color: iconColor ?? color),
             const SizedBox(width: 6),
           ],
           Text(
@@ -354,7 +619,7 @@ class AppSearchField extends StatelessWidget {
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const Icon(Icons.search_rounded),
+        prefixIcon: const AppIcon(Icons.search_rounded),
       ),
     );
   }
@@ -428,7 +693,7 @@ class AppActionTile extends StatelessWidget {
                 color: AppTheme.deepTeal.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(icon, color: AppTheme.deepTeal),
+              child: AppIcon(icon, color: AppTheme.deepTeal),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -442,7 +707,7 @@ class AppActionTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+            const AppIcon(Icons.arrow_forward_ios_rounded, size: 16),
           ],
         ),
       ),
@@ -485,7 +750,7 @@ class AppMenuLinkTile extends StatelessWidget {
                   color: AppTheme.foam,
                   borderRadius: BorderRadius.circular(18),
                 ),
-                child: Icon(icon, color: AppTheme.deepTeal),
+                child: AppIcon(icon, color: AppTheme.deepTeal),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -499,7 +764,8 @@ class AppMenuLinkTile extends StatelessWidget {
                   ],
                 ),
               ),
-              trailing ?? const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              trailing ??
+                  const AppIcon(Icons.arrow_forward_ios_rounded, size: 16),
             ],
           ),
         ),
@@ -589,7 +855,7 @@ class ProductCard extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    icon: const AppIcon(Icons.edit_outlined, size: 18),
                     label: const Text('Edit'),
                   ),
                 ),
@@ -597,7 +863,7 @@ class ProductCard extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: onAdd,
-                    icon: const Icon(Icons.add_shopping_cart_rounded),
+                    icon: const AppIcon(Icons.add_shopping_cart_rounded),
                     label: Text(count > 0 ? 'Tambah ($count)' : 'Tambah'),
                   ),
                 ),
@@ -671,7 +937,7 @@ class EmptyState extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: AppTheme.foam,
                 ),
-                child: Icon(icon, size: 34, color: AppTheme.deepTeal),
+                child: AppIcon(icon, size: 34, color: AppTheme.deepTeal),
               ),
               const SizedBox(height: 16),
               Text(title, style: Theme.of(context).textTheme.titleMedium),
@@ -741,7 +1007,7 @@ class ErrorState extends StatelessWidget {
               ? null
               : FilledButton.icon(
                   onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
+                  icon: const AppIcon(Icons.refresh_rounded),
                   label: const Text('Coba Lagi'),
                 ),
         ),
@@ -843,7 +1109,6 @@ class AppMediaPreview extends StatelessWidget {
     final isRemote = hasPath &&
         (trimmedPath.startsWith('http://') ||
             trimmedPath.startsWith('https://'));
-    final localExists = hasPath && !isRemote && File(trimmedPath).existsSync();
 
     Widget child;
     if (isRemote) {
@@ -857,7 +1122,7 @@ class AppMediaPreview extends StatelessWidget {
           errorBuilder: (_, __, ___) => _placeholder(context),
         ),
       );
-    } else if (localExists) {
+    } else if (hasPath) {
       child = ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: Image.file(
@@ -891,7 +1156,7 @@ class AppMediaPreview extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(placeholderIcon,
+          AppIcon(placeholderIcon,
               color: AppTheme.deepTeal.withValues(alpha: 0.65)),
           if (label != null) ...[
             const SizedBox(height: 6),

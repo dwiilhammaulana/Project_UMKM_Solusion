@@ -109,7 +109,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         ref,
                         initialMonth: _selectedOperationalMonth,
                       ),
-                      icon: const Icon(Icons.add_rounded),
+                      icon: const AppIcon(Icons.add_rounded),
                       label: const Text('Tambah'),
                     ),
                   ),
@@ -165,7 +165,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                           color: Colors.white.withValues(alpha: 0.78),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Icon(
+                        child: const AppIcon(
                           Icons.payments_rounded,
                           color: AppTheme.warning,
                         ),
@@ -666,7 +666,7 @@ class _ReportSnapshotPanel extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(
+                      child: const AppIcon(
                         Icons.trending_up_rounded,
                         color: Colors.white,
                       ),
@@ -795,7 +795,7 @@ class _MetricTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 22),
+          AppIcon(icon, color: color, size: 22),
           const Spacer(),
           Text(title, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 4),
@@ -983,7 +983,7 @@ class _ProfitLineRow extends StatelessWidget {
               color: color.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, size: 18, color: color),
+            child: AppIcon(icon, size: 18, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1070,7 +1070,7 @@ class _OperationalCostTile extends StatelessWidget {
               color: AppTheme.foam,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(
+            child: const AppIcon(
               Icons.receipt_rounded,
               color: AppTheme.deepTeal,
             ),
@@ -1103,11 +1103,11 @@ class _OperationalCostTile extends StatelessWidget {
           const SizedBox(width: 8),
           IconButton(
             onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined),
+            icon: const AppIcon(Icons.edit_outlined),
           ),
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline_rounded),
+            icon: const AppIcon(Icons.delete_outline_rounded),
             color: AppTheme.danger,
           ),
         ],
@@ -1146,7 +1146,7 @@ class _ReportPreviewCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
               onPressed: onExport,
-              icon: const Icon(Icons.picture_as_pdf_rounded),
+              icon: const AppIcon(Icons.picture_as_pdf_rounded),
               label: const Text('Export'),
             ),
           ),
@@ -1182,7 +1182,7 @@ class _ReportPreviewCard extends StatelessWidget {
                         color: AppTheme.deepTeal.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(Icons.storefront_rounded),
+                      child: const AppIcon(Icons.storefront_rounded),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1204,7 +1204,7 @@ class _ReportPreviewCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Icon(Icons.picture_as_pdf_rounded),
+                    const AppIcon(Icons.picture_as_pdf_rounded),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -1224,7 +1224,7 @@ class _ReportPreviewCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.history_rounded, size: 20),
+                      const AppIcon(Icons.history_rounded, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -1263,7 +1263,7 @@ class _PreviewHighlightRow extends StatelessWidget {
               color: AppTheme.deepTeal.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.check_rounded, size: 15),
+            child: const AppIcon(Icons.check_rounded, size: 15),
           ),
           const SizedBox(width: 10),
           Expanded(

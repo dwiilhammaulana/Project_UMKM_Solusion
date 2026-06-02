@@ -28,6 +28,7 @@ dependencies:
   google_sign_in: ^7.2.0
   local_auth: ^3.0.1
   local_auth_android: ^2.0.8
+  iconify_flutter: ^0.0.7
 
 
 dev_dependencies:
@@ -41,5 +42,6 @@ flutter:
     - .env
     - .env.example
     - ls.png
+    - landing_page.png
     - bg login.png
     - assets/images/splash_screen_load.png

@@ -22,12 +22,11 @@ class DashboardScreen extends ConsumerWidget {
     final greeting = _greetingFor(DateTime.now());
 
     return AppPageScrollView(
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
       children: [
         _DashboardHero(
           profile: profile,
           greeting: greeting,
-          revenue: state.totalRevenue,
-          todayTransactions: state.todayTransactionCount,
           onEditProfile: () => showStoreProfileSheet(
             context,
             ref,
@@ -36,114 +35,100 @@ class DashboardScreen extends ConsumerWidget {
           onOpenCashier: () => context.go('/cashier'),
           onOpenReports: () => context.go('/reports'),
         ),
-        const SizedBox(height: 18),
-        _MetricGrid(
-          metrics: [
-            _MetricData(
-              title: 'Pendapatan',
-              value: AppFormatters.currency(state.totalRevenue),
-              subtitle: 'Termasuk cicilan masuk',
-              icon: Icons.payments_rounded,
-              color: AppTheme.deepTeal,
-            ),
-            _MetricData(
-              title: 'Transaksi Hari Ini',
-              value: '${state.todayTransactionCount}',
-              subtitle: 'Aktivitas penjualan',
-              icon: Icons.receipt_long_rounded,
-              color: AppTheme.info,
-            ),
-            _MetricData(
-              title: 'Bon Aktif',
-              value: AppFormatters.currency(state.activeDebtTotal),
-              subtitle: '${state.activeDebtsSorted.length} belum lunas',
-              icon: Icons.account_balance_wallet_rounded,
-              color: AppTheme.warning,
-            ),
-            _MetricData(
-              title: 'Stok Menipis',
-              value: '${state.lowStockProducts.length} item',
-              subtitle: 'Siapkan restock',
-              icon: Icons.inventory_2_rounded,
-              color: AppTheme.success,
-            ),
-          ],
+        const SizedBox(height: 24),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _MetricGrid(
+            metrics: [
+              _MetricData(
+                title: 'Pendapatan',
+                value: AppFormatters.currency(state.totalRevenue),
+                subtitle: 'Termasuk cicilan masuk',
+                icon: Icons.payments_rounded,
+                color: AppTheme.deepTeal,
+              ),
+              _MetricData(
+                title: 'Transaksi Hari Ini',
+                value: '${state.todayTransactionCount}',
+                subtitle: 'Aktivitas penjualan',
+                icon: Icons.receipt_long_rounded,
+                color: AppTheme.info,
+              ),
+              _MetricData(
+                title: 'Bon Aktif',
+                value: AppFormatters.currency(state.activeDebtTotal),
+                subtitle: '${state.activeDebtsSorted.length} belum lunas',
+                icon: Icons.account_balance_wallet_rounded,
+                color: AppTheme.warning,
+              ),
+              _MetricData(
+                title: 'Stok Menipis',
+                value: '${state.lowStockProducts.length} item',
+                subtitle: 'Siapkan restock',
+                icon: Icons.inventory_2_rounded,
+                color: AppTheme.success,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 20),
-        _QuickCommandPanel(
-          onCashierTap: () => context.go('/cashier'),
-          onProductTap: () => context.go('/products'),
-          onCustomerTap: () => context.go('/customers'),
-          onAnalyticsTap: () => context.go('/analytics'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _QuickCommandPanel(
+            onCashierTap: () => context.go('/cashier'),
+            onProductTap: () => context.go('/products'),
+            onCustomerTap: () => context.go('/customers'),
+            onAnalyticsTap: () => context.go('/analytics'),
+          ),
         ),
         const SizedBox(height: 20),
-        _OperationFocusSection(
-          activeDebts: activeDebts,
-          lowStockProducts: lowStockProducts,
-          onOpenDebts: () => context.go('/debts'),
-          onOpenInventory: () => context.go('/inventory'),
-          onOpenDebt: (debt) => context.go('/debts/${debt.id}'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _OperationFocusSection(
+            activeDebts: activeDebts,
+            lowStockProducts: lowStockProducts,
+            onOpenDebts: () => context.go('/debts'),
+            onOpenInventory: () => context.go('/inventory'),
+            onOpenDebt: (debt) => context.go('/debts/${debt.id}'),
+          ),
         ),
         const SizedBox(height: 20),
-        _RecentTransactionsSection(
-          transactions: recentTransactions,
-          onOpenCashier: () => context.go('/cashier'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _RecentTransactionsSection(
+            transactions: recentTransactions,
+            onOpenCashier: () => context.go('/cashier'),
+          ),
         ),
       ],
     );
   }
 
-  _GreetingData _greetingFor(DateTime now) {
+  String _greetingFor(DateTime now) {
     if (now.hour < 11) {
-      return const _GreetingData(
-        label: 'Selamat pagi',
-        icon: Icons.wb_sunny_rounded,
-      );
+      return 'Selamat Pagi';
     }
     if (now.hour < 15) {
-      return const _GreetingData(
-        label: 'Selamat siang',
-        icon: Icons.light_mode_rounded,
-      );
+      return 'Selamat Siang';
     }
     if (now.hour < 18) {
-      return const _GreetingData(
-        label: 'Selamat sore',
-        icon: Icons.wb_twilight_rounded,
-      );
+      return 'Selamat Sore';
     }
-    return const _GreetingData(
-      label: 'Selamat malam',
-      icon: Icons.nights_stay_rounded,
-    );
+    return 'Selamat Malam';
   }
-}
-
-class _GreetingData {
-  const _GreetingData({
-    required this.label,
-    required this.icon,
-  });
-
-  final String label;
-  final IconData icon;
 }
 
 class _DashboardHero extends StatelessWidget {
   const _DashboardHero({
     required this.profile,
     required this.greeting,
-    required this.revenue,
-    required this.todayTransactions,
     required this.onEditProfile,
     required this.onOpenCashier,
     required this.onOpenReports,
   });
 
   final AppProfile profile;
-  final _GreetingData greeting;
-  final double revenue;
-  final int todayTransactions;
+  final String greeting;
   final VoidCallback onEditProfile;
   final VoidCallback onOpenCashier;
   final VoidCallback onOpenReports;
@@ -151,228 +136,181 @@ class _DashboardHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final heroHeight = (screenHeight * 0.57).clamp(390.0, 540.0);
 
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(34),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF12343B),
-            Color(0xFF1D6B72),
-            Color(0xFFEDC56F),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [0, 0.62, 1],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.midnight.withValues(alpha: 0.20),
-            blurRadius: 32,
-            offset: const Offset(0, 18),
+    return SizedBox(
+      height: heroHeight,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppTheme.deepTeal,
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(46),
           ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.midnight.withValues(alpha: 0.22),
+              blurRadius: 28,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'landing_page.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      AppTheme.deepTeal.withValues(alpha: 0.70),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(30, topInset + 42, 30, 34),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            StatusChip(
-                              label: greeting.label,
-                              color: Colors.white,
-                              icon: greeting.icon,
-                              iconColor: const Color(0xFFFFD54F),
-                            ),
-                            StatusChip(
-                              label: profile.ownerName ?? 'Pemilik toko',
-                              color: const Color(0xFFFFE5A8),
-                              icon: Icons.workspace_premium_rounded,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          profile.storeName,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            height: 1.08,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          profile.storeSubtitle,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.82),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AppProfileAvatar(photoPath: profile.photoPath, size: 76),
-                      const SizedBox(height: 10),
-                      IconButton.filled(
-                        key: const Key('dashboard-edit-profile-button'),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.deepTeal,
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$greeting,',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                profile.storeName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        tooltip: 'Edit profil toko',
-                        onPressed: onEditProfile,
-                        icon: const Icon(Icons.edit_rounded),
+                      ),
+                      const SizedBox(width: 18),
+                      _ProfileEditAvatar(
+                        photoPath: profile.photoPath,
+                        onEditProfile: onEditProfile,
                       ),
                     ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _HeroPill(
-                    icon: Icons.trending_up_rounded,
-                    label: 'Revenue',
-                    value: AppFormatters.currency(revenue),
+                  const Spacer(),
+                  _HeroButton(
+                    label: 'Buka kasir',
+                    onPressed: onOpenCashier,
+                    filled: true,
                   ),
-                  _HeroPill(
-                    icon: Icons.bolt_rounded,
-                    label: 'Hari ini',
-                    value: '$todayTransactions transaksi',
+                  const SizedBox(height: 14),
+                  _HeroButton(
+                    label: 'Laporan',
+                    onPressed: onOpenReports,
+                    filled: false,
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final compact = constraints.maxWidth < 390;
-                  final children = [
-                    FilledButton.icon(
-                      onPressed: onOpenCashier,
-                      icon: const Icon(Icons.point_of_sale_rounded),
-                      label: const Text('Buka kasir'),
-                    ),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.26),
-                        ),
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: onOpenReports,
-                      icon: const Icon(Icons.bar_chart_rounded),
-                      label: const Text('Laporan'),
-                    ),
-                  ];
-
-                  if (compact) {
-                    return Column(
-                      children: [
-                        for (var index = 0; index < children.length; index++)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              bottom: index == children.length - 1 ? 0 : 10,
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: children[index],
-                            ),
-                          ),
-                      ],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      for (var index = 0; index < children.length; index++) ...[
-                        Expanded(child: children[index]),
-                        if (index != children.length - 1)
-                          const SizedBox(width: 12),
-                      ],
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HeroPill extends StatelessWidget {
-  const _HeroPill({
-    required this.icon,
-    required this.label,
-    required this.value,
+class _ProfileEditAvatar extends StatelessWidget {
+  const _ProfileEditAvatar({
+    required this.photoPath,
+    required this.onEditProfile,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
+  final String? photoPath;
+  final VoidCallback onEditProfile;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 142),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+    return Tooltip(
+      message: 'Edit profil toko',
+      child: Material(
+        key: const Key('dashboard-edit-profile-button'),
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onEditProfile,
+          child: AppProfileAvatar(photoPath: photoPath, size: 84),
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-              ],
-            ),
+    );
+  }
+}
+
+class _HeroButton extends StatelessWidget {
+  const _HeroButton({
+    required this.label,
+    required this.onPressed,
+    required this.filled,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = filled ? Colors.white : Colors.transparent;
+    final foreground = filled ? AppTheme.deepTeal : Colors.white;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 66,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.94),
+            width: 2,
           ),
-        ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(label),
       ),
     );
   }
@@ -404,7 +342,7 @@ class _MetricGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 720 ? 4 : 2;
-        final ratio = constraints.maxWidth < 370 ? 0.82 : 0.94;
+        final ratio = constraints.maxWidth >= 720 ? 0.86 : 0.78;
 
         return GridView.builder(
           padding: EdgeInsets.zero,
@@ -413,8 +351,8 @@ class _MetricGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 18,
+            mainAxisSpacing: 18,
             childAspectRatio: ratio,
           ),
           itemBuilder: (context, index) {
@@ -436,49 +374,41 @@ class _MetricCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: metric.color.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppTheme.deepTeal.withValues(alpha: 0.06)),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.midnight.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: AppTheme.midnight.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(metric.icon, color: metric.color),
-          ),
+          AppIcon(metric.icon, color: metric.color, size: 34),
           const Spacer(),
           Text(
             metric.title,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodyMedium,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               metric.value,
               maxLines: 1,
-              style: theme.textTheme.titleLarge,
+              style: theme.textTheme.titleLarge?.copyWith(fontSize: 20),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             metric.subtitle,
             maxLines: 2,
@@ -517,15 +447,16 @@ class _QuickCommandPanel extends StatelessWidget {
             action: IconButton.filledTonal(
               tooltip: 'Buka modul lain',
               onPressed: () => context.go('/more'),
-              icon: const Icon(Icons.widgets_rounded),
+              icon: const AppIcon(Icons.widgets_rounded),
             ),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
               final twoColumns = constraints.maxWidth >= 520;
-              final width =
-                  twoColumns ? (constraints.maxWidth - 12) / 2 : double.infinity;
+              final width = twoColumns
+                  ? (constraints.maxWidth - 12) / 2
+                  : double.infinity;
               final actions = [
                 _CommandData(
                   icon: Icons.point_of_sale_rounded,
@@ -618,7 +549,7 @@ class _CommandTile extends StatelessWidget {
                 color: data.color,
                 borderRadius: BorderRadius.circular(17),
               ),
-              child: Icon(data.icon, color: Colors.white),
+              child: AppIcon(data.icon, color: Colors.white),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -641,7 +572,7 @@ class _CommandTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
+            AppIcon(
               Icons.arrow_forward_rounded,
               color: data.color,
               size: 20,
@@ -783,7 +714,7 @@ class _DebtListTile extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.78),
                   borderRadius: BorderRadius.circular(15),
                 ),
-                child: const Icon(
+                child: const AppIcon(
                   Icons.wallet_rounded,
                   color: AppTheme.warning,
                 ),
@@ -856,8 +787,7 @@ class _StockFocusCard extends StatelessWidget {
               subtitle: 'Tidak ada produk di bawah batas minimum.',
             )
           else
-            for (final product in products)
-              _StockListTile(product: product),
+            for (final product in products) _StockListTile(product: product),
         ],
       ),
     );
@@ -989,7 +919,7 @@ class _TransactionListTile extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(
+              child: AppIcon(
                 isDebt ? Icons.schedule_rounded : Icons.shopping_bag_rounded,
                 color: color,
               ),
@@ -1062,7 +992,7 @@ class _InlineEmptyState extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.84),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Icon(icon, color: AppTheme.deepTeal),
+            child: AppIcon(icon, color: AppTheme.deepTeal),
           ),
           const SizedBox(height: 12),
           Text(

@@ -34,15 +34,12 @@ class TransactionDetailScreen extends ConsumerWidget {
                 ),
               ),
               pw.SizedBox(height: 10),
-
               pw.Text('Kode: ${transaction.transactionCode}'),
               pw.Text(
                   'Tanggal: ${AppFormatters.dateTime(transaction.createdAt)}'),
               pw.Text('Pelanggan: ${transaction.customerName}'),
               pw.Text('Metode: ${transaction.paymentMethod.label}'),
-
               pw.Divider(),
-
               ...transaction.items.map(
                 (item) => pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -56,9 +53,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-
               pw.Divider(),
-
               pw.Text(
                   'Total: ${AppFormatters.currency(transaction.totalAmount)}'),
               pw.Text(
@@ -75,7 +70,6 @@ class TransactionDetailScreen extends ConsumerWidget {
       onLayout: (PdfPageFormat format) async => pdf.save(),
     );
   }
-
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -109,7 +103,7 @@ class TransactionDetailScreen extends ConsumerWidget {
               backgroundColor: Colors.white,
               foregroundColor: AppTheme.deepTeal,
             ),
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const AppIcon(Icons.arrow_back_rounded),
           ),
           bottom: Wrap(
             spacing: 10,
@@ -213,14 +207,13 @@ class TransactionDetailScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
               _printReceipt(context, transaction);
             },
-            icon: const Icon(Icons.print_rounded),
+            icon: const AppIcon(Icons.print_rounded),
             label: const Text('Cetak Struk'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -232,8 +225,6 @@ class TransactionDetailScreen extends ConsumerWidget {
             ),
           ),
         ),
-
-        
         const SizedBox(height: 20),
         AppSectionCard(
           child: Column(
@@ -294,7 +285,7 @@ class _TransactionItemCard extends StatelessWidget {
               color: AppTheme.foam,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
+            child: const AppIcon(
               Icons.shopping_bag_outlined,
               color: AppTheme.deepTeal,
             ),
@@ -313,7 +304,7 @@ class _TransactionItemCard extends StatelessWidget {
                   '${item.quantity} x ${AppFormatters.currency(item.sellPrice)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ],  
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -321,7 +312,7 @@ class _TransactionItemCard extends StatelessWidget {
             AppFormatters.currency(item.subtotal),
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          ],
+        ],
       ),
     );
   }

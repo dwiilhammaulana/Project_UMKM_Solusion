@@ -49,7 +49,7 @@ class DebtDetailScreen extends ConsumerWidget {
               backgroundColor: Colors.white,
               foregroundColor: AppTheme.deepTeal,
             ),
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const AppIcon(Icons.arrow_back_rounded),
           ),
           bottom: DebtAgeIndicator(ageInDays: debt.ageInDays),
         ),
@@ -85,7 +85,7 @@ class DebtDetailScreen extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => showDebtPaymentSheet(context, ref, debt),
-                      icon: const Icon(Icons.payments_outlined),
+                      icon: const AppIcon(Icons.payments_outlined),
                       label: const Text('Bayar Cicilan'),
                     ),
                   ),
@@ -95,7 +95,7 @@ class DebtDetailScreen extends ConsumerWidget {
                       onPressed: () async {
                         await ref.read(posStateProvider).markDebtPaid(debt.id);
                       },
-                      icon: const Icon(Icons.done_all_rounded),
+                      icon: const AppIcon(Icons.done_all_rounded),
                       label: const Text('Lunasi'),
                     ),
                   ),
@@ -115,7 +115,8 @@ class DebtDetailScreen extends ConsumerWidget {
                 const EmptyState(
                   icon: Icons.payments_outlined,
                   title: 'Belum ada cicilan',
-                  subtitle: 'Pembayaran bon akan muncul di sini setelah dicatat.',
+                  subtitle:
+                      'Pembayaran bon akan muncul di sini setelah dicatat.',
                 )
               else
                 ...payments.map(
@@ -136,7 +137,7 @@ class DebtDetailScreen extends ConsumerWidget {
                               color: AppTheme.foam,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(
+                            child: const AppIcon(
                               Icons.payments_rounded,
                               color: AppTheme.deepTeal,
                             ),
@@ -148,7 +149,8 @@ class DebtDetailScreen extends ConsumerWidget {
                               children: [
                                 Text(
                                   AppFormatters.currency(payment.amount),
-                                  style: Theme.of(context).textTheme.titleMedium,
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(

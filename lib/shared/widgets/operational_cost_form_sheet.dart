@@ -102,7 +102,7 @@ class _OperationalCostFormSheetState
                 child: InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Periode biaya',
-                    prefixIcon: Icon(Icons.calendar_month_rounded),
+                    prefixIcon: AppIcon(Icons.calendar_month_rounded),
                   ),
                   child: Text(_monthLabel),
                 ),

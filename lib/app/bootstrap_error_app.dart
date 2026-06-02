@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../shared/widgets/common_widgets.dart';
+
 class BootstrapErrorApp extends StatelessWidget {
   const BootstrapErrorApp({super.key, required this.message});
 
@@ -16,7 +18,7 @@ class BootstrapErrorApp extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline_rounded, size: 48),
+                const AppIcon(Icons.error_outline_rounded, size: 48),
                 const SizedBox(height: 16),
                 const Text(
                   'Aplikasi belum bisa dijalankan',

@@ -42,7 +42,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: LinearGradient(
+        decoration: const BoxDecoration(
+            gradient: LinearGradient(
           colors: [Color(0xFFF4FBFA), Color(0xFFEAF4F3), Color(0xFFFDFEFE)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -89,8 +90,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     child: OutlinedButton.icon(
                                       onPressed:
                                           _isSubmitting ? null : _pickPhoto,
-                                      icon:
-                                          const Icon(Icons.add_a_photo_outlined),
+                                      icon: const AppIcon(
+                                          Icons.add_a_photo_outlined),
                                       label: Text(
                                         _photoPath == null
                                             ? 'Upload Foto'
@@ -108,8 +109,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                               : () => setState(
                                                     () => _photoPath = null,
                                                   ),
-                                      icon:
-                                          const Icon(Icons.delete_outline_rounded),
+                                      icon: const AppIcon(
+                                          Icons.delete_outline_rounded),
                                       label: const Text('Kosongkan'),
                                     ),
                                   ),

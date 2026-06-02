@@ -98,7 +98,7 @@ class _StoreProfileSheetState extends State<_StoreProfileSheet> {
                         OutlinedButton.icon(
                           key: const Key('store-image-pick-button'),
                           onPressed: _isSaving ? null : _pickPhoto,
-                          icon: const Icon(Icons.add_a_photo_outlined),
+                          icon: const AppIcon(Icons.add_a_photo_outlined),
                           label: Text(
                             _photoPath == null ? 'Upload Foto' : 'Ganti Foto',
                           ),
@@ -109,7 +109,7 @@ class _StoreProfileSheetState extends State<_StoreProfileSheet> {
                           onPressed: _isSaving || _photoPath == null
                               ? null
                               : () => setState(() => _photoPath = null),
-                          icon: const Icon(Icons.delete_outline_rounded),
+                          icon: const AppIcon(Icons.delete_outline_rounded),
                           label: const Text('Kosongkan'),
                         ),
                       ],
@@ -121,8 +121,9 @@ class _StoreProfileSheetState extends State<_StoreProfileSheet> {
               TextFormField(
                 controller: _storeNameController,
                 decoration: const InputDecoration(labelText: 'Nama toko'),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Nama toko wajib diisi' : null,
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Nama toko wajib diisi'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(

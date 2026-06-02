@@ -42,25 +42,26 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
     final auth = ref.watch(authControllerProvider);
+    final productQuery = _productQuery.trim().toLowerCase();
+    final customerQuery = _customerQuery.trim().toLowerCase();
+    final historyQuery = _historyQuery.trim().toLowerCase();
     final filteredProducts = state.products.where((product) {
-      final matchesQuery = product.name.toLowerCase().contains(
-            _productQuery.toLowerCase(),
-          );
+      final matchesQuery = productQuery.isEmpty ||
+          product.name.toLowerCase().contains(productQuery);
       final matchesCategory =
           _categoryId == null || product.categoryId == _categoryId;
       return matchesQuery && matchesCategory && product.isActive;
     }).toList();
     final filteredCustomers = state.customers.where((customer) {
-      final input = _customerQuery.toLowerCase();
       return customer.isActive &&
-          (customer.name.toLowerCase().contains(input) ||
-              customer.phone.toLowerCase().contains(input));
+          (customerQuery.isEmpty ||
+              customer.name.toLowerCase().contains(customerQuery) ||
+              customer.phone.toLowerCase().contains(customerQuery));
     }).toList();
     final filteredTransactions = state.transactions.where((transaction) {
-      final input = _historyQuery.toLowerCase();
-      return input.isEmpty ||
-          transaction.transactionCode.toLowerCase().contains(input) ||
-          transaction.customerName.toLowerCase().contains(input);
+      return historyQuery.isEmpty ||
+          transaction.transactionCode.toLowerCase().contains(historyQuery) ||
+          transaction.customerName.toLowerCase().contains(historyQuery);
     }).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -68,8 +69,51 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
       length: 2,
       child: Column(
         children: [
+          AppCleanTopHero(
+            title: auth.isKasir
+                ? 'Halo kasir ${auth.displayName ?? auth.emailAddress}'
+                : 'Kasir',
+            subtitle:
+                'Pilih produk, tentukan pelanggan, lalu checkout tunai atau BON tanpa meninggalkan layar utama.',
+            accentIcon: Icons.point_of_sale_rounded,
+            accentLabel: 'POS',
+            heightFactor: 0.36,
+            minHeight: 292,
+            maxHeight: 370,
+            bottom: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                StatusChip(
+                  label: state.appProfile.storeName,
+                  color: Colors.white,
+                  icon: Icons.flash_on_rounded,
+                ),
+                StatusChip(
+                  label: '${state.cartCount} item di keranjang',
+                  color: Colors.white,
+                  icon: Icons.shopping_cart_rounded,
+                ),
+                StatusChip(
+                  label: _cashierPaymentLabel(state.selectedPaymentMethod),
+                  color: Colors.white,
+                  icon: Icons.payments_rounded,
+                ),
+                StatusChip(
+                  label: '${state.transactions.length} transaksi',
+                  color: Colors.white,
+                  icon: Icons.receipt_long_rounded,
+                ),
+                StatusChip(
+                  label: AppFormatters.currency(state.totalRevenue),
+                  color: Colors.white,
+                  icon: Icons.payments_rounded,
+                ),
+              ],
+            ),
+          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
             child: Container(
               decoration: BoxDecoration(
                 color: AppTheme.foam,
@@ -95,11 +139,10 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                 _buildNewTransactionTab(
                   context,
                   state,
-                  auth,
                   filteredProducts,
                   filteredCustomers,
                 ),
-                _buildHistoryTab(context, state, auth, filteredTransactions),
+                _buildHistoryTab(context, state, filteredTransactions),
               ],
             ),
           ),
@@ -111,7 +154,6 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget _buildNewTransactionTab(
     BuildContext context,
     PosAppState state,
-    AuthController auth,
     List<Product> filteredProducts,
     List<Customer> filteredCustomers,
   ) {
@@ -130,35 +172,6 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
             shellBottomClearance(context, extraSpacing: 160),
           ),
           children: [
-            HeroPanel(
-              badge: StatusChip(
-                label: state.appProfile.storeName,
-                color: Colors.white,
-                icon: Icons.flash_on_rounded,
-              ),
-              title: auth.isKasir
-                  ? 'Halo kasir ${auth.displayName ?? auth.emailAddress}'
-                  : 'Flow kasir yang cepat dan tetap rapi.',
-              subtitle:
-                  'Pilih produk, tentukan pelanggan, lalu checkout tunai atau BON tanpa meninggalkan layar utama.',
-              bottom: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  StatusChip(
-                    label: '${state.cartCount} item di keranjang',
-                    color: Colors.white,
-                    icon: Icons.shopping_cart_rounded,
-                  ),
-                  StatusChip(
-                    label: _cashierPaymentLabel(state.selectedPaymentMethod),
-                    color: Colors.white,
-                    icon: Icons.payments_rounded,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
             AppSectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,14 +224,13 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     )
                   else
                     ...filteredProducts.map((product) {
-                      final category = state.categories.firstWhere(
-                        (item) => item.id == product.categoryId,
-                      );
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: ProductCard(
                           product: product,
-                          categoryName: category.name,
+                          categoryName: state.categoryNameById(
+                            product.categoryId,
+                          ),
                           count: state.cart[product.id] ?? 0,
                           mediaPlaceholderLabel: null,
                           onEdit: null,
@@ -261,9 +273,10 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     )
                   else ...[
                     ...state.cart.entries.map((entry) {
-                      final product = state.products.firstWhere(
-                        (item) => item.id == entry.key,
-                      );
+                      final product = state.productById(entry.key);
+                      if (product == null) {
+                        return const SizedBox.shrink();
+                      }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Container(
@@ -314,7 +327,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                       onPressed: () => ref
                                           .read(posStateProvider)
                                           .decreaseCartQty(product.id),
-                                      icon: const Icon(Icons.remove_rounded),
+                                      icon: const AppIcon(Icons.remove_rounded),
                                     ),
                                     Text(
                                       '${entry.value}',
@@ -337,7 +350,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                           );
                                         }
                                       },
-                                      icon: const Icon(Icons.add_rounded),
+                                      icon: const AppIcon(Icons.add_rounded),
                                     ),
                                   ],
                                 ),
@@ -418,7 +431,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                   .setSelectedCustomer(customer.id);
                             }
                           },
-                          icon: const Icon(Icons.person_add_alt_1_rounded),
+                          icon: const AppIcon(Icons.person_add_alt_1_rounded),
                           label: const Text('Daftar Baru'),
                         ),
                       ),
@@ -472,7 +485,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                   .setSelectedCustomer(null);
                               setState(() => _customerQuery = '');
                             },
-                            icon: const Icon(Icons.close_rounded),
+                            icon: const AppIcon(Icons.close_rounded),
                           ),
                         ],
                       ),
@@ -557,7 +570,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                                       ),
                                     ),
                                     if (state.selectedCustomerId == customer.id)
-                                      const Icon(
+                                      const AppIcon(
                                         Icons.check_circle_rounded,
                                         color: AppTheme.success,
                                       ),
@@ -608,7 +621,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                     controller: _notesController,
                     decoration: const InputDecoration(
                       hintText: 'Catatan transaksi (opsional)',
-                      prefixIcon: Icon(Icons.note_alt_outlined),
+                      prefixIcon: AppIcon(Icons.note_alt_outlined),
                     ),
                     maxLines: 2,
                   ),
@@ -653,7 +666,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
                       );
                     }
                   },
-                  icon: const Icon(Icons.receipt_long_rounded),
+                  icon: const AppIcon(Icons.receipt_long_rounded),
                   label: Text(
                     state.selectedPaymentMethod == PaymentMethod.bon
                         ? 'Simpan Transaksi BON'
@@ -671,41 +684,16 @@ class _CashierScreenState extends ConsumerState<CashierScreen> {
   Widget _buildHistoryTab(
     BuildContext context,
     PosAppState state,
-    AuthController auth,
     List<TransactionRecord> filteredTransactions,
   ) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        shellBottomClearance(context),
+      ),
       children: [
-        HeroPanel(
-          badge: const StatusChip(
-            label: 'Riwayat transaksi',
-            color: Colors.white,
-            icon: Icons.history_rounded,
-          ),
-          title: auth.isKasir
-              ? 'Halo kasir ${auth.displayName ?? auth.emailAddress}'
-              : 'Semua transaksi tetap rapi dan mudah ditelusuri.',
-          subtitle:
-              'Cari berdasarkan kode transaksi atau pelanggan, lalu buka detail lengkap kapan saja.',
-          bottom: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              StatusChip(
-                label: '${state.transactions.length} transaksi tersimpan',
-                color: Colors.white,
-                icon: Icons.receipt_long_rounded,
-              ),
-              StatusChip(
-                label: AppFormatters.currency(state.totalRevenue),
-                color: Colors.white,
-                icon: Icons.payments_rounded,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
         AppSectionCard(
           child: AppSearchField(
             fieldKey: const Key('cashier-history-search'),

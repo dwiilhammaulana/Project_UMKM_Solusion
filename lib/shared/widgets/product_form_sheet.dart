@@ -117,7 +117,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                         OutlinedButton.icon(
                           key: const Key('product-image-pick-button'),
                           onPressed: _isSaving ? null : _pickImage,
-                          icon: const Icon(Icons.upload_file_rounded),
+                          icon: const AppIcon(Icons.upload_file_rounded),
                           label: Text(
                             _imagePath == null ? 'Upload Foto' : 'Ganti Foto',
                           ),
@@ -128,7 +128,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                           onPressed: _isSaving || _imagePath == null
                               ? null
                               : () => setState(() => _imagePath = null),
-                          icon: const Icon(Icons.delete_outline_rounded),
+                          icon: const AppIcon(Icons.delete_outline_rounded),
                           label: const Text('Kosongkan'),
                         ),
                       ],
@@ -149,7 +149,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                 isExpanded: true,
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                icon: const Icon(
+                icon: const AppIcon(
                   Icons.keyboard_arrow_down_rounded,
                   color: AppTheme.deepTeal,
                 ),
@@ -172,7 +172,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                   labelText: 'Kategori',
                   filled: true,
                   fillColor: Colors.white,
-                  prefixIcon: const Icon(Icons.sell_outlined),
+                  prefixIcon: const AppIcon(Icons.sell_outlined),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(22),
                     borderSide: BorderSide(

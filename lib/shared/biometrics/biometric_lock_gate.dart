@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/common_widgets.dart';
 import 'biometric_lock_controller.dart';
 
 class BiometricLockGate extends ConsumerStatefulWidget {
@@ -105,7 +106,7 @@ class _BiometricLockScreen extends StatelessWidget {
                             color: AppTheme.foam,
                             borderRadius: BorderRadius.circular(28),
                           ),
-                          child: const Icon(
+                          child: const AppIcon(
                             Icons.lock_rounded,
                             color: AppTheme.deepTeal,
                             size: 42,
@@ -155,7 +156,7 @@ class _BiometricLockScreen extends StatelessWidget {
                                     strokeWidth: 2.4,
                                   ),
                                 )
-                              : const Icon(Icons.fingerprint_rounded),
+                              : const AppIcon(Icons.fingerprint_rounded),
                           label: Text(
                             controller.isUnlocking
                                 ? 'Memverifikasi...'
