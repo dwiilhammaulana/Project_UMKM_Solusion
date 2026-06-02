@@ -8,6 +8,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
 import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
+import 'package:warung_kopi_pos/shared/biometrics/biometric_exception.dart';
+import 'package:warung_kopi_pos/shared/biometrics/biometric_service.dart';
 import 'package:warung_kopi_pos/shared/database/app_database.dart';
 import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
@@ -20,6 +22,7 @@ void main() {
     WidgetTester tester, {
     List<String?> pickerResponses = const [],
     AuthController? authController,
+    BiometricAuthenticator? biometricAuthenticator,
   }) async {
     tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 1.0;
@@ -39,6 +42,9 @@ void main() {
           authControllerProvider.overrideWith((ref) {
             return authController ?? AuthController.test();
           }),
+          biometricServiceProvider.overrideWithValue(
+            biometricAuthenticator ?? FakeBiometricAuthenticator(),
+          ),
           mediaPickerProvider.overrideWithValue(
             FakeMediaPickerService(List<String?>.from(pickerResponses)),
           ),
@@ -107,6 +113,36 @@ void main() {
     expect(find.text('Tambah Produk'), findsOneWidget);
   });
 
+  testWidgets('biometric lock covers dashboard and unlock restores it', (
+    tester,
+  ) async {
+    final biometric = FakeBiometricAuthenticator(
+      isAvailable: true,
+      authenticateError: const BiometricException(
+        code: BiometricErrorCode.userCanceled,
+        message: 'Canceled',
+        userMessage: 'Verifikasi dibatalkan.',
+      ),
+    );
+
+    await pumpApp(
+      tester,
+      authController: AuthController.test(),
+      biometricAuthenticator: biometric,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aplikasi Terkunci'), findsOneWidget);
+    expect(find.text('Warung Kopi Pertigaan Jati'), findsNothing);
+
+    biometric.authenticateError = null;
+    await tester.tap(find.byKey(const Key('biometric-unlock-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aplikasi Terkunci'), findsNothing);
+    expect(find.text('Warung Kopi Pertigaan Jati'), findsOneWidget);
+  });
+
   testWidgets('reports screen opens without blank state', (tester) async {
     await pumpApp(tester);
 
@@ -138,7 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 0);
-    expect(find.text('Masuk ke Warung Kopi'), findsNothing);
+    expect(find.text('Masuk ke Toko Saku'), findsNothing);
 
     await tester.tap(find.byKey(const Key('more-logout-button')));
     await tester.pumpAndSettle();
@@ -146,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 1);
-    expect(find.text('Masuk ke Warung Kopi'), findsOneWidget);
+    expect(find.text('Masuk ke Toko Saku'), findsOneWidget);
   });
 
   testWidgets(
@@ -638,4 +674,26 @@ class FakeMediaPickerService implements MediaPickerService {
     }
     return responses.removeAt(0);
   }
+}
+
+class FakeBiometricAuthenticator implements BiometricAuthenticator {
+  FakeBiometricAuthenticator({
+    this.isAvailable = false,
+    this.authenticateError,
+  });
+
+  final bool isAvailable;
+  Object? authenticateError;
+
+  @override
+  Future<bool> authenticate({String reason = ''}) async {
+    final error = authenticateError;
+    if (error != null) {
+      throw error;
+    }
+    return true;
+  }
+
+  @override
+  Future<bool> isBiometricAvailable() async => isAvailable;
 }

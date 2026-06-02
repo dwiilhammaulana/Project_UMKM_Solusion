@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <style name="LaunchTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">#101C1E</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_screen_load</item>

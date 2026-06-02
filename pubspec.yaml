@@ -26,6 +26,8 @@ dependencies:
   pdf: ^3.10.8
   printing: ^5.12.0
   google_sign_in: ^7.2.0
+  local_auth: ^3.0.1
+  local_auth_android: ^2.0.8
 
 
 dev_dependencies:
@@ -39,4 +41,5 @@ flutter:
     - .env
     - .env.example
     - ls.png
+    - bg login.png
     - assets/images/splash_screen_load.png

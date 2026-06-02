@@ -73,11 +73,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _authTransitionPage(
+          state: state,
+          child: const LoginScreen(),
+        ),
       ),
       GoRoute(
         path: '/signup',
-        builder: (context, state) => const SignupScreen(),
+        pageBuilder: (context, state) => _authTransitionPage(
+          state: state,
+          child: const SignupScreen(),
+        ),
       ),
       GoRoute(
         path: '/verify-email',
@@ -166,6 +172,64 @@ bool _isCashierAllowedLocation(String location) {
       location.startsWith('/cashier/transactions/') ||
       location == '/debts' ||
       location.startsWith('/debts/');
+}
+
+CustomTransitionPage<void> _authTransitionPage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: const Duration(milliseconds: 420),
+    reverseTransitionDuration: const Duration(milliseconds: 320),
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final fade = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      final slide = Tween<Offset>(
+        begin: const Offset(0.04, 0),
+        end: Offset.zero,
+      ).animate(fade);
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          const _AuthRouteTransitionBackground(),
+          FadeTransition(
+            opacity: fade,
+            child: SlideTransition(
+              position: slide,
+              child: child,
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _AuthRouteTransitionBackground extends StatelessWidget {
+  const _AuthRouteTransitionBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E4A43),
+        image: DecorationImage(
+          image: const AssetImage('bg login.png'),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Colors.black.withValues(alpha: 0.08),
+            BlendMode.darken,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _RouteLoadingScreen extends StatelessWidget {

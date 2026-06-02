@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
+import '../../shared/biometrics/biometric_lock_controller.dart';
+import '../../shared/theme/app_theme.dart';
 import 'auth_scaffold.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -35,19 +37,32 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       title: 'Buat akun baru',
       subtitle:
           'Daftarkan akun pemilik toko. Email akan diverifikasi sebelum akun dipakai.',
+      backgroundColor: AppTheme.deepTeal,
+      backgroundImage: 'bg login.png',
+      frameless: true,
+      contentAlignment: const Alignment(0, 0.58),
       child: Form(
         key: _formKey,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
               controller: _fullNameController,
-              decoration: const InputDecoration(labelText: 'Nama lengkap'),
+              style: const TextStyle(color: AppTheme.deepTeal),
+              decoration: _inputDecoration(
+                labelText: 'Nama lengkap',
+                prefixIcon: Icons.person_outline_rounded,
+              ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email'),
+              style: const TextStyle(color: AppTheme.deepTeal),
+              decoration: _inputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icons.alternate_email_rounded,
+              ),
               validator: (value) {
                 final text = value?.trim() ?? '';
                 if (text.isEmpty) {
@@ -63,7 +78,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
+              style: const TextStyle(color: AppTheme.deepTeal),
+              decoration: _inputDecoration(
+                labelText: 'Password',
+                prefixIcon: Icons.lock_outline_rounded,
+              ),
               validator: (value) {
                 if ((value ?? '').length < 8) {
                   return 'Password minimal 8 karakter';
@@ -76,6 +95,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isSubmitting ? null : _submitSignUp,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.72),
+                  foregroundColor: AppTheme.deepTeal,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: Text(_isSubmitting ? 'Membuat akun...' : 'Daftar'),
               ),
             ),
@@ -84,6 +108,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _isSubmitting ? null : _submitGoogleLogin,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.deepTeal,
+                  side: BorderSide(
+                    color: AppTheme.deepTeal.withValues(alpha: 0.58),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 icon: const Icon(Icons.account_circle_outlined),
                 label: const Text('Daftar dengan Google'),
               ),
@@ -92,10 +123,44 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Center(
               child: TextButton(
                 onPressed: _isSubmitting ? null : () => context.go('/login'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.deepTeal,
+                ),
                 child: const Text('Sudah punya akun? Masuk'),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String labelText,
+    required IconData prefixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: AppTheme.deepTeal,
+      ),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.58),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.72),
+          width: 1.4,
         ),
       ),
     );
@@ -146,6 +211,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() => _isSubmitting = true);
     try {
       await ref.read(authControllerProvider).signInWithGoogle();
+      ref
+          .read(biometricLockControllerProvider)
+          .markUnlockedForCurrentSession();
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
       if (user != null) {

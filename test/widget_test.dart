@@ -8,6 +8,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
 import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
+import 'package:warung_kopi_pos/shared/biometrics/biometric_service.dart';
 import 'package:warung_kopi_pos/shared/database/app_database.dart';
 import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
@@ -39,6 +40,9 @@ void main() {
           authControllerProvider.overrideWith((ref) {
             return authController ?? AuthController.test();
           }),
+          biometricServiceProvider.overrideWithValue(
+            FakeBiometricAuthenticator(),
+          ),
           mediaPickerProvider.overrideWithValue(
             FakeMediaPickerService(List<String?>.from(pickerResponses)),
           ),
@@ -138,7 +142,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 0);
-    expect(find.text('Masuk ke Warung Kopi'), findsNothing);
+    expect(find.text('Masuk ke Toko Saku'), findsNothing);
 
     await tester.tap(find.byKey(const Key('more-logout-button')));
     await tester.pumpAndSettle();
@@ -146,7 +150,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 1);
-    expect(find.text('Masuk ke Warung Kopi'), findsOneWidget);
+    expect(find.text('Masuk ke Toko Saku'), findsOneWidget);
   });
 
   testWidgets(
@@ -638,4 +642,12 @@ class FakeMediaPickerService implements MediaPickerService {
     }
     return responses.removeAt(0);
   }
+}
+
+class FakeBiometricAuthenticator implements BiometricAuthenticator {
+  @override
+  Future<bool> authenticate({String reason = ''}) async => true;
+
+  @override
+  Future<bool> isBiometricAvailable() async => false;
 }

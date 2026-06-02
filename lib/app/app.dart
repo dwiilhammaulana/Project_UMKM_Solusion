@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../shared/biometrics/biometric_lock_gate.dart';
 import '../shared/theme/app_theme.dart';
 import 'routing/app_router.dart';
 
@@ -16,6 +17,9 @@ class WarungKopiApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      builder: (context, child) {
+        return BiometricLockGate(child: child ?? const SizedBox.shrink());
+      },
       locale: const Locale('id', 'ID'),
       supportedLocales: const [Locale('id', 'ID')],
       localizationsDelegates: const [

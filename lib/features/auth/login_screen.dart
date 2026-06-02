@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
+import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
 import 'auth_scaffold.dart';
 
@@ -33,6 +34,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       subtitle:
           'Gunakan email dan password, atau masuk cepat dengan akun Google.',
       backgroundColor: AppTheme.deepTeal,
+      backgroundImage: 'bg login.png',
+      frameless: true,
+      contentAlignment: const Alignment(0, 0.58),
       child: Form(
         key: _formKey,
         child: Column(
@@ -41,9 +45,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
+              style: const TextStyle(color: AppTheme.deepTeal),
+              decoration: _inputDecoration(
                 labelText: 'Email',
-                prefixIcon: Icon(Icons.alternate_email_rounded),
+                prefixIcon: Icons.alternate_email_rounded,
               ),
               validator: (value) {
                 final text = value?.trim() ?? '';
@@ -60,9 +65,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(
+              style: const TextStyle(color: AppTheme.deepTeal),
+              decoration: _inputDecoration(
                 labelText: 'Password',
-                prefixIcon: Icon(Icons.lock_outline_rounded),
+                prefixIcon: Icons.lock_outline_rounded,
               ),
               validator: (value) {
                 if ((value ?? '').isEmpty) {
@@ -76,6 +82,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isSubmitting ? null : _submitEmailLogin,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.72),
+                  foregroundColor: AppTheme.deepTeal,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: Text(_isSubmitting ? 'Masuk...' : 'Masuk'),
               ),
             ),
@@ -84,6 +95,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _isSubmitting ? null : _submitGoogleLogin,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.deepTeal,
+                  side: BorderSide(
+                    color: AppTheme.deepTeal.withValues(alpha: 0.58),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 icon: const Icon(Icons.account_circle_outlined),
                 label: const Text('Masuk dengan Google'),
               ),
@@ -92,10 +110,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Center(
               child: TextButton(
                 onPressed: _isSubmitting ? null : () => context.go('/signup'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.deepTeal,
+                ),
                 child: const Text('Belum punya akun? Daftar'),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String labelText,
+    required IconData prefixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: AppTheme.deepTeal,
+      ),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.58),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: Colors.white.withValues(alpha: 0.72),
+          width: 1.4,
         ),
       ),
     );
@@ -114,6 +166,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+      ref
+          .read(biometricLockControllerProvider)
+          .markUnlockedForCurrentSession();
 
       if (!mounted) return;
       context.go(auth.isAdmin ? '/dashboard' : '/cashier');
@@ -134,6 +189,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       final auth = ref.read(authControllerProvider);
       await auth.signInWithGoogle();
+      ref
+          .read(biometricLockControllerProvider)
+          .markUnlockedForCurrentSession();
 
       if (!mounted) return;
       context.go(auth.isAdmin ? '/dashboard' : '/cashier');
