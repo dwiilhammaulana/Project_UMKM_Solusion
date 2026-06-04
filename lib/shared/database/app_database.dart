@@ -14,7 +14,7 @@ class AppDatabase {
   }) : _databaseFactoryOverride = databaseFactoryOverride;
 
   static const String _defaultDatabaseName = 'warung_kopi_pos.db';
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
 
   final bool inMemory;
   final String databaseName;
@@ -325,6 +325,26 @@ class AppDatabase {
           whereArgs: dummyTransactionIds,
         );
       }
+    }
+
+    if (oldVersion < 4 && newVersion >= 4) {
+      const categories = [
+        ['cat-nasi-paket', 'nasi paket'],
+        ['cat-sembako', 'sembako'],
+        ['cat-produk-kemasan', 'produk kemasan'],
+      ];
+
+      final batch = db.batch();
+      for (final category in categories) {
+        batch.rawInsert(
+          '''
+          INSERT OR IGNORE INTO categories (id, name, description)
+          VALUES (?, ?, NULL)
+          ''',
+          [category[0], category[1]],
+        );
+      }
+      await batch.commit(noResult: true);
     }
   }
 

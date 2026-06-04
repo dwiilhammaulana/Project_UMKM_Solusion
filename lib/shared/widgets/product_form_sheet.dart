@@ -7,6 +7,28 @@ import '../theme/app_theme.dart';
 import '../utils/media_picker.dart';
 import 'common_widgets.dart';
 
+const _productCategoryNames = [
+  'nasi paket',
+  'sembako',
+  'produk kemasan',
+];
+
+const _rackLocationOptions = [
+  'meja kasir',
+  'etalase nasi',
+  'gantungan depan',
+  'gantungan samping',
+  'rak ambalan depan',
+];
+
+const _unitOptions = [
+  'Pcs',
+  'Renceng',
+  'Dus',
+  'Pack',
+  'Porsi',
+];
+
 Future<void> showProductFormSheet(
   BuildContext context,
   WidgetRef ref, {
@@ -37,9 +59,9 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
   late final TextEditingController _costPriceController;
   late final TextEditingController _stockController;
   late final TextEditingController _minStockController;
-  late final TextEditingController _unitController;
-  late final TextEditingController _rackController;
   late String _categoryId;
+  late String _unit;
+  late String _rackLocation;
   String? _imagePath;
   bool _isSaving = false;
 
@@ -47,7 +69,8 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
   void initState() {
     super.initState();
     final categories = widget.ref.read(posStateProvider).categories;
-    _categoryId = widget.product?.categoryId ?? categories.first.id;
+    final categoryOptions = _productCategoryOptions(categories);
+    _categoryId = _initialCategoryId(categoryOptions);
     _nameController = TextEditingController(text: widget.product?.name ?? '');
     _sellPriceController = TextEditingController(
       text: widget.product?.sellPrice.toStringAsFixed(0) ?? '',
@@ -61,10 +84,12 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
     _minStockController = TextEditingController(
       text: widget.product?.minStock.toString() ?? '',
     );
-    _unitController = TextEditingController(text: widget.product?.unit ?? '');
-    _rackController = TextEditingController(
-      text: widget.product?.rackLocation ?? '',
-    );
+    _unit = _unitOptions.contains(widget.product?.unit)
+        ? widget.product!.unit
+        : _unitOptions.first;
+    _rackLocation = _rackLocationOptions.contains(widget.product?.rackLocation)
+        ? widget.product!.rackLocation!
+        : _rackLocationOptions.first;
     _imagePath = widget.product?.imagePath;
   }
 
@@ -75,14 +100,21 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
     _costPriceController.dispose();
     _stockController.dispose();
     _minStockController.dispose();
-    _unitController.dispose();
-    _rackController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final categories = widget.ref.watch(posStateProvider).categories;
+    final categoryOptions = _productCategoryOptions(categories);
+    final categoryIds = categoryOptions.map((category) => category.id).toSet();
+    final effectiveCategoryId = categoryIds.contains(_categoryId)
+        ? _categoryId
+        : categoryOptions.first.id;
+    if (effectiveCategoryId != _categoryId) {
+      _categoryId = effectiveCategoryId;
+    }
+
     return BottomSheetContainer(
       child: Form(
         key: _formKey,
@@ -144,20 +176,11 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                     value == null || value.isEmpty ? 'Nama wajib diisi' : null,
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _categoryId,
-                isExpanded: true,
-                dropdownColor: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                icon: const AppIcon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppTheme.deepTeal,
-                ),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.ink,
-                      fontWeight: FontWeight.w800,
-                    ),
-                items: categories
+              _ProductDropdownField(
+                value: effectiveCategoryId,
+                labelText: 'Kategori',
+                prefixIcon: Icons.sell_outlined,
+                items: categoryOptions
                     .map<DropdownMenuItem<String>>(
                       (category) => DropdownMenuItem<String>(
                         value: category.id,
@@ -168,19 +191,6 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                 onChanged: _isSaving
                     ? null
                     : (value) => setState(() => _categoryId = value!),
-                decoration: InputDecoration(
-                  labelText: 'Kategori',
-                  filled: true,
-                  fillColor: Colors.white,
-                  prefixIcon: const AppIcon(Icons.sell_outlined),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(22),
-                    borderSide: BorderSide(
-                      color: AppTheme.deepTeal.withValues(alpha: 0.20),
-                      width: 1.2,
-                    ),
-                  ),
-                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -218,18 +228,40 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _unitController,
-                      decoration: const InputDecoration(labelText: 'Satuan'),
+                    child: _ProductDropdownField(
+                      value: _unit,
+                      labelText: 'Satuan',
+                      prefixIcon: Icons.straighten_rounded,
+                      items: _unitOptions
+                          .map<DropdownMenuItem<String>>(
+                            (unit) => DropdownMenuItem<String>(
+                              value: unit,
+                              child: Text(unit),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) => setState(() => _unit = value!),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: TextFormField(
-                      controller: _rackController,
-                      decoration: const InputDecoration(
-                        labelText: 'Lokasi rak',
-                      ),
+                    child: _ProductDropdownField(
+                      value: _rackLocation,
+                      labelText: 'Lokasi rak',
+                      prefixIcon: Icons.inventory_2_outlined,
+                      items: _rackLocationOptions
+                          .map<DropdownMenuItem<String>>(
+                            (rackLocation) => DropdownMenuItem<String>(
+                              value: rackLocation,
+                              child: Text(rackLocation),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) => setState(() => _rackLocation = value!),
                     ),
                   ),
                 ],
@@ -248,6 +280,27 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
         ),
       ),
     );
+  }
+
+  List<Category> _productCategoryOptions(List<Category> categories) {
+    final filtered = categories
+        .where((category) => _productCategoryNames.contains(category.name))
+        .toList()
+      ..sort((a, b) {
+        return _productCategoryNames
+            .indexOf(a.name)
+            .compareTo(_productCategoryNames.indexOf(b.name));
+      });
+    return filtered.isEmpty ? categories : filtered;
+  }
+
+  String _initialCategoryId(List<Category> categories) {
+    final productCategoryId = widget.product?.categoryId;
+    if (productCategoryId != null &&
+        categories.any((category) => category.id == productCategoryId)) {
+      return productCategoryId;
+    }
+    return categories.first.id;
   }
 
   Future<void> _pickImage() async {
@@ -270,12 +323,8 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
             costPrice: double.tryParse(_costPriceController.text) ?? 0,
             stockQty: int.tryParse(_stockController.text) ?? 0,
             minStock: int.tryParse(_minStockController.text) ?? 0,
-            unit: _unitController.text.trim().isEmpty
-                ? 'pcs'
-                : _unitController.text.trim(),
-            rackLocation: _rackController.text.trim().isEmpty
-                ? null
-                : _rackController.text.trim(),
+            unit: _unit,
+            rackLocation: _rackLocation,
             imagePath: _imagePath,
           );
       if (!mounted) return;
@@ -285,5 +334,54 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+class _ProductDropdownField extends StatelessWidget {
+  const _ProductDropdownField({
+    required this.value,
+    required this.labelText,
+    required this.prefixIcon,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String value;
+  final String labelText;
+  final IconData prefixIcon;
+  final List<DropdownMenuItem<String>> items;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      dropdownColor: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      icon: const AppIcon(
+        Icons.keyboard_arrow_down_rounded,
+        color: AppTheme.deepTeal,
+      ),
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: AppTheme.ink,
+            fontWeight: FontWeight.w800,
+          ),
+      items: items,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: labelText,
+        filled: true,
+        fillColor: Colors.white,
+        prefixIcon: AppIcon(prefixIcon),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(22),
+          borderSide: BorderSide(
+            color: AppTheme.deepTeal.withValues(alpha: 0.20),
+            width: 1.2,
+          ),
+        ),
+      ),
+    );
   }
 }

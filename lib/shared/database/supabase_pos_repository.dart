@@ -13,10 +13,9 @@ class SupabasePosRepository implements PosRepository {
   String? _cachedDataOwnerUserId;
 
   static const _defaultCategories = <Map<String, String?>>[
-    {'slug': 'coffee', 'name': 'Kopi', 'description': 'Minuman kopi utama'},
-    {'slug': 'food', 'name': 'Makanan', 'description': 'Menu makanan utama'},
-    {'slug': 'snack', 'name': 'Jajanan', 'description': 'Snack dan camilan'},
-    {'slug': 'raw', 'name': 'Bahan Baku', 'description': 'Bahan baku produksi'},
+    {'slug': 'nasi-paket', 'name': 'nasi paket', 'description': null},
+    {'slug': 'sembako', 'name': 'sembako', 'description': null},
+    {'slug': 'produk-kemasan', 'name': 'produk kemasan', 'description': null},
   ];
 
   @override
@@ -36,6 +35,7 @@ class SupabasePosRepository implements PosRepository {
   @override
   Future<List<Category>> fetchCategories() async {
     final userId = await _requireDataOwnerUserId();
+    await _ensureDefaultCategories(userId);
     final rows = await _client
         .from('categories')
         .select()
@@ -677,14 +677,21 @@ class SupabasePosRepository implements PosRepository {
   Future<void> _ensureDefaultCategories(String userId) async {
     final rows = await _client
         .from('categories')
-        .select('id')
+        .select('name')
         .eq('owner_user_id', userId)
-        .limit(1);
-    if ((rows as List<dynamic>).isNotEmpty) {
+        .order('name');
+    final existingNames = (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((row) => row.stringValue('name'))
+        .toSet();
+    final missingCategories = _defaultCategories
+        .where((category) => !existingNames.contains(category['name']))
+        .toList();
+    if (missingCategories.isEmpty) {
       return;
     }
     await _client.from('categories').insert(
-          _defaultCategories
+          missingCategories
               .map(
                 (category) => {
                   'id': 'cat-$userId-${category['slug']}',
