@@ -203,6 +203,15 @@ class PosAppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void removeFromCart(String productId) {
+    if (!_cart.containsKey(productId)) {
+      return;
+    }
+    _cart.remove(productId);
+    _rebuildCartDerivedData();
+    notifyListeners();
+  }
+
   void clearCart() {
     _cart.clear();
     _rebuildCartDerivedData();

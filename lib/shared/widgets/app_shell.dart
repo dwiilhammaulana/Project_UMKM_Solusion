@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
@@ -74,85 +75,94 @@ class AppShell extends ConsumerWidget {
         currentLocation == '/more' ||
         currentLocation.startsWith('/more/');
 
-    return Scaffold(
-      extendBody: true,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.pageGradient),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -120,
-              right: -80,
-              child: _BackdropOrb(
-                size: 260,
-                color: AppTheme.mint.withValues(alpha: 0.20),
-              ),
-            ),
-            Positioned(
-              left: -100,
-              top: 120,
-              child: _BackdropOrb(
-                size: 220,
-                color: AppTheme.info.withValues(alpha: 0.12),
-              ),
-            ),
-            Positioned(
-              right: -100,
-              bottom: 120,
-              child: _BackdropOrb(
-                size: 240,
-                color: AppTheme.foam,
-              ),
-            ),
-            SafeArea(
-              top: !drawBehindStatusBar,
-              bottom: false,
-              child: state.isLoading
-                  ? const LoadingState()
-                  : state.errorMessage != null
-                      ? ErrorState(
-                          title: 'Data aplikasi gagal dimuat',
-                          subtitle: state.errorMessage!,
-                          onRetry: () => ref.read(posStateProvider).reload(),
-                        )
-                      : child,
-            ),
-          ],
-        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarDividerColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.96),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.midnight.withValues(alpha: 0.08),
-              blurRadius: 22,
-              offset: const Offset(0, -8),
-            ),
-          ],
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        extendBody: true,
+        body: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.pageGradient),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -120,
+                right: -80,
+                child: _BackdropOrb(
+                  size: 260,
+                  color: AppTheme.mint.withValues(alpha: 0.20),
+                ),
+              ),
+              Positioned(
+                left: -100,
+                top: 120,
+                child: _BackdropOrb(
+                  size: 220,
+                  color: AppTheme.info.withValues(alpha: 0.12),
+                ),
+              ),
+              Positioned(
+                right: -100,
+                bottom: 120,
+                child: _BackdropOrb(
+                  size: 240,
+                  color: AppTheme.foam,
+                ),
+              ),
+              SafeArea(
+                top: !drawBehindStatusBar,
+                bottom: false,
+                child: state.isLoading
+                    ? const LoadingState()
+                    : state.errorMessage != null
+                        ? ErrorState(
+                            title: 'Data aplikasi gagal dimuat',
+                            subtitle: state.errorMessage!,
+                            onRetry: () => ref.read(posStateProvider).reload(),
+                          )
+                        : child,
+              ),
+            ],
+          ),
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                for (var index = 0; index < items.length; index++)
-                  Expanded(
-                    child: _BottomNavDestination(
-                      key: Key('bottom-nav-${items[index].path}'),
-                      item: items[index],
-                      selected: index == selectedIndex,
-                      onTap: () => context.go(items[index].path),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.midnight.withValues(alpha: 0.08),
+                blurRadius: 22,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  for (var index = 0; index < items.length; index++)
+                    Expanded(
+                      child: _BottomNavDestination(
+                        key: Key('bottom-nav-${items[index].path}'),
+                        item: items[index],
+                        selected: index == selectedIndex,
+                        onTap: () => context.go(items[index].path),
+                      ),
                     ),
-                  ),
-                if (!auth.isAdmin) ...[
-                  const SizedBox(width: 6),
-                  _SignOutNavButton(
-                    onPressed: () => ref.read(authControllerProvider).signOut(),
-                  ),
+                  if (!auth.isAdmin) ...[
+                    const SizedBox(width: 6),
+                    _SignOutNavButton(
+                      onPressed: () =>
+                          ref.read(authControllerProvider).signOut(),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

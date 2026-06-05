@@ -15,6 +15,7 @@ class AuthScaffold extends StatefulWidget {
     this.backgroundImage,
     this.frameless = false,
     this.contentAlignment = Alignment.center,
+    this.showBrand = true,
   });
 
   final String title;
@@ -24,6 +25,7 @@ class AuthScaffold extends StatefulWidget {
   final String? backgroundImage;
   final bool frameless;
   final AlignmentGeometry contentAlignment;
+  final bool showBrand;
 
   @override
   State<AuthScaffold> createState() => _AuthScaffoldState();
@@ -78,6 +80,7 @@ class _AuthScaffoldState extends State<AuthScaffold> {
               subtitle: widget.subtitle,
               frameless: widget.frameless,
               alignment: widget.contentAlignment,
+              showBrand: widget.showBrand,
               child: widget.child,
             ),
           ),
@@ -94,6 +97,7 @@ class _AuthGlassCard extends StatelessWidget {
     required this.child,
     required this.frameless,
     required this.alignment,
+    required this.showBrand,
   });
 
   final String title;
@@ -101,6 +105,7 @@ class _AuthGlassCard extends StatelessWidget {
   final Widget child;
   final bool frameless;
   final AlignmentGeometry alignment;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
@@ -110,6 +115,7 @@ class _AuthGlassCard extends StatelessWidget {
       titleColor: frameless ? AppTheme.deepTeal : null,
       subtitleColor:
           frameless ? AppTheme.deepTeal.withValues(alpha: 0.78) : null,
+      showBrand: showBrand,
       child: child,
     );
 
@@ -167,6 +173,7 @@ class _AuthContent extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    required this.showBrand,
     this.titleColor,
     this.subtitleColor,
   });
@@ -174,6 +181,7 @@ class _AuthContent extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
+  final bool showBrand;
   final Color? titleColor;
   final Color? subtitleColor;
 
@@ -183,62 +191,72 @@ class _AuthContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFFFFFFF),
-                    Color(0xFFDDF6F2),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.86),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.deepTeal.withValues(alpha: 0.14),
-                    blurRadius: 24,
-                    offset: const Offset(0, 14),
+        if (showBrand) ...[
+          Row(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFFFFFFFF),
+                      Color(0xFFDDF6F2),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: const AppIcon(
-                Icons.local_cafe_rounded,
-                color: AppTheme.deepTeal,
-                size: 31,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'Toko Saku',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: titleColor ?? AppTheme.deepTeal,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.86),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.deepTeal.withValues(alpha: 0.14),
+                      blurRadius: 24,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: const AppIcon(
+                  Icons.local_cafe_rounded,
+                  color: AppTheme.deepTeal,
+                  size: 31,
                 ),
               ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Toko Saku',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: titleColor ?? AppTheme.deepTeal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            title,
+            textAlign: showBrand ? TextAlign.start : TextAlign.center,
+            style: theme.textTheme.headlineMedium?.copyWith(
+              color: titleColor,
+              height: 1.08,
             ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Text(
-          title,
-          style: theme.textTheme.headlineMedium?.copyWith(
-            color: titleColor,
-            height: 1.08,
           ),
         ),
         const SizedBox(height: 10),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: subtitleColor ?? AppTheme.ink.withValues(alpha: 0.64),
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            subtitle,
+            textAlign: showBrand ? TextAlign.start : TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: subtitleColor ?? AppTheme.ink.withValues(alpha: 0.64),
+            ),
           ),
         ),
         const SizedBox(height: 26),

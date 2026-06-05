@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
@@ -62,6 +63,25 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 color: Colors.white,
                 icon: Icons.warning_amber_rounded,
               ),
+              if (state.cartCount > 0) ...[
+                StatusChip(
+                  label: '${state.cartCount} item dipilih',
+                  color: Colors.white,
+                  icon: Icons.shopping_cart_rounded,
+                ),
+                FilledButton.icon(
+                  key: const Key('products-open-cashier-button'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.deepTeal,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onPressed: () => context.go('/cashier'),
+                  icon: const AppIcon(Icons.point_of_sale_rounded),
+                  label: const Text('Ke Kasir'),
+                ),
+              ],
               FilledButton.icon(
                 key: const Key('products-add-button'),
                 style: FilledButton.styleFrom(
@@ -168,8 +188,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       product: product,
                       categoryName: state.categoryNameById(product.categoryId),
                       count: state.cart[product.id] ?? 0,
-                      onAdd: () =>
-                          ref.read(posStateProvider).addToCart(product),
+                      onAdd: () {
+                        try {
+                          ref.read(posStateProvider).addToCart(product);
+                        } catch (error) {
+                          _showMessage(
+                            error.toString().replaceFirst('Exception: ', ''),
+                          );
+                        }
+                      },
                       onEdit: () =>
                           showProductFormSheet(context, ref, product: product),
                       onLongPress: () => _showProductActions(context, product),
@@ -280,6 +307,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ),
       );
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

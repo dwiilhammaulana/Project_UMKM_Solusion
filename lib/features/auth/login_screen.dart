@@ -31,12 +31,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      title: 'Masuk ke Toko Saku',
+      title: 'Selamat datang di\nToko Saku!',
       subtitle:
           'Gunakan email dan password, atau masuk cepat dengan akun Google.',
       backgroundColor: AppTheme.deepTeal,
       backgroundImage: 'bg login.png',
       frameless: true,
+      showBrand: false,
       contentAlignment: const Alignment(0, 0.58),
       child: Form(
         key: _formKey,

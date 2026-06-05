@@ -174,7 +174,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 0);
-    expect(find.text('Masuk ke Toko Saku'), findsNothing);
+    expect(find.text('Selamat datang di\nToko Saku!'), findsNothing);
 
     await tester.tap(find.byKey(const Key('more-logout-button')));
     await tester.pumpAndSettle();
@@ -182,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.signOutCallCount, 1);
-    expect(find.text('Masuk ke Toko Saku'), findsOneWidget);
+    expect(find.text('Selamat datang di\nToko Saku!'), findsOneWidget);
   });
 
   testWidgets(
@@ -190,11 +190,9 @@ void main() {
     (tester) async {
       final container = await pumpApp(tester);
 
-      await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Tambah').first);
-      await tester.pumpAndSettle();
+      container.read(posStateProvider).addToCart(
+            container.read(posStateProvider).products.first,
+          );
 
       container.read(posStateProvider).setPaymentMethod(PaymentMethod.bon);
       await tester.pumpAndSettle();
@@ -295,13 +293,21 @@ void main() {
   ) async {
     final container = await pumpApp(tester);
 
-    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Tambah').first);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('cashier-checkout-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail Pesanan'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('cashier-confirm-checkout-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Transaksi Berhasil'), findsOneWidget);
