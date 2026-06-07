@@ -8,14 +8,87 @@ import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
 import 'auth_scaffold.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> {
+  double _stableKeyboardInset = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardInset <= 0) {
+      _stableKeyboardInset = 0;
+      return;
+    }
+    if (_stableKeyboardInset > 0) {
+      return;
+    }
+
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final estimatedKeyboardInset =
+        (screenHeight * 0.38).clamp(260.0, 360.0).toDouble();
+    _stableKeyboardInset = keyboardInset > estimatedKeyboardInset
+        ? keyboardInset
+        : estimatedKeyboardInset;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isKeyboardVisible = _stableKeyboardInset > 0;
+
+    return AuthScaffold(
+      title: 'Selamat datang di\nToko Saku!',
+      subtitle:
+          'Gunakan email dan password, atau masuk cepat dengan akun Google.',
+      backgroundColor: AppTheme.deepTeal,
+      backgroundImage: 'bg login.png',
+      frameless: true,
+      showBrand: false,
+      showHeader: !isKeyboardVisible,
+      resizeToAvoidBottomInset: false,
+      keyboardBottomInset: _stableKeyboardInset,
+      backgroundAlignment:
+          isKeyboardVisible ? Alignment.topCenter : Alignment.center,
+      paintBackground: false,
+      contentAlignment: const Alignment(0, 0.58),
+      child: const _LoginForm(),
+    );
+  }
+}
+
+class _LoginForm extends ConsumerStatefulWidget {
+  const _LoginForm();
+
+  @override
+  ConsumerState<_LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends ConsumerState<_LoginForm> {
+  static final ButtonStyle _primaryButtonStyle = FilledButton.styleFrom(
+    backgroundColor: Colors.white.withValues(alpha: 0.72),
+    foregroundColor: AppTheme.deepTeal,
+    padding: const EdgeInsets.symmetric(vertical: 16),
+  );
+
+  static final ButtonStyle _googleButtonStyle = OutlinedButton.styleFrom(
+    foregroundColor: AppTheme.deepTeal,
+    side: BorderSide(
+      color: AppTheme.deepTeal.withValues(alpha: 0.58),
+    ),
+    padding: const EdgeInsets.symmetric(vertical: 16),
+  );
+
+  static final ButtonStyle _switchAuthButtonStyle = TextButton.styleFrom(
+    foregroundColor: AppTheme.deepTeal,
+  );
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -30,96 +103,74 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthScaffold(
-      title: 'Selamat datang di\nToko Saku!',
-      subtitle:
-          'Gunakan email dan password, atau masuk cepat dengan akun Google.',
-      backgroundColor: AppTheme.deepTeal,
-      backgroundImage: 'bg login.png',
-      frameless: true,
-      showBrand: false,
-      contentAlignment: const Alignment(0, 0.58),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: AppTheme.deepTeal),
-              decoration: _inputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icons.alternate_email_rounded,
-              ),
-              validator: (value) {
-                final text = value?.trim() ?? '';
-                if (text.isEmpty) {
-                  return 'Email wajib diisi';
-                }
-                if (!text.contains('@')) {
-                  return 'Format email belum valid';
-                }
-                return null;
-              },
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            style: const TextStyle(color: AppTheme.deepTeal),
+            decoration: _inputDecoration(
+              labelText: 'Email',
+              prefixIcon: Icons.alternate_email_rounded,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: true,
-              style: const TextStyle(color: AppTheme.deepTeal),
-              decoration: _inputDecoration(
-                labelText: 'Password',
-                prefixIcon: Icons.lock_outline_rounded,
-              ),
-              validator: (value) {
-                if ((value ?? '').isEmpty) {
-                  return 'Password wajib diisi';
-                }
-                return null;
-              },
+            validator: (value) {
+              final text = value?.trim() ?? '';
+              if (text.isEmpty) {
+                return 'Email wajib diisi';
+              }
+              if (!text.contains('@')) {
+                return 'Format email belum valid';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: true,
+            style: const TextStyle(color: AppTheme.deepTeal),
+            decoration: _inputDecoration(
+              labelText: 'Password',
+              prefixIcon: Icons.lock_outline_rounded,
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _isSubmitting ? null : _submitEmailLogin,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.72),
-                  foregroundColor: AppTheme.deepTeal,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: Text(_isSubmitting ? 'Masuk...' : 'Masuk'),
-              ),
+            validator: (value) {
+              if ((value ?? '').isEmpty) {
+                return 'Password wajib diisi';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _isSubmitting ? null : _submitEmailLogin,
+              style: _primaryButtonStyle,
+              child: Text(_isSubmitting ? 'Masuk...' : 'Masuk'),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isSubmitting ? null : _submitGoogleLogin,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.deepTeal,
-                  side: BorderSide(
-                    color: AppTheme.deepTeal.withValues(alpha: 0.58),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const AppIcon(Icons.account_circle_outlined),
-                label: const Text('Masuk dengan Google'),
-              ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isSubmitting ? null : _submitGoogleLogin,
+              style: _googleButtonStyle,
+              icon: const AppIcon(Icons.account_circle_outlined, size: 16),
+              label: const Text('Masuk dengan Google'),
             ),
-            const SizedBox(height: 20),
-            Center(
-              child: TextButton(
-                onPressed: _isSubmitting ? null : () => context.go('/signup'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.deepTeal,
-                ),
-                child: const Text('Belum punya akun? Daftar'),
-              ),
+          ),
+          const SizedBox(height: 20),
+          Center(
+            child: TextButton(
+              onPressed: _isSubmitting ? null : () => context.go('/signup'),
+              style: _switchAuthButtonStyle,
+              child: const Text('Belum punya akun? Daftar'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -134,6 +185,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       prefixIcon: AppIcon(
         prefixIcon,
         color: AppTheme.deepTeal,
+        size: 16,
+      ),
+      prefixIconConstraints: const BoxConstraints(
+        minWidth: 40,
+        minHeight: 40,
       ),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.58),

@@ -16,6 +16,11 @@ class AuthScaffold extends StatefulWidget {
     this.frameless = false,
     this.contentAlignment = Alignment.center,
     this.showBrand = true,
+    this.showHeader = true,
+    this.resizeToAvoidBottomInset,
+    this.keyboardBottomInset = 0,
+    this.backgroundAlignment = Alignment.center,
+    this.paintBackground = true,
   });
 
   final String title;
@@ -26,6 +31,11 @@ class AuthScaffold extends StatefulWidget {
   final bool frameless;
   final AlignmentGeometry contentAlignment;
   final bool showBrand;
+  final bool showHeader;
+  final bool? resizeToAvoidBottomInset;
+  final double keyboardBottomInset;
+  final AlignmentGeometry backgroundAlignment;
+  final bool paintBackground;
 
   @override
   State<AuthScaffold> createState() => _AuthScaffoldState();
@@ -37,42 +47,53 @@ class _AuthScaffoldState extends State<AuthScaffold> {
     super.didChangeDependencies();
 
     final backgroundImage = widget.backgroundImage;
-    if (backgroundImage != null) {
-      precacheImage(AssetImage(backgroundImage), context);
+    if (widget.paintBackground && backgroundImage != null) {
+      precacheImage(
+          _backgroundImageProvider(context, backgroundImage), context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final backgroundImage = widget.backgroundImage;
+    final imageProvider = backgroundImage == null
+        ? null
+        : _backgroundImageProvider(context, backgroundImage);
 
     return Scaffold(
-      body: Container(
-        decoration: backgroundImage != null
+      backgroundColor: widget.paintBackground ? null : Colors.transparent,
+      resizeToAvoidBottomInset: widget.resizeToAvoidBottomInset,
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: widget.paintBackground && backgroundImage != null
             ? BoxDecoration(
                 color: widget.backgroundColor,
                 image: DecorationImage(
-                  image: AssetImage(backgroundImage),
+                  image: imageProvider!,
                   fit: BoxFit.cover,
+                  alignment: widget.backgroundAlignment,
                   colorFilter: ColorFilter.mode(
                     Colors.black.withValues(alpha: 0.08),
                     BlendMode.darken,
                   ),
                 ),
               )
-            : widget.backgroundColor == null
-                ? const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Color(0xFFF9FCFB),
-                        Color(0xFFEAF7F4),
-                        Color(0xFFFFF6E1),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  )
-                : BoxDecoration(color: widget.backgroundColor),
+            : !widget.paintBackground
+                ? const BoxDecoration()
+                : widget.backgroundColor == null
+                    ? const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFF9FCFB),
+                            Color(0xFFEAF7F4),
+                            Color(0xFFFFF6E1),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      )
+                    : BoxDecoration(color: widget.backgroundColor),
         child: SafeArea(
           child: RepaintBoundary(
             child: _AuthGlassCard(
@@ -81,11 +102,22 @@ class _AuthScaffoldState extends State<AuthScaffold> {
               frameless: widget.frameless,
               alignment: widget.contentAlignment,
               showBrand: widget.showBrand,
+              showHeader: widget.showHeader,
+              keyboardBottomInset: widget.keyboardBottomInset,
               child: widget.child,
             ),
           ),
         ),
       ),
+    );
+  }
+
+  ImageProvider _backgroundImageProvider(BuildContext context, String asset) {
+    final size = MediaQuery.sizeOf(context);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    return ResizeImage(
+      AssetImage(asset),
+      height: (size.height * pixelRatio).round(),
     );
   }
 }
@@ -98,6 +130,8 @@ class _AuthGlassCard extends StatelessWidget {
     required this.frameless,
     required this.alignment,
     required this.showBrand,
+    required this.showHeader,
+    required this.keyboardBottomInset,
   });
 
   final String title;
@@ -106,6 +140,8 @@ class _AuthGlassCard extends StatelessWidget {
   final bool frameless;
   final AlignmentGeometry alignment;
   final bool showBrand;
+  final bool showHeader;
+  final double keyboardBottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -116,16 +152,18 @@ class _AuthGlassCard extends StatelessWidget {
       subtitleColor:
           frameless ? AppTheme.deepTeal.withValues(alpha: 0.78) : null,
       showBrand: showBrand,
+      showHeader: showHeader,
       child: child,
     );
 
     if (frameless) {
+      final bottomPadding = 24 + keyboardBottomInset;
       return Align(
         alignment: alignment,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 430),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            padding: EdgeInsets.fromLTRB(28, 24, 28, bottomPadding),
             child: content,
           ),
         ),
@@ -137,7 +175,7 @@ class _AuthGlassCard extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + keyboardBottomInset),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(34),
             child: BackdropFilter(
@@ -174,6 +212,7 @@ class _AuthContent extends StatelessWidget {
     required this.subtitle,
     required this.child,
     required this.showBrand,
+    required this.showHeader,
     this.titleColor,
     this.subtitleColor,
   });
@@ -182,12 +221,14 @@ class _AuthContent extends StatelessWidget {
   final String subtitle;
   final Widget child;
   final bool showBrand;
+  final bool showHeader;
   final Color? titleColor;
   final Color? subtitleColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasSubtitle = subtitle.trim().isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,29 +278,33 @@ class _AuthContent extends StatelessWidget {
           ),
           const SizedBox(height: 24),
         ],
-        SizedBox(
-          width: double.infinity,
-          child: Text(
-            title,
-            textAlign: showBrand ? TextAlign.start : TextAlign.center,
-            style: theme.textTheme.headlineMedium?.copyWith(
-              color: titleColor,
-              height: 1.08,
+        if (showHeader) ...[
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              title,
+              textAlign: showBrand ? TextAlign.start : TextAlign.center,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: titleColor,
+                height: 1.08,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: Text(
-            subtitle,
-            textAlign: showBrand ? TextAlign.start : TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: subtitleColor ?? AppTheme.ink.withValues(alpha: 0.64),
+          if (hasSubtitle) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                subtitle,
+                textAlign: showBrand ? TextAlign.start : TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: subtitleColor ?? AppTheme.ink.withValues(alpha: 0.64),
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 26),
+          ],
+          const SizedBox(height: 26),
+        ],
         child,
       ],
     );

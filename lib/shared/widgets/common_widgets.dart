@@ -604,12 +604,14 @@ class AppSearchField extends StatelessWidget {
     this.onChanged,
     this.controller,
     this.fieldKey,
+    this.showPrefixIcon = true,
   });
 
   final String hintText;
   final ValueChanged<String>? onChanged;
   final TextEditingController? controller;
   final Key? fieldKey;
+  final bool showPrefixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -619,7 +621,15 @@ class AppSearchField extends StatelessWidget {
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const AppIcon(Icons.search_rounded),
+        prefixIcon: showPrefixIcon
+            ? const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: AppIcon(Icons.search_rounded, size: 14),
+              )
+            : null,
+        prefixIconConstraints: showPrefixIcon
+            ? const BoxConstraints(minWidth: 42, minHeight: 40)
+            : null,
       ),
     );
   }

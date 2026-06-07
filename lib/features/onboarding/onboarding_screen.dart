@@ -169,11 +169,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _pickPhoto() async {
-    final picked = await ref.read(mediaPickerProvider).pickImagePath();
-    if (!mounted || picked == null) {
-      return;
+    try {
+      final picked = await ref.read(mediaPickerProvider).pickImagePath();
+      if (!mounted || picked == null) {
+        return;
+      }
+      setState(() => _photoPath = picked);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload foto: $error')),
+      );
     }
-    setState(() => _photoPath = picked);
   }
 
   Future<void> _submit() async {

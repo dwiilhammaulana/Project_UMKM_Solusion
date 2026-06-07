@@ -126,48 +126,64 @@ class _DashboardHero extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(30, topInset + 42, 30, 34),
+              padding: EdgeInsets.fromLTRB(18, topInset + 22, 24, 34),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '$greeting,',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                profile.storeName,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 18),
                       _ProfileEditAvatar(
                         photoPath: profile.photoPath,
                         onEditProfile: onEditProfile,
                       ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              greeting,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.86),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'di toko ',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                    height: 1.04,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    profile.storeName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      height: 1.04,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const _DashboardHeroLogo(),
                     ],
                   ),
                   const Spacer(),
@@ -186,6 +202,26 @@ class _DashboardHero extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardHeroLogo extends StatelessWidget {
+  const _DashboardHeroLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      width: 82,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Image.asset(
+          'logo_putih.png',
+          height: 34,
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -212,7 +248,7 @@ class _ProfileEditAvatar extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onEditProfile,
-          child: AppProfileAvatar(photoPath: photoPath, size: 84),
+          child: AppProfileAvatar(photoPath: photoPath, size: 56),
         ),
       ),
     );
@@ -278,46 +314,35 @@ class _OperationFocusSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 720;
-        final children = [
-          _DebtFocusCard(
+    return AppSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DebtFocusContent(
             debts: activeDebts,
             onOpenDebts: onOpenDebts,
             onOpenDebt: onOpenDebt,
           ),
-          _StockFocusCard(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Divider(
+              height: 1,
+              thickness: 1,
+              color: AppTheme.deepTeal.withValues(alpha: 0.10),
+            ),
+          ),
+          _StockFocusContent(
             products: lowStockProducts,
             onOpenInventory: onOpenInventory,
           ),
-        ];
-
-        if (!wide) {
-          return Column(
-            children: [
-              children[0],
-              const SizedBox(height: 14),
-              children[1],
-            ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: children[0]),
-            const SizedBox(width: 14),
-            Expanded(child: children[1]),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 }
 
-class _DebtFocusCard extends StatelessWidget {
-  const _DebtFocusCard({
+class _DebtFocusContent extends StatelessWidget {
+  const _DebtFocusContent({
     required this.debts,
     required this.onOpenDebts,
     required this.onOpenDebt,
@@ -329,33 +354,67 @@ class _DebtFocusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Bon Prioritas',
-            subtitle: 'Pelanggan yang perlu ditagih lebih dulu.',
-            action: TextButton(
-              onPressed: onOpenDebts,
-              child: const Text('Semua'),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Bon Prioritas',
+          subtitle: 'Pelanggan yang perlu ditagih lebih dulu.',
+          action: TextButton(
+            onPressed: onOpenDebts,
+            child: const Text('Semua'),
           ),
-          const SizedBox(height: 12),
-          if (debts.isEmpty)
-            const _InlineEmptyState(
-              icon: Icons.verified_rounded,
-              title: 'Semua bon lunas',
-              subtitle: 'Tidak ada utang aktif saat ini.',
-            )
-          else
-            for (final debt in debts)
-              _DebtListTile(
-                debt: debt,
-                onTap: () => onOpenDebt(debt),
-              ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+        if (debts.isEmpty)
+          const _InlineEmptyState(
+            icon: Icons.verified_rounded,
+            title: 'Semua bon lunas',
+            subtitle: 'Tidak ada utang aktif saat ini.',
+          )
+        else
+          for (final debt in debts)
+            _DebtListTile(
+              debt: debt,
+              onTap: () => onOpenDebt(debt),
+            ),
+      ],
+    );
+  }
+}
+
+class _StockFocusContent extends StatelessWidget {
+  const _StockFocusContent({
+    required this.products,
+    required this.onOpenInventory,
+  });
+
+  final List<Product> products;
+  final VoidCallback onOpenInventory;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Stok Siaga',
+          subtitle: 'Item menipis yang perlu cepat dicek.',
+          action: TextButton(
+            onPressed: onOpenInventory,
+            child: const Text('Inventori'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (products.isEmpty)
+          const _InlineEmptyState(
+            icon: Icons.inventory_rounded,
+            title: 'Stok aman',
+            subtitle: 'Tidak ada produk di bawah batas minimum.',
+          )
+        else
+          for (final product in products) _StockListTile(product: product),
+      ],
     );
   }
 }
@@ -428,44 +487,6 @@ class _DebtListTile extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StockFocusCard extends StatelessWidget {
-  const _StockFocusCard({
-    required this.products,
-    required this.onOpenInventory,
-  });
-
-  final List<Product> products;
-  final VoidCallback onOpenInventory;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Stok Siaga',
-            subtitle: 'Item menipis yang perlu cepat dicek.',
-            action: TextButton(
-              onPressed: onOpenInventory,
-              child: const Text('Inventori'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (products.isEmpty)
-            const _InlineEmptyState(
-              icon: Icons.inventory_rounded,
-              title: 'Stok aman',
-              subtitle: 'Tidak ada produk di bawah batas minimum.',
-            )
-          else
-            for (final product in products) _StockListTile(product: product),
-        ],
       ),
     );
   }

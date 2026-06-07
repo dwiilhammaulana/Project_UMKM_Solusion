@@ -301,14 +301,14 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                   label: const Text('Tambah Produk Lain'),
                 ),
               ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        AppSectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppTheme.deepTeal.withValues(alpha: 0.10),
+                ),
+              ),
               const _CashierSectionHeader(
                 title: '2. Pelanggan & Pembayaran',
                 infoMessage:
@@ -324,6 +324,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                       child: AppSearchField(
                         fieldKey: const Key('cashier-customer-search'),
                         hintText: 'Cari pelanggan aktif',
+                        showPrefixIcon: false,
                         onChanged: (value) =>
                             setState(() => _customerQuery = value),
                       ),
@@ -543,7 +544,6 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                 controller: _notesController,
                 decoration: const InputDecoration(
                   hintText: 'Catatan transaksi (opsional)',
-                  prefixIcon: AppIcon(Icons.note_alt_outlined),
                 ),
                 maxLines: 2,
               ),

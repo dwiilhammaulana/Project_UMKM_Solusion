@@ -110,7 +110,7 @@ class _StoreProfileSheetState extends State<_StoreProfileSheet> {
                               ? null
                               : () => setState(() => _photoPath = null),
                           icon: const AppIcon(Icons.delete_outline_rounded),
-                          label: const Text('Kosongkan'),
+                          label: const Text('Hapus avatar'),
                         ),
                       ],
                     ),
@@ -152,11 +152,20 @@ class _StoreProfileSheetState extends State<_StoreProfileSheet> {
   }
 
   Future<void> _pickPhoto() async {
-    final picked = await widget.ref.read(mediaPickerProvider).pickImagePath();
-    if (!mounted || picked == null) {
-      return;
+    try {
+      final picked = await widget.ref.read(mediaPickerProvider).pickImagePath();
+      if (!mounted || picked == null) {
+        return;
+      }
+      setState(() => _photoPath = picked);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload foto: $error')),
+      );
     }
-    setState(() => _photoPath = picked);
   }
 
   Future<void> _save() async {

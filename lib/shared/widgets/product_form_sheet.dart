@@ -146,22 +146,20 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                   Expanded(
                     child: Column(
                       children: [
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           key: const Key('product-image-pick-button'),
                           onPressed: _isSaving ? null : _pickImage,
-                          icon: const AppIcon(Icons.upload_file_rounded),
-                          label: Text(
+                          child: Text(
                             _imagePath == null ? 'Upload Foto' : 'Ganti Foto',
                           ),
                         ),
                         const SizedBox(height: 10),
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           key: const Key('product-image-clear-button'),
                           onPressed: _isSaving || _imagePath == null
                               ? null
                               : () => setState(() => _imagePath = null),
-                          icon: const AppIcon(Icons.delete_outline_rounded),
-                          label: const Text('Kosongkan'),
+                          child: const Text('Hapus Foto'),
                         ),
                       ],
                     ),
@@ -179,7 +177,6 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
               _ProductDropdownField(
                 value: effectiveCategoryId,
                 labelText: 'Kategori',
-                prefixIcon: Icons.sell_outlined,
                 items: categoryOptions
                     .map<DropdownMenuItem<String>>(
                       (category) => DropdownMenuItem<String>(
@@ -231,7 +228,6 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                     child: _ProductDropdownField(
                       value: _unit,
                       labelText: 'Satuan',
-                      prefixIcon: Icons.straighten_rounded,
                       items: _unitOptions
                           .map<DropdownMenuItem<String>>(
                             (unit) => DropdownMenuItem<String>(
@@ -250,7 +246,6 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                     child: _ProductDropdownField(
                       value: _rackLocation,
                       labelText: 'Lokasi rak',
-                      prefixIcon: Icons.inventory_2_outlined,
                       items: _rackLocationOptions
                           .map<DropdownMenuItem<String>>(
                             (rackLocation) => DropdownMenuItem<String>(
@@ -304,11 +299,20 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
   }
 
   Future<void> _pickImage() async {
-    final picked = await widget.ref.read(mediaPickerProvider).pickImagePath();
-    if (!mounted || picked == null) {
-      return;
+    try {
+      final picked = await widget.ref.read(mediaPickerProvider).pickImagePath();
+      if (!mounted || picked == null) {
+        return;
+      }
+      setState(() => _imagePath = picked);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal upload foto: $error')),
+      );
     }
-    setState(() => _imagePath = picked);
   }
 
   Future<void> _save() async {
@@ -341,14 +345,12 @@ class _ProductDropdownField extends StatelessWidget {
   const _ProductDropdownField({
     required this.value,
     required this.labelText,
-    required this.prefixIcon,
     required this.items,
     required this.onChanged,
   });
 
   final String value;
   final String labelText;
-  final IconData prefixIcon;
   final List<DropdownMenuItem<String>> items;
   final ValueChanged<String?>? onChanged;
 
@@ -362,6 +364,7 @@ class _ProductDropdownField extends StatelessWidget {
       icon: const AppIcon(
         Icons.keyboard_arrow_down_rounded,
         color: AppTheme.deepTeal,
+        size: 16,
       ),
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
             color: AppTheme.ink,
@@ -373,7 +376,6 @@ class _ProductDropdownField extends StatelessWidget {
         labelText: labelText,
         filled: true,
         fillColor: Colors.white,
-        prefixIcon: AppIcon(prefixIcon),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(22),
           borderSide: BorderSide(

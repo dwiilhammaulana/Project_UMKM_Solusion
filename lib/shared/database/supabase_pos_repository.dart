@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 
+import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_models.dart';
@@ -11,6 +13,7 @@ class SupabasePosRepository implements PosRepository {
   final SupabaseClient _client;
   String? _cachedAuthUserId;
   String? _cachedDataOwnerUserId;
+  static const _mediaBucket = 'app-media';
 
   static const _defaultCategories = <Map<String, String?>>[
     {'slug': 'nasi-paket', 'name': 'nasi paket', 'description': null},
@@ -345,12 +348,19 @@ class SupabasePosRepository implements PosRepository {
         .maybeSingle();
     final existingMap =
         existing == null ? null : Map<String, dynamic>.from(existing);
+    final profileId = existingMap?.stringValue('id') ?? 'store-$userId';
+    final uploadedPhotoPath = await _uploadMediaIfNeeded(
+      photoPath,
+      userId: userId,
+      folder: 'profiles',
+      recordId: profileId,
+    );
     final profile = AppProfile(
-      id: existingMap?.stringValue('id') ?? 'store-$userId',
+      id: profileId,
       storeName: storeName,
       storeSubtitle: storeSubtitle,
       ownerName: ownerName,
-      photoPath: photoPath,
+      photoPath: uploadedPhotoPath,
     );
     if (existing == null) {
       await _client.from('app_profile').insert({
@@ -403,8 +413,15 @@ class SupabasePosRepository implements PosRepository {
   }) async {
     final userId = await _requireDataOwnerUserId();
     if (id == null) {
+      final productId = 'prd-${DateTime.now().microsecondsSinceEpoch}';
+      final uploadedImagePath = await _uploadMediaIfNeeded(
+        imagePath,
+        userId: userId,
+        folder: 'products',
+        recordId: productId,
+      );
       final product = Product(
-        id: 'prd-${DateTime.now().microsecondsSinceEpoch}',
+        id: productId,
         name: name,
         categoryId: categoryId,
         sellPrice: sellPrice,
@@ -413,7 +430,7 @@ class SupabasePosRepository implements PosRepository {
         minStock: minStock,
         unit: unit,
         rackLocation: rackLocation,
-        imagePath: imagePath,
+        imagePath: uploadedImagePath,
       );
       await _client.from('products').insert({
         ..._productValues(product),
@@ -432,6 +449,12 @@ class SupabasePosRepository implements PosRepository {
       throw Exception('Produk tidak ditemukan.');
     }
     final preserved = _mapProduct(Map<String, dynamic>.from(existing));
+    final uploadedImagePath = await _uploadMediaIfNeeded(
+      imagePath,
+      userId: userId,
+      folder: 'products',
+      recordId: preserved.id,
+    );
     final product = Product(
       id: preserved.id,
       name: name,
@@ -442,7 +465,7 @@ class SupabasePosRepository implements PosRepository {
       minStock: minStock,
       unit: unit,
       rackLocation: rackLocation,
-      imagePath: imagePath,
+      imagePath: uploadedImagePath,
       isActive: preserved.isActive,
     );
     await _client
@@ -820,6 +843,81 @@ class SupabasePosRepository implements PosRepository {
       'cost_name': cost.costName,
       'amount': cost.amount,
     };
+  }
+
+  Future<String?> _uploadMediaIfNeeded(
+    String? mediaPath, {
+    required String userId,
+    required String folder,
+    required String recordId,
+  }) async {
+    final trimmedPath = mediaPath?.trim();
+    if (trimmedPath == null || trimmedPath.isEmpty) {
+      return null;
+    }
+    if (_isRemoteMediaPath(trimmedPath)) {
+      return trimmedPath;
+    }
+
+    final file = File(trimmedPath);
+    if (!await file.exists()) {
+      return trimmedPath;
+    }
+
+    final extension = _safeImageExtension(trimmedPath);
+    final objectPath = [
+      userId,
+      folder,
+      '$recordId-${DateTime.now().microsecondsSinceEpoch}$extension',
+    ].join('/');
+
+    await _client.storage.from(_mediaBucket).upload(
+          objectPath,
+          file,
+          fileOptions: FileOptions(
+            cacheControl: '31536000',
+            contentType: _contentTypeForExtension(extension),
+            upsert: true,
+          ),
+        );
+
+    final publicUrl = _client.storage.from(_mediaBucket).getPublicUrl(
+          objectPath,
+        );
+    await _deleteTemporaryUploadFile(file);
+    return publicUrl;
+  }
+
+  bool _isRemoteMediaPath(String mediaPath) {
+    return mediaPath.startsWith('http://') || mediaPath.startsWith('https://');
+  }
+
+  String _safeImageExtension(String mediaPath) {
+    final extension = p.extension(mediaPath).toLowerCase();
+    return switch (extension) {
+      '.jpeg' || '.jpg' || '.png' || '.webp' || '.gif' => extension,
+      _ => '.jpg',
+    };
+  }
+
+  String _contentTypeForExtension(String extension) {
+    return switch (extension) {
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      _ => 'image/jpeg',
+    };
+  }
+
+  Future<void> _deleteTemporaryUploadFile(File file) async {
+    if (!p.split(file.path).contains('toko_saku_uploads')) {
+      return;
+    }
+    try {
+      await file.delete();
+    } catch (_) {
+      // Temporary preview cleanup is best effort after a successful upload.
+    }
   }
 
   String _requireUserId() {

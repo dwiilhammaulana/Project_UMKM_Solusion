@@ -29,6 +29,33 @@ void main() {
     expect(controller.isLocked, isFalse);
   });
 
+  test('fresh login remains unlocked when profile check enters initializing',
+      () async {
+    final fake = FakeBiometricAuthenticator(isAvailable: true);
+    final controller = BiometricLockController(authenticator: fake);
+
+    controller.updateAuthStatus(AuthStatus.unauthenticated);
+    await controller.initialize();
+    controller.updateAuthStatus(AuthStatus.initializing);
+    controller.updateAuthStatus(AuthStatus.authenticated);
+
+    expect(controller.shouldShowLockScreen, isFalse);
+    expect(controller.isLocked, isFalse);
+  });
+
+  test('fresh login to onboarding is treated as already unlocked', () async {
+    final fake = FakeBiometricAuthenticator(isAvailable: true);
+    final controller = BiometricLockController(authenticator: fake);
+
+    controller.updateAuthStatus(AuthStatus.unauthenticated);
+    await controller.initialize();
+    controller.updateAuthStatus(AuthStatus.initializing);
+    controller.updateAuthStatus(AuthStatus.needsOnboarding);
+
+    expect(controller.shouldShowLockScreen, isFalse);
+    expect(controller.isLocked, isFalse);
+  });
+
   test('restored authenticated session is locked after availability check',
       () async {
     final fake = FakeBiometricAuthenticator(isAvailable: true);

@@ -216,12 +216,22 @@ class _AuthRouteTransitionBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    final size = MediaQuery.sizeOf(context);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final isKeyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: const Color(0xFF0E4A43),
         image: DecorationImage(
-          image: const AssetImage('bg login.png'),
+          image: ResizeImage(
+            const AssetImage('bg login.png'),
+            height: (size.height * pixelRatio).round(),
+          ),
           fit: BoxFit.cover,
+          alignment: isKeyboardVisible ? Alignment.topCenter : Alignment.center,
           colorFilter: ColorFilter.mode(
             Colors.black.withValues(alpha: 0.08),
             BlendMode.darken,

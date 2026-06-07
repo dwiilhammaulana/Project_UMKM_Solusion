@@ -43,6 +43,7 @@ class BiometricLockController extends ChangeNotifier {
   bool _isLocked = false;
   bool _isUnlocking = false;
   bool _unlockedForCurrentSession = false;
+  bool _hasObservedUnauthenticated = false;
   String? _errorMessage;
   DateTime? _backgroundedAt;
   Future<void>? _availabilityFuture;
@@ -105,16 +106,18 @@ class BiometricLockController extends ChangeNotifier {
       return;
     }
 
-    final previousStatus = _authStatus;
     _authStatus = status;
 
     if (!_isProtectedStatus(status)) {
+      if (status == AuthStatus.unauthenticated) {
+        _hasObservedUnauthenticated = true;
+      }
       _resetSessionLock();
       notifyListeners();
       return;
     }
 
-    if (previousStatus == AuthStatus.unauthenticated) {
+    if (_hasObservedUnauthenticated) {
       markUnlockedForCurrentSession();
       return;
     }
@@ -125,6 +128,7 @@ class BiometricLockController extends ChangeNotifier {
 
   void markUnlockedForCurrentSession() {
     _unlockedForCurrentSession = true;
+    _hasObservedUnauthenticated = false;
     _isLocked = false;
     _isUnlocking = false;
     _errorMessage = null;

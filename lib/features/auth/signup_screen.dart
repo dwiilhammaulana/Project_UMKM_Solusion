@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
+
 import 'auth_scaffold.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -18,11 +19,51 @@ class SignupScreen extends ConsumerStatefulWidget {
 }
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
+  static final ButtonStyle _primaryButtonStyle = FilledButton.styleFrom(
+    backgroundColor: Colors.white.withValues(alpha: 0.72),
+    foregroundColor: AppTheme.deepTeal,
+    padding: const EdgeInsets.symmetric(vertical: 16),
+  );
+
+  static final ButtonStyle _googleButtonStyle = OutlinedButton.styleFrom(
+    foregroundColor: AppTheme.deepTeal,
+    side: BorderSide(
+      color: AppTheme.deepTeal.withValues(alpha: 0.58),
+    ),
+    padding: const EdgeInsets.symmetric(vertical: 16),
+  );
+
+  static final ButtonStyle _switchAuthButtonStyle = TextButton.styleFrom(
+    foregroundColor: AppTheme.deepTeal,
+  );
+
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  double _stableKeyboardInset = 0;
   bool _isSubmitting = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardInset <= 0) {
+      _stableKeyboardInset = 0;
+      return;
+    }
+    if (_stableKeyboardInset > 0) {
+      return;
+    }
+
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final estimatedKeyboardInset =
+        (screenHeight * 0.38).clamp(260.0, 360.0).toDouble();
+    _stableKeyboardInset = keyboardInset > estimatedKeyboardInset
+        ? keyboardInset
+        : estimatedKeyboardInset;
+  }
 
   @override
   void dispose() {
@@ -34,13 +75,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isKeyboardVisible = _stableKeyboardInset > 0;
+
     return AuthScaffold(
       title: 'Buat akun baru',
-      subtitle:
-          'Daftarkan akun pemilik toko. Email akan diverifikasi sebelum akun dipakai.',
+      subtitle: '',
       backgroundColor: AppTheme.deepTeal,
       backgroundImage: 'bg login.png',
       frameless: true,
+      showBrand: false,
+      showHeader: !isKeyboardVisible,
+      resizeToAvoidBottomInset: false,
+      keyboardBottomInset: _stableKeyboardInset,
+      backgroundAlignment:
+          isKeyboardVisible ? Alignment.topCenter : Alignment.center,
+      paintBackground: false,
       contentAlignment: const Alignment(0, 0.58),
       child: Form(
         key: _formKey,
@@ -96,11 +145,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isSubmitting ? null : _submitSignUp,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.72),
-                  foregroundColor: AppTheme.deepTeal,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+                style: _primaryButtonStyle,
                 child: Text(_isSubmitting ? 'Membuat akun...' : 'Daftar'),
               ),
             ),
@@ -109,14 +154,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _isSubmitting ? null : _submitGoogleLogin,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.deepTeal,
-                  side: BorderSide(
-                    color: AppTheme.deepTeal.withValues(alpha: 0.58),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                icon: const AppIcon(Icons.account_circle_outlined),
+                style: _googleButtonStyle,
+                icon: const AppIcon(Icons.account_circle_outlined, size: 16),
                 label: const Text('Daftar dengan Google'),
               ),
             ),
@@ -124,9 +163,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Center(
               child: TextButton(
                 onPressed: _isSubmitting ? null : () => context.go('/login'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.deepTeal,
-                ),
+                style: _switchAuthButtonStyle,
                 child: const Text('Sudah punya akun? Masuk'),
               ),
             ),
@@ -146,6 +183,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       prefixIcon: AppIcon(
         prefixIcon,
         color: AppTheme.deepTeal,
+        size: 16,
+      ),
+      prefixIconConstraints: const BoxConstraints(
+        minWidth: 40,
+        minHeight: 40,
       ),
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.58),
