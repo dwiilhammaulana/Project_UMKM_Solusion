@@ -31,6 +31,10 @@ class FakePosRepository implements PosRepository {
   late List<StockMovement> _stockMovements;
   late List<OperationalCost> _operationalCosts;
 
+  void addTransactionForTest(TransactionRecord transaction) {
+    _transactions.add(transaction);
+  }
+
   @override
   Future<AppProfile?> fetchAppProfile() async => _appProfile;
 
@@ -445,14 +449,7 @@ class FakePosRepository implements PosRepository {
     required String? notes,
     required DateTime now,
   }) {
-    final sequence = _transactions.where((transaction) {
-          return transaction.createdAt.year == now.year &&
-              transaction.createdAt.month == now.month &&
-              transaction.createdAt.day == now.day;
-        }).length +
-        1;
-    final transactionCode =
-        'TRX-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${sequence.toString().padLeft(3, '0')}';
+    final transactionCode = _buildTransactionCode(now);
     final totalAmount = items.fold(0.0, (sum, item) => sum + item.subtotal);
     return TransactionRecord(
       id: _newRecordId('trx'),
@@ -467,6 +464,26 @@ class FakePosRepository implements PosRepository {
       items: items,
       notes: notes,
     );
+  }
+
+  String _buildTransactionCode(DateTime now) {
+    final prefix =
+        'TRX-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final maxSequence = _transactions.fold<int>(0, (maxSequence, transaction) {
+      if (transaction.createdAt.year != now.year ||
+          transaction.createdAt.month != now.month ||
+          transaction.createdAt.day != now.day ||
+          !transaction.transactionCode.startsWith('$prefix-')) {
+        return maxSequence;
+      }
+      final sequence = int.tryParse(
+          transaction.transactionCode.substring(prefix.length + 1));
+      if (sequence == null || sequence <= maxSequence) {
+        return maxSequence;
+      }
+      return sequence;
+    });
+    return '$prefix-${(maxSequence + 1).toString().padLeft(3, '0')}';
   }
 
   void _validateStock(List<TransactionItem> items) {

@@ -15,6 +15,7 @@ class SupabasePosRepository implements PosRepository {
   String? _cachedDataOwnerUserId;
   static final Random _idRandom = Random();
   static const _mediaBucket = 'app-media';
+  static const _transactionInsertMaxAttempts = 5;
 
   static const _defaultCategories = <Map<String, String?>>[
     {'slug': 'nasi-paket', 'name': 'nasi paket', 'description': null},
@@ -581,35 +582,16 @@ class SupabasePosRepository implements PosRepository {
       );
     }
 
-    final transactionId = 'trx-${now.microsecondsSinceEpoch}';
-    final transactionCode = await _buildTransactionCode(now);
-    final transaction = TransactionRecord(
-      id: transactionId,
-      transactionCode: transactionCode,
+    final transaction = await _insertTransactionWithRetry(
+      userId: userId,
+      now: now,
       customerId: customerId,
       customerName: customerName,
       totalAmount: totalAmount,
       paymentMethod: paymentMethod,
-      amountPaid: paymentMethod == PaymentMethod.bon ? 0 : totalAmount,
-      changeAmount: 0,
-      createdAt: now,
       items: items,
       notes: notes,
     );
-
-    await _client.from('transactions').insert({
-      'id': transaction.id,
-      'transaction_code': transaction.transactionCode,
-      'customer_id': transaction.customerId,
-      'customer_name': transaction.customerName,
-      'total_amount': transaction.totalAmount,
-      'payment_method': transaction.paymentMethod.name,
-      'amount_paid': transaction.amountPaid,
-      'change_amount': transaction.changeAmount,
-      'notes': transaction.notes,
-      'created_at': transaction.createdAt.toIso8601String(),
-      'owner_user_id': userId,
-    });
 
     if (items.isNotEmpty) {
       await _client.from('transaction_items').insert(
@@ -913,37 +895,18 @@ class SupabasePosRepository implements PosRepository {
     }
 
     final totalAmount = items.fold(0.0, (sum, item) => sum + item.subtotal);
-    final transactionId = 'trx-${now.microsecondsSinceEpoch}';
-    final transactionCode = await _buildTransactionCode(now);
     final customerId = pending['customer_id'] as String?;
     final customerName = pending.stringValue('customer_name');
-    final transaction = TransactionRecord(
-      id: transactionId,
-      transactionCode: transactionCode,
+    final transaction = await _insertTransactionWithRetry(
+      userId: userId,
+      now: now,
       customerId: customerId,
       customerName: customerName,
       totalAmount: totalAmount,
       paymentMethod: paymentMethod,
-      amountPaid: paymentMethod == PaymentMethod.bon ? 0 : totalAmount,
-      changeAmount: 0,
-      createdAt: now,
       items: items,
       notes: pending['notes'] as String?,
     );
-
-    await _client.from('transactions').insert({
-      'id': transaction.id,
-      'transaction_code': transaction.transactionCode,
-      'customer_id': transaction.customerId,
-      'customer_name': transaction.customerName,
-      'total_amount': transaction.totalAmount,
-      'payment_method': transaction.paymentMethod.name,
-      'amount_paid': transaction.amountPaid,
-      'change_amount': transaction.changeAmount,
-      'notes': transaction.notes,
-      'created_at': transaction.createdAt.toIso8601String(),
-      'owner_user_id': userId,
-    });
 
     await _client.from('transaction_items').insert(
           items
@@ -1151,18 +1114,101 @@ class SupabasePosRepository implements PosRepository {
     return normalized == 'nasi paket';
   }
 
-  Future<String> _buildTransactionCode(DateTime now) async {
-    final userId = await _requireDataOwnerUserId();
+  Future<String> _buildTransactionCode(
+    DateTime now, {
+    required String userId,
+    int sequenceOffset = 0,
+  }) async {
     final start = DateTime(now.year, now.month, now.day).toIso8601String();
     final end = DateTime(now.year, now.month, now.day + 1).toIso8601String();
     final rows = await _client
         .from('transactions')
-        .select('id')
+        .select('transaction_code')
         .eq('owner_user_id', userId)
         .gte('created_at', start)
         .lt('created_at', end);
-    final sequence = (rows as List<dynamic>).length + 1;
-    return 'TRX-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${sequence.toString().padLeft(3, '0')}';
+    final prefix = _transactionCodeDatePrefix(now);
+    final maxSequence =
+        (rows as List<dynamic>).cast<Map<String, dynamic>>().fold<int>(
+      0,
+      (maxSequence, row) {
+        final code = row.stringValue('transaction_code');
+        if (!code.startsWith('$prefix-')) {
+          return maxSequence;
+        }
+        final sequence = int.tryParse(code.substring(prefix.length + 1));
+        if (sequence == null || sequence <= maxSequence) {
+          return maxSequence;
+        }
+        return sequence;
+      },
+    );
+    final sequence = maxSequence + sequenceOffset + 1;
+    return '$prefix-${sequence.toString().padLeft(3, '0')}';
+  }
+
+  String _transactionCodeDatePrefix(DateTime now) {
+    return 'TRX-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<TransactionRecord> _insertTransactionWithRetry({
+    required String userId,
+    required DateTime now,
+    required String? customerId,
+    required String customerName,
+    required double totalAmount,
+    required PaymentMethod paymentMethod,
+    required List<TransactionItem> items,
+    String? notes,
+  }) async {
+    for (var attempt = 0; attempt < _transactionInsertMaxAttempts; attempt++) {
+      final transaction = TransactionRecord(
+        id: _newRecordId('trx', now),
+        transactionCode: await _buildTransactionCode(
+          now,
+          userId: userId,
+          sequenceOffset: attempt,
+        ),
+        customerId: customerId,
+        customerName: customerName,
+        totalAmount: totalAmount,
+        paymentMethod: paymentMethod,
+        amountPaid: paymentMethod == PaymentMethod.bon ? 0 : totalAmount,
+        changeAmount: 0,
+        createdAt: now,
+        items: items,
+        notes: notes,
+      );
+
+      try {
+        await _client.from('transactions').insert({
+          'id': transaction.id,
+          'transaction_code': transaction.transactionCode,
+          'customer_id': transaction.customerId,
+          'customer_name': transaction.customerName,
+          'total_amount': transaction.totalAmount,
+          'payment_method': transaction.paymentMethod.name,
+          'amount_paid': transaction.amountPaid,
+          'change_amount': transaction.changeAmount,
+          'notes': transaction.notes,
+          'created_at': transaction.createdAt.toIso8601String(),
+          'owner_user_id': userId,
+        });
+        return transaction;
+      } on PostgrestException catch (error) {
+        if (!_isDuplicateTransactionCodeError(error) ||
+            attempt == _transactionInsertMaxAttempts - 1) {
+          rethrow;
+        }
+      }
+    }
+
+    throw StateError('Gagal membuat kode transaksi unik.');
+  }
+
+  bool _isDuplicateTransactionCodeError(PostgrestException error) {
+    final text = '${error.code} ${error.message} ${error.details}';
+    return text.contains('23505') && text.contains('transaction_code');
   }
 
   Product _mapProduct(Map<String, dynamic> row) {
