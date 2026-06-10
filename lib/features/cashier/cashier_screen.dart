@@ -17,7 +17,7 @@ class CashierScreen extends ConsumerStatefulWidget {
 }
 
 class _CashierScreenState extends ConsumerState<CashierScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _cashierPaymentMethods = [
     PaymentMethod.cash,
     PaymentMethod.qris,
@@ -26,17 +26,24 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
 
   String _customerQuery = '';
   String _historyQuery = '';
+  String _pendingCustomerQuery = '';
+  String _pendingProductQuery = '';
+  String? _selectedPendingTransactionId;
+  PaymentMethod _pendingPaymentMethod = PaymentMethod.cash;
+  late final TabController _tabController;
   final TextEditingController _notesController = TextEditingController();
   AnimationController? _bonCustomerPulseController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _ensureBonCustomerPulseController();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _bonCustomerPulseController?.dispose();
     _notesController.dispose();
     super.dispose();
@@ -60,25 +67,24 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
     }).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    return DefaultTabController(
-      length: 2,
-      child: Column(
-        children: [
-          const _CashierTabHeader(),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildNewTransactionTab(
-                  context,
-                  state,
-                  filteredCustomers,
-                ),
-                _buildHistoryTab(context, state, filteredTransactions),
-              ],
-            ),
+    return Column(
+      children: [
+        _CashierTabHeader(controller: _tabController),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildNewTransactionTab(
+                context,
+                state,
+                filteredCustomers,
+              ),
+              _buildOngoingTab(context, state),
+              _buildHistoryTab(context, state, filteredTransactions),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -565,6 +571,35 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
               ElevatedButton.icon(
                 key: const Key('cashier-checkout-button'),
                 onPressed: () async {
+                  if (state.cartContainsNasiPaket) {
+                    try {
+                      final notes = _notesController.text.trim();
+                      await ref
+                          .read(posStateProvider)
+                          .moveCartToPendingTransaction(
+                            notes: notes.isEmpty ? null : notes,
+                          );
+                      _notesController.clear();
+                      if (!context.mounted) return;
+                      setState(() {
+                        _selectedPendingTransactionId = null;
+                        _pendingPaymentMethod = PaymentMethod.cash;
+                      });
+                      _tabController.animateTo(1);
+                      _showMessage(
+                        context,
+                        'Pesanan dipindah ke transaksi berlangsung.',
+                      );
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      _showMessage(
+                        context,
+                        error.toString().replaceFirst('Exception: ', ''),
+                      );
+                    }
+                    return;
+                  }
+
                   final shouldCheckout =
                       await _showPaymentConfirmation(context);
                   if (shouldCheckout != true || !context.mounted) {
@@ -587,13 +622,752 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                     );
                   }
                 },
-                icon: const AppIcon(Icons.receipt_long_rounded),
-                label: const Text('Mulai Pembayaran'),
+                icon: AppIcon(
+                  state.cartContainsNasiPaket
+                      ? Icons.pending_actions_rounded
+                      : Icons.receipt_long_rounded,
+                ),
+                label: Text(
+                  state.cartContainsNasiPaket
+                      ? 'Pindah ke Transaksi Sementara'
+                      : 'Mulai Pembayaran',
+                ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildOngoingTab(BuildContext context, PosAppState state) {
+    final selectedId = _selectedPendingTransactionId;
+    final selectedPending =
+        selectedId == null ? null : state.pendingTransactionById(selectedId);
+
+    if (selectedId != null && selectedPending == null) {
+      _selectedPendingTransactionId = null;
+    }
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        shellBottomClearance(context),
+      ),
+      children: [
+        if (selectedPending != null)
+          _buildPendingDetail(context, state, selectedPending)
+        else if (state.pendingTransactions.isEmpty)
+          const EmptyState(
+            icon: Icons.pending_actions_outlined,
+            title: 'Belum ada transaksi berlangsung',
+            subtitle: 'Pesanan nasi paket yang dipindah akan muncul di sini.',
+          )
+        else
+          ...state.pendingTransactions.map(
+            (pending) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _PendingTransactionCard(
+                pending: pending,
+                onTap: () {
+                  setState(() {
+                    _selectedPendingTransactionId = pending.id;
+                    _pendingCustomerQuery = '';
+                    _pendingProductQuery = '';
+                    _pendingPaymentMethod = PaymentMethod.cash;
+                  });
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPendingDetail(
+    BuildContext context,
+    PosAppState state,
+    PendingTransaction pending,
+  ) {
+    final productQuery = _pendingProductQuery.trim().toLowerCase();
+    final pendingProductIds = {
+      for (final item in pending.items) item.productId,
+    };
+    final filteredProducts = productQuery.isEmpty
+        ? const <Product>[]
+        : state.products.where((product) {
+            return product.isActive &&
+                product.name.toLowerCase().contains(productQuery);
+          }).take(6).toList();
+    final customerQuery = _pendingCustomerQuery.trim().toLowerCase();
+    final filteredCustomers = state.customers.where((customer) {
+      return customer.isActive &&
+          (customerQuery.isEmpty ||
+              customer.name.toLowerCase().contains(customerQuery) ||
+              customer.phone.toLowerCase().contains(customerQuery));
+    }).toList();
+    final selectedCustomer = pending.customerId == null
+        ? null
+        : state.customerById(pending.customerId!);
+    final needsBonCustomer =
+        _pendingPaymentMethod == PaymentMethod.bon && pending.customerId == null;
+    _syncBonCustomerPulse(needsBonCustomer);
+    final bonCustomerPulseController = _ensureBonCustomerPulseController();
+
+    return AppSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Kembali',
+                onPressed: () => setState(() {
+                  _selectedPendingTransactionId = null;
+                  _pendingCustomerQuery = '';
+                  _pendingProductQuery = '';
+                }),
+                icon: const AppIcon(Icons.arrow_back_rounded),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Detail Pesanan Berlangsung',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...pending.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppTheme.deepTeal.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        AppMediaPreview(
+                          imagePath:
+                              state.productById(item.productId)?.imagePath,
+                          width: 44,
+                          height: 44,
+                          borderRadius: 14,
+                          label: null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.productName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                AppFormatters.currency(item.sellPrice),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppTheme.foam,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 30,
+                                    height: 34,
+                                    child: IconButton(
+                                      tooltip: 'Kurangi qty',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: item.quantity <= 1 &&
+                                              pending.items.length <= 1
+                                          ? null
+                                          : () async {
+                                              try {
+                                                await ref
+                                                    .read(posStateProvider)
+                                                    .decreasePendingTransactionQty(
+                                                      pendingTransactionId:
+                                                          pending.id,
+                                                      productId: item.productId,
+                                                    );
+                                              } catch (error) {
+                                                if (!context.mounted) return;
+                                                _showMessage(
+                                                  context,
+                                                  error
+                                                      .toString()
+                                                      .replaceFirst(
+                                                          'Exception: ', ''),
+                                                );
+                                              }
+                                            },
+                                      icon: const AppIcon(
+                                        Icons.remove_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 24,
+                                    child: Text(
+                                      '${item.quantity}',
+                                      key: Key(
+                                          'pending-item-qty-${item.productId}'),
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 30,
+                                    height: 34,
+                                    child: IconButton(
+                                      tooltip: 'Tambah qty',
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        try {
+                                          await ref
+                                              .read(posStateProvider)
+                                              .increasePendingTransactionQty(
+                                                pendingTransactionId:
+                                                    pending.id,
+                                                productId: item.productId,
+                                              );
+                                        } catch (error) {
+                                          if (!context.mounted) return;
+                                          _showMessage(
+                                            context,
+                                            error.toString().replaceFirst(
+                                                'Exception: ', ''),
+                                          );
+                                        }
+                                      },
+                                      icon: const AppIcon(
+                                        Icons.add_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              key: Key('pending-item-remove-${item.productId}'),
+                              tooltip: 'Hapus produk',
+                              style: IconButton.styleFrom(
+                                fixedSize: const Size(34, 34),
+                                minimumSize: const Size(34, 34),
+                                padding: EdgeInsets.zero,
+                                foregroundColor: AppTheme.danger,
+                                backgroundColor:
+                                    AppTheme.danger.withValues(alpha: 0.08),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color:
+                                        AppTheme.danger.withValues(alpha: 0.24),
+                                  ),
+                                ),
+                              ),
+                              onPressed: pending.items.length <= 1
+                                  ? null
+                                  : () => _confirmRemovePendingItem(
+                                        context,
+                                        pending,
+                                        item,
+                                      ),
+                              icon: const AppIcon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        AppFormatters.currency(item.subtotal),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 22),
+          const _CashierSectionHeader(
+            title: 'Tambah Produk',
+            infoMessage:
+                'Cari produk lalu tambahkan ke pesanan berlangsung ini.',
+          ),
+          const SizedBox(height: 12),
+          AppSearchField(
+            fieldKey: const Key('pending-product-search'),
+            hintText: 'Cari produk untuk pesanan berlangsung',
+            onChanged: (value) => setState(() => _pendingProductQuery = value),
+          ),
+          const SizedBox(height: 12),
+          if (productQuery.isNotEmpty && filteredProducts.isEmpty)
+            const EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Produk tidak ditemukan',
+              subtitle: 'Coba kata kunci produk lain.',
+            )
+          else
+            ...filteredProducts.map(
+              (product) {
+                final count = pending.items
+                    .where((item) => item.productId == product.id)
+                    .fold(0, (sum, item) => sum + item.quantity);
+                final isNasiPaket = state.isNasiPaketProduct(product);
+                final canAdd = !isNasiPaket || product.isReady;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: pendingProductIds.contains(product.id)
+                          ? AppTheme.foam
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppTheme.deepTeal.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        AppMediaPreview(
+                          imagePath: product.imagePath,
+                          width: 44,
+                          height: 44,
+                          borderRadius: 14,
+                          label: null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                AppFormatters.currency(product.sellPrice),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          key: Key('pending-add-product-${product.id}'),
+                          onPressed: canAdd
+                              ? () async {
+                                  try {
+                                    await ref
+                                        .read(posStateProvider)
+                                        .addProductToPendingTransaction(
+                                          pendingTransactionId: pending.id,
+                                          product: product,
+                                        );
+                                  } catch (error) {
+                                    if (!context.mounted) return;
+                                    _showMessage(
+                                      context,
+                                      error.toString().replaceFirst(
+                                          'Exception: ', ''),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const AppIcon(
+                            Icons.add_shopping_cart_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            canAdd
+                                ? (count > 0 ? 'Tambah ($count)' : 'Tambah')
+                                : 'Kosong',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 22),
+          const _CashierSectionHeader(
+            title: 'Pelanggan & Pembayaran',
+            infoMessage:
+                'Cari atau tambah pelanggan. BON wajib memakai pelanggan aktif.',
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _BonCustomerSearchPulse(
+                  active: needsBonCustomer,
+                  animation: bonCustomerPulseController,
+                  child: AppSearchField(
+                    fieldKey: const Key('pending-customer-search'),
+                    hintText: 'Cari pelanggan aktif',
+                    showPrefixIcon: false,
+                    onChanged: (value) =>
+                        setState(() => _pendingCustomerQuery = value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                key: const Key('pending-customer-add-icon-button'),
+                tooltip: 'Daftar pelanggan baru',
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTheme.deepTeal,
+                  foregroundColor: Colors.white,
+                  fixedSize: const Size(44, 44),
+                  minimumSize: const Size(44, 44),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: () async {
+                  final customer = await showCustomerFormSheet(
+                    context,
+                    ref,
+                  );
+                  if (!mounted || customer == null) return;
+                  try {
+                    await ref
+                        .read(posStateProvider)
+                        .setPendingTransactionCustomer(
+                          pendingTransactionId: pending.id,
+                          customerId: customer.id,
+                        );
+                    setState(() => _pendingCustomerQuery = '');
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    _showMessage(
+                      context,
+                      error.toString().replaceFirst('Exception: ', ''),
+                    );
+                  }
+                },
+                icon: const AppIcon(Icons.person_add_alt_1_rounded),
+              ),
+            ],
+          ),
+          if (needsBonCustomer) ...[
+            const SizedBox(height: 8),
+            const _BonCustomerNote(),
+          ],
+          const SizedBox(height: 12),
+          if (selectedCustomer != null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.foam,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const AppMediaPreview(
+                    width: 54,
+                    height: 54,
+                    borderRadius: 27,
+                    placeholderIcon: Icons.person_outline_rounded,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          selectedCustomer.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${selectedCustomer.phone} - ${selectedCustomer.address}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(posStateProvider)
+                            .setPendingTransactionCustomer(
+                              pendingTransactionId: pending.id,
+                              customerId: null,
+                            );
+                        setState(() => _pendingCustomerQuery = '');
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        _showMessage(
+                          context,
+                          error.toString().replaceFirst('Exception: ', ''),
+                        );
+                      }
+                    },
+                    icon: const AppIcon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_pendingCustomerQuery.trim().isNotEmpty &&
+              filteredCustomers.isEmpty)
+            const EmptyState(
+              icon: Icons.people_outline_rounded,
+              title: 'Belum ada pelanggan cocok',
+              subtitle: 'Tambah pelanggan baru untuk transaksi BON.',
+            )
+          else if (_pendingCustomerQuery.trim().isNotEmpty)
+            ...filteredCustomers.take(5).map(
+                  (customer) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () async {
+                        try {
+                          await ref
+                              .read(posStateProvider)
+                              .setPendingTransactionCustomer(
+                                pendingTransactionId: pending.id,
+                                customerId: customer.id,
+                              );
+                          setState(() => _pendingCustomerQuery = '');
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          _showMessage(
+                            context,
+                            error.toString().replaceFirst('Exception: ', ''),
+                          );
+                        }
+                      },
+                      child: Ink(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: pending.customerId == customer.id
+                              ? AppTheme.foam
+                              : Colors.white,
+                          border: pending.customerId == customer.id
+                              ? null
+                              : Border.all(
+                                  color: AppTheme.deepTeal
+                                      .withValues(alpha: 0.08),
+                                ),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          children: [
+                            const AppMediaPreview(
+                              width: 54,
+                              height: 54,
+                              borderRadius: 27,
+                              placeholderIcon: Icons.person_outline_rounded,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    customer.name,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${customer.phone} - ${customer.address}',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (pending.customerId == customer.id)
+                              const AppIcon(
+                                Icons.check_circle_rounded,
+                                color: AppTheme.success,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+          SummaryRow(label: 'Total item', value: '${pending.totalQuantity}'),
+          SummaryRow(
+            label: 'Total',
+            value: AppFormatters.currency(pending.totalAmount),
+          ),
+          if ((pending.notes ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Catatan',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.subtext,
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(pending.notes!),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              for (final method in _cashierPaymentMethods) ...[
+                Expanded(
+                  child: _PaymentMethodButton(
+                    key: Key('pending-payment-${method.name}'),
+                    label: _cashierPaymentLabel(method),
+                    selected: _isCashierPaymentSelected(
+                      method,
+                      _pendingPaymentMethod,
+                    ),
+                    onTap: () => setState(() {
+                      _pendingPaymentMethod = method == PaymentMethod.qris
+                          ? PaymentMethod.qris
+                          : method;
+                    }),
+                  ),
+                ),
+                if (method != _cashierPaymentMethods.last)
+                  const SizedBox(width: 6),
+              ],
+            ],
+          ),
+          if (_isCashierPaymentSelected(
+            PaymentMethod.qris,
+            _pendingPaymentMethod,
+          )) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _PaymentMethodButton(
+                    key: const Key('pending-payment-noncash-dana'),
+                    label: 'E-Wallet',
+                    selected: _pendingPaymentMethod == PaymentMethod.qris,
+                    onTap: () => setState(
+                      () => _pendingPaymentMethod = PaymentMethod.qris,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _PaymentMethodButton(
+                    key: const Key('pending-payment-noncash-bank'),
+                    label: 'Bank',
+                    selected: _pendingPaymentMethod == PaymentMethod.transfer,
+                    onTap: () => setState(
+                      () => _pendingPaymentMethod = PaymentMethod.transfer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              key: const Key('pending-start-payment-button'),
+              onPressed: () async {
+                final shouldCheckout = await _showPendingPaymentConfirmation(
+                  context,
+                  pending,
+                  _pendingPaymentMethod,
+                );
+                if (shouldCheckout != true || !context.mounted) {
+                  return;
+                }
+
+                try {
+                  final transaction = await ref
+                      .read(posStateProvider)
+                      .checkoutPendingTransaction(
+                        pendingTransactionId: pending.id,
+                        paymentMethod: _pendingPaymentMethod,
+                      );
+                  if (!context.mounted) return;
+                  setState(() => _selectedPendingTransactionId = null);
+                  await _showReceiptSheet(context, transaction);
+                } catch (error) {
+                  if (!context.mounted) return;
+                  _showMessage(
+                    context,
+                    error.toString().replaceFirst('Exception: ', ''),
+                  );
+                }
+              },
+              icon: const AppIcon(Icons.receipt_long_rounded),
+              label: const Text('Mulai Pembayaran'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -672,6 +1446,61 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
 
     ref.read(posStateProvider).removeFromCart(product.id);
     _showMessage(context, '${product.name} dihapus dari transaksi.');
+  }
+
+  Future<void> _confirmRemovePendingItem(
+    BuildContext context,
+    PendingTransaction pending,
+    PendingTransactionItem item,
+  ) async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus dari transaksi berlangsung?'),
+          content: Text(
+            '${item.productName} akan dihapus dari pesanan berlangsung ini.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              key: Key('pending-confirm-remove-${item.productId}'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.danger,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldRemove != true || !context.mounted) {
+      return;
+    }
+
+    try {
+      await ref.read(posStateProvider).removePendingTransactionItem(
+            pendingTransactionId: pending.id,
+            productId: item.productId,
+          );
+      if (!context.mounted) return;
+      _showMessage(
+        context,
+        '${item.productName} dihapus dari transaksi berlangsung.',
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      _showMessage(
+        context,
+        error.toString().replaceFirst('Exception: ', ''),
+      );
+    }
   }
 
   Future<bool?> _showPaymentConfirmation(BuildContext context) async {
@@ -789,6 +1618,109 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
     );
   }
 
+  Future<bool?> _showPendingPaymentConfirmation(
+    BuildContext context,
+    PendingTransaction pending,
+    PaymentMethod paymentMethod,
+  ) async {
+    if (paymentMethod == PaymentMethod.bon && pending.customerId == null) {
+      _showMessage(
+        context,
+        'Transaksi BON wajib memilih pelanggan terdaftar.',
+      );
+      return false;
+    }
+
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          key: const Key('pending-confirm-payment-dialog'),
+          title: const Text('Detail Pesanan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cek lagi item yang diorder sebelum transaksi diselesaikan.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 14),
+                ...pending.items.map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${item.productName} x${item.quantity}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          AppFormatters.currency(item.subtotal),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 22),
+                _LeftAlignedValueRow(
+                  label: 'Pelanggan',
+                  value: pending.customerName,
+                ),
+                SummaryRow(
+                  label: 'Metode bayar',
+                  value: _checkoutPaymentLabel(paymentMethod),
+                ),
+                SummaryRow(
+                    label: 'Total item', value: '${pending.totalQuantity}'),
+                SummaryRow(
+                  label: 'Total',
+                  value: AppFormatters.currency(pending.totalAmount),
+                ),
+                if ((pending.notes ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Catatan',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.subtext,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(pending.notes!),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Kembali'),
+            ),
+            FilledButton(
+              key: const Key('pending-confirm-checkout-button'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.success,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Selesaikan Transaksi'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showReceiptSheet(
     BuildContext context,
     TransactionRecord transaction,
@@ -891,6 +1823,9 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
 
   void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   AnimationController _ensureBonCustomerPulseController() {
@@ -977,6 +1912,71 @@ class _TransactionHistoryCard extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               AppFormatters.currency(transaction.totalAmount),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingTransactionCard extends StatelessWidget {
+  const _PendingTransactionCard({
+    required this.pending,
+    required this.onTap,
+  });
+
+  final PendingTransaction pending;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: Key('pending-transaction-tile-${pending.id}'),
+      borderRadius: BorderRadius.circular(28),
+      onTap: onTap,
+      child: Ink(
+        decoration: AppTheme.frostedDecoration(radius: 28),
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const AppIcon(
+                Icons.pending_actions_rounded,
+                color: AppTheme.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pending.customerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${pending.totalQuantity} item - ${AppFormatters.dateTime(pending.createdAt)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              AppFormatters.currency(pending.totalAmount),
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ],
@@ -1097,7 +2097,9 @@ class _BonCustomerNote extends StatelessWidget {
 }
 
 class _CashierTabHeader extends StatelessWidget {
-  const _CashierTabHeader();
+  const _CashierTabHeader({required this.controller});
+
+  final TabController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -1124,15 +2126,20 @@ class _CashierTabHeader extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: const TabBar(
+        child: TabBar(
+          controller: controller,
           tabs: [
             Tab(
               key: Key('cashier-tab-new'),
               text: 'Transaksi Baru',
             ),
             Tab(
+              key: Key('cashier-tab-ongoing'),
+              text: 'Berlangsung',
+            ),
+            Tab(
               key: Key('cashier-tab-history'),
-              text: 'Riwayat Transaksi',
+              text: 'Riwayat',
             ),
           ],
         ),

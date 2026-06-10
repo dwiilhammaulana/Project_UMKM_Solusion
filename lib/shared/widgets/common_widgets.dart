@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconify_flutter/iconify_flutter.dart';
 import 'package:iconify_flutter/icons/ic.dart';
+import 'package:lottie/lottie.dart';
 
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
@@ -806,6 +807,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isNasiPaket = categoryName.toLowerCase() == 'nasi paket';
     return GestureDetector(
       onLongPress: onLongPress,
       child: AppSectionCard(
@@ -842,10 +844,16 @@ class ProductCard extends StatelessWidget {
                             color: AppTheme.deepTeal,
                           ),
                           StatusChip(
-                            label: 'Stok ${product.stockQty} ${product.unit}',
-                            color: product.isLowStock
-                                ? AppTheme.warning
-                                : AppTheme.success,
+                            label: isNasiPaket
+                                ? (product.isReady ? 'Ready' : 'Kosong')
+                                : 'Stok ${product.stockQty} ${product.unit}',
+                            color: isNasiPaket
+                                ? (product.isReady
+                                    ? AppTheme.success
+                                    : AppTheme.danger)
+                                : (product.isLowStock
+                                    ? AppTheme.warning
+                                    : AppTheme.success),
                           ),
                           if ((product.rackLocation ?? '').isNotEmpty)
                             StatusChip(
@@ -872,9 +880,13 @@ class ProductCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: onAdd,
+                    onPressed: isNasiPaket && !product.isReady ? null : onAdd,
                     icon: const AppIcon(Icons.add_shopping_cart_rounded),
-                    label: Text(count > 0 ? 'Tambah ($count)' : 'Tambah'),
+                    label: Text(
+                      isNasiPaket && !product.isReady
+                          ? 'Kosong'
+                          : (count > 0 ? 'Tambah ($count)' : 'Tambah'),
+                    ),
                   ),
                 ),
               ],
@@ -983,8 +995,15 @@ class LoadingState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
+          Lottie.asset(
+            'assets/lottie/loading.json',
+            width: 112,
+            height: 112,
+            fit: BoxFit.contain,
+            repeat: true,
+            errorBuilder: (_, __, ___) => const CircularProgressIndicator(),
+          ),
+          const SizedBox(height: 10),
           Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),

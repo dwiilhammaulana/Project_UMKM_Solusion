@@ -6,6 +6,7 @@ abstract class PosRepository {
   Future<List<Product>> fetchProducts();
   Future<List<Customer>> fetchCustomers();
   Future<List<TransactionRecord>> fetchTransactions();
+  Future<List<PendingTransaction>> fetchPendingTransactions();
   Future<List<DebtRecord>> fetchDebts();
   Future<List<DebtPayment>> fetchPayments();
   Future<List<StockMovement>> fetchStockMovements();
@@ -49,6 +50,7 @@ abstract class PosRepository {
     required String unit,
     String? rackLocation,
     String? imagePath,
+    bool isReady = true,
   });
 
   Future<void> deleteProduct(String productId);
@@ -59,6 +61,26 @@ abstract class PosRepository {
     required String customerName,
     required PaymentMethod paymentMethod,
     String? notes,
+  });
+
+  Future<PendingTransaction> savePendingTransactionFromCart({
+    required Map<String, int> cart,
+    required String? customerId,
+    required String customerName,
+    String? notes,
+  });
+
+  Future<PendingTransaction> updatePendingTransaction({
+    required String id,
+    required Map<String, int> cart,
+    required String? customerId,
+    required String customerName,
+    String? notes,
+  });
+
+  Future<TransactionRecord> checkoutPendingTransaction({
+    required String pendingTransactionId,
+    required PaymentMethod paymentMethod,
   });
 
   Future<void> recordDebtPayment({

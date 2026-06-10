@@ -53,6 +53,12 @@ class AppShell extends ConsumerWidget {
       selectedIcon: Icons.point_of_sale_rounded,
     ),
     _NavItem(
+      label: 'Produk',
+      path: '/products',
+      icon: Icons.inventory_2_outlined,
+      selectedIcon: Icons.inventory_2_rounded,
+    ),
+    _NavItem(
       label: 'BON',
       path: '/debts',
       icon: Icons.receipt_long_outlined,

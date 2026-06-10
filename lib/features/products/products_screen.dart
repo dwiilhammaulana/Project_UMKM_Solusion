@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/auth/auth_controller.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
@@ -28,6 +29,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(posStateProvider);
+    final auth = ref.watch(authControllerProvider);
+    final canManageProducts = auth.isAdmin;
     final query = _query.trim().toLowerCase();
     final filtered = state.products.where((product) {
       final matchesQuery =
@@ -51,7 +54,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           onCategorySelected: (categoryId) => setState(
             () => _categoryId = _categoryId == categoryId ? null : categoryId,
           ),
-          onAddProduct: () => showProductFormSheet(context, ref),
+          onAddProduct: canManageProducts
+              ? () => showProductFormSheet(context, ref)
+              : null,
         ),
         const SizedBox(height: 16),
         Padding(
@@ -114,8 +119,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                                 ref,
                                 product: product,
                               ),
-                              onLongPress: () =>
-                                  _showProductActions(context, product),
+                              onLongPress: canManageProducts
+                                  ? () => _showProductActions(context, product)
+                                  : null,
+                              showManageActions: canManageProducts,
                             ),
                           ),
                       ],
@@ -247,7 +254,7 @@ class _ProductsCompactHeader extends StatelessWidget {
   final String? selectedCategoryId;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onCategorySelected;
-  final VoidCallback onAddProduct;
+  final VoidCallback? onAddProduct;
 
   @override
   Widget build(BuildContext context) {
@@ -280,8 +287,10 @@ class _ProductsCompactHeader extends StatelessWidget {
                   onChanged: onSearchChanged,
                 ),
               ),
-              const SizedBox(width: 10),
-              _CompactAddProductButton(onPressed: onAddProduct),
+              if (onAddProduct != null) ...[
+                const SizedBox(width: 10),
+                _CompactAddProductButton(onPressed: onAddProduct!),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -410,6 +419,7 @@ class _ProductShowcaseCard extends StatelessWidget {
     required this.onAdd,
     required this.onEdit,
     required this.onLongPress,
+    required this.showManageActions,
   });
 
   final Product product;
@@ -417,12 +427,18 @@ class _ProductShowcaseCard extends StatelessWidget {
   final int count;
   final VoidCallback onAdd;
   final VoidCallback onEdit;
-  final VoidCallback onLongPress;
+  final VoidCallback? onLongPress;
+  final bool showManageActions;
 
   @override
   Widget build(BuildContext context) {
-    final stockColor = product.isLowStock ? AppTheme.warning : AppTheme.success;
-    final stockLabel = product.isLowStock ? 'Stok tipis' : 'Tersedia';
+    final isNasiPaket = categoryName.toLowerCase() == 'nasi paket';
+    final stockColor = isNasiPaket
+        ? (product.isReady ? AppTheme.success : AppTheme.danger)
+        : (product.isLowStock ? AppTheme.warning : AppTheme.success);
+    final stockLabel = isNasiPaket
+        ? (product.isReady ? 'Ready' : 'Kosong')
+        : (product.isLowStock ? 'Stok tipis' : 'Tersedia');
 
     return Material(
       color: Colors.transparent,
@@ -476,12 +492,14 @@ class _ProductShowcaseCard extends StatelessWidget {
                             color: AppTheme.deepTeal,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _ShowcaseIconButton(
-                          tooltip: 'Edit produk',
-                          icon: Icons.edit_outlined,
-                          onPressed: onEdit,
-                        ),
+                        if (showManageActions) ...[
+                          const SizedBox(width: 8),
+                          _ShowcaseIconButton(
+                            tooltip: 'Edit produk',
+                            icon: Icons.edit_outlined,
+                            onPressed: onEdit,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -514,8 +532,9 @@ class _ProductShowcaseCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: _ShowcaseBadge(
-                            label:
-                                '$stockLabel ${product.stockQty} ${product.unit}',
+                            label: isNasiPaket
+                                ? stockLabel
+                                : '$stockLabel ${product.stockQty} ${product.unit}',
                             color: stockColor,
                             compact: true,
                           ),
@@ -543,7 +562,8 @@ class _ProductShowcaseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        onPressed: onAdd,
+                        onPressed:
+                            isNasiPaket && !product.isReady ? null : onAdd,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
@@ -555,7 +575,11 @@ class _ProductShowcaseCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                count > 0 ? 'Tambah ($count)' : 'Tambah',
+                                isNasiPaket && !product.isReady
+                                    ? 'Kosong'
+                                    : (count > 0
+                                        ? 'Tambah ($count)'
+                                        : 'Tambah'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),

@@ -43,6 +43,7 @@ class Product {
     this.rackLocation,
     this.imagePath,
     this.isActive = true,
+    this.isReady = true,
   });
 
   final String id;
@@ -56,6 +57,7 @@ class Product {
   final String? rackLocation;
   final String? imagePath;
   final bool isActive;
+  final bool isReady;
 
   bool get isLowStock => stockQty <= minStock;
 
@@ -71,6 +73,7 @@ class Product {
     String? rackLocation,
     String? imagePath,
     bool? isActive,
+    bool? isReady,
   }) {
     return Product(
       id: id ?? this.id,
@@ -84,6 +87,7 @@ class Product {
       rackLocation: rackLocation ?? this.rackLocation,
       imagePath: imagePath ?? this.imagePath,
       isActive: isActive ?? this.isActive,
+      isReady: isReady ?? this.isReady,
     );
   }
 }
@@ -201,6 +205,46 @@ class TransactionRecord {
   final double changeAmount;
   final DateTime createdAt;
   final List<TransactionItem> items;
+  final String? notes;
+
+  int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
+
+  int get lineItemCount => items.length;
+}
+
+class PendingTransactionItem {
+  const PendingTransactionItem({
+    required this.productId,
+    required this.productName,
+    required this.quantity,
+    required this.sellPrice,
+  });
+
+  final String productId;
+  final String productName;
+  final int quantity;
+  final double sellPrice;
+
+  double get subtotal => quantity * sellPrice;
+}
+
+class PendingTransaction {
+  const PendingTransaction({
+    required this.id,
+    required this.customerId,
+    required this.customerName,
+    required this.totalAmount,
+    required this.createdAt,
+    required this.items,
+    this.notes,
+  });
+
+  final String id;
+  final String? customerId;
+  final String customerName;
+  final double totalAmount;
+  final DateTime createdAt;
+  final List<PendingTransactionItem> items;
   final String? notes;
 
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);

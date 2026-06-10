@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/auth/login_screen.dart';
@@ -20,6 +21,7 @@ import '../../features/products/products_screen.dart';
 import '../../features/reports/reports_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../shared/auth/auth_controller.dart';
+import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/app_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -170,6 +172,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 bool _isCashierAllowedLocation(String location) {
   return location == '/cashier' ||
       location.startsWith('/cashier/transactions/') ||
+      location == '/products' ||
+      location.startsWith('/products/') ||
       location == '/debts' ||
       location.startsWith('/debts/');
 }
@@ -248,10 +252,19 @@ class _RouteLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SizedBox.expand(
-        child: Image.asset(
-          'assets/images/splash_screen_load.png',
-          fit: BoxFit.fill,
+      body: ColoredBox(
+        color: AppTheme.deepTeal,
+        child: Center(
+          child: Lottie.asset(
+            'assets/lottie/loading.json',
+            width: 180,
+            height: 180,
+            fit: BoxFit.contain,
+            repeat: true,
+            errorBuilder: (_, __, ___) => const CircularProgressIndicator(
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );

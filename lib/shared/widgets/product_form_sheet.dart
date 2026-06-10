@@ -63,6 +63,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
   late String _unit;
   late String _rackLocation;
   String? _imagePath;
+  late bool _isReady;
   bool _isSaving = false;
 
   @override
@@ -91,6 +92,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
         ? widget.product!.rackLocation!
         : _rackLocationOptions.first;
     _imagePath = widget.product?.imagePath;
+    _isReady = widget.product?.isReady ?? true;
   }
 
   @override
@@ -114,6 +116,9 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
     if (effectiveCategoryId != _categoryId) {
       _categoryId = effectiveCategoryId;
     }
+    final isNasiPaket = widget.ref.watch(posStateProvider).isNasiPaketCategory(
+          effectiveCategoryId,
+        );
 
     return BottomSheetContainer(
       child: Form(
@@ -129,7 +134,9 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Siapkan detail menu, stok, dan foto utama produk.',
+                isNasiPaket
+                    ? 'Siapkan detail menu, status ready, dan foto utama produk.'
+                    : 'Siapkan detail menu, stok, dan foto utama produk.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -202,25 +209,33 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stockController,
-                      decoration: const InputDecoration(labelText: 'Stok'),
-                      keyboardType: TextInputType.number,
+              if (isNasiPaket)
+                _ReadyStatusField(
+                  isReady: _isReady,
+                  isSaving: _isSaving,
+                  onChanged: (value) => setState(() => _isReady = value),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockController,
+                        decoration: const InputDecoration(labelText: 'Stok'),
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _minStockController,
-                      decoration: const InputDecoration(labelText: 'Min stok'),
-                      keyboardType: TextInputType.number,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _minStockController,
+                        decoration:
+                            const InputDecoration(labelText: 'Min stok'),
+                        keyboardType: TextInputType.number,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -330,6 +345,7 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
             unit: _unit,
             rackLocation: _rackLocation,
             imagePath: _imagePath,
+            isReady: _isReady,
           );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -338,6 +354,84 @@ class _ProductFormSheetState extends State<_ProductFormSheet> {
         setState(() => _isSaving = false);
       }
     }
+  }
+}
+
+class _ReadyStatusField extends StatelessWidget {
+  const _ReadyStatusField({
+    required this.isReady,
+    required this.isSaving,
+    required this.onChanged,
+  });
+
+  final bool isReady;
+  final bool isSaving;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppTheme.deepTeal.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ReadyStatusButton(
+              label: 'Ready',
+              selected: isReady,
+              disabled: isSaving,
+              onTap: () => onChanged(true),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _ReadyStatusButton(
+              label: 'Kosong',
+              selected: !isReady,
+              disabled: isSaving,
+              onTap: () => onChanged(false),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadyStatusButton extends StatelessWidget {
+  const _ReadyStatusButton({
+    required this.label,
+    required this.selected,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        backgroundColor: selected ? AppTheme.deepTeal : Colors.white,
+        foregroundColor: selected ? Colors.white : AppTheme.deepTeal,
+        elevation: 0,
+        minimumSize: const Size.fromHeight(42),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+      onPressed: disabled ? null : onTap,
+      child: Text(label),
+    );
   }
 }
 

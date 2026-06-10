@@ -1,21 +1,17 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
 import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
 import 'package:warung_kopi_pos/shared/biometrics/biometric_exception.dart';
 import 'package:warung_kopi_pos/shared/biometrics/biometric_service.dart';
-import 'package:warung_kopi_pos/shared/database/app_database.dart';
-import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
 import 'package:warung_kopi_pos/shared/utils/app_formatters.dart';
 import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
+
+import 'support/fake_pos_repository.dart';
 
 void main() {
   Future<ProviderContainer> pumpApp(
@@ -31,13 +27,11 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final testDatabase = AppDatabase(inMemory: true);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          sqliteAppDatabaseProvider.overrideWithValue(testDatabase),
           posRepositoryProvider.overrideWithValue(
-            SqlitePosRepository(testDatabase),
+            FakePosRepository(),
           ),
           authControllerProvider.overrideWith((ref) {
             return authController ?? AuthController.test();
@@ -111,6 +105,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tambah Produk'), findsOneWidget);
+  });
+
+  testWidgets('cashier can open products without add product button', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      authController: AuthController.test(role: 'kasir'),
+    );
+
+    expect(find.byKey(const Key('bottom-nav-/products')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Etalase Produk'), findsOneWidget);
+    expect(find.text('Tambah Produk'), findsNothing);
   });
 
   testWidgets('biometric lock covers dashboard and unlock restores it', (
@@ -563,89 +574,6 @@ void main() {
 
     expect(container.read(posStateProvider).appProfile.photoPath, isNull);
   });
-
-  test(
-    'database migration preserves old data and adds new image/profile fields',
-    () async {
-      sqfliteFfiInit();
-      final factory = databaseFactoryFfi;
-      final name =
-          'warung_kopi_migration_test_${DateTime.now().microsecondsSinceEpoch}.db';
-      final dbPath = p.join(await factory.getDatabasesPath(), name);
-
-      final oldDb = await factory.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: 1,
-          onCreate: (db, version) async {
-            await db.execute('''
-            CREATE TABLE categories (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              description TEXT
-            )
-          ''');
-            await db.execute('''
-            CREATE TABLE products (
-              id TEXT PRIMARY KEY,
-              category_id TEXT NOT NULL,
-              name TEXT NOT NULL,
-              sell_price REAL NOT NULL,
-              cost_price REAL NOT NULL,
-              stock_qty INTEGER NOT NULL DEFAULT 0,
-              min_stock INTEGER NOT NULL DEFAULT 0,
-              unit TEXT NOT NULL,
-              rack_location TEXT,
-              is_active INTEGER NOT NULL DEFAULT 1
-            )
-          ''');
-            await db.insert('categories', {
-              'id': 'cat-1',
-              'name': 'Kopi',
-              'description': null,
-            });
-            await db.insert('products', {
-              'id': 'prd-legacy',
-              'category_id': 'cat-1',
-              'name': 'Produk Lama',
-              'sell_price': 10000,
-              'cost_price': 5000,
-              'stock_qty': 4,
-              'min_stock': 1,
-              'unit': 'gelas',
-              'rack_location': 'Rak A',
-              'is_active': 1,
-            });
-          },
-        ),
-      );
-      await oldDb.close();
-
-      final appDatabase = AppDatabase(
-        databaseName: name,
-        databaseFactoryOverride: factory,
-      );
-      final upgraded = await appDatabase.database;
-
-      final productRows = await upgraded.query(
-        'products',
-        where: 'id = ?',
-        whereArgs: ['prd-legacy'],
-      );
-      final profileRows = await upgraded.query('app_profile');
-
-      expect(productRows.single['name'], 'Produk Lama');
-      expect(productRows.single['image_path'], isNull);
-      expect(profileRows, isNotEmpty);
-
-      await appDatabase.close();
-      await factory.deleteDatabase(dbPath);
-      final file = File(dbPath);
-      if (file.existsSync()) {
-        file.deleteSync();
-      }
-    },
-  );
 }
 
 class FakeLogoutAuthController extends AuthController {

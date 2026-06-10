@@ -13,6 +13,7 @@ class SupabasePosRepository implements PosRepository {
   final SupabaseClient _client;
   String? _cachedAuthUserId;
   String? _cachedDataOwnerUserId;
+  static final Random _idRandom = Random();
   static const _mediaBucket = 'app-media';
 
   static const _defaultCategories = <Map<String, String?>>[
@@ -115,6 +116,43 @@ class SupabasePosRepository implements PosRepository {
         items: itemRows
             .map(
               (item) => TransactionItem(
+                productId: item.stringValue('product_id'),
+                productName: item.stringValue('product_name'),
+                quantity: item.intValue('quantity'),
+                sellPrice: item.doubleValue('sell_price'),
+              ),
+            )
+            .toList(),
+        notes: row['notes'] as String?,
+      );
+    }).toList();
+  }
+
+  @override
+  Future<List<PendingTransaction>> fetchPendingTransactions() async {
+    final userId = await _requireDataOwnerUserId();
+    final rows = await _client
+        .from('pending_transactions')
+        .select(
+          'id, customer_id, customer_name, total_amount, notes, created_at, '
+          'pending_transaction_items(product_id, product_name, quantity, sell_price)',
+        )
+        .eq('owner_user_id', userId)
+        .order('created_at', ascending: false);
+
+    return (rows as List<dynamic>).cast<Map<String, dynamic>>().map((row) {
+      final itemRows = (row['pending_transaction_items'] as List<dynamic>? ??
+              const <dynamic>[])
+          .cast<Map<String, dynamic>>();
+      return PendingTransaction(
+        id: row.stringValue('id'),
+        customerId: row['customer_id'] as String?,
+        customerName: row.stringValue('customer_name'),
+        totalAmount: row.doubleValue('total_amount'),
+        createdAt: DateTime.parse(row.stringValue('created_at')),
+        items: itemRows
+            .map(
+              (item) => PendingTransactionItem(
                 productId: item.stringValue('product_id'),
                 productName: item.stringValue('product_name'),
                 quantity: item.intValue('quantity'),
@@ -410,6 +448,7 @@ class SupabasePosRepository implements PosRepository {
     required String unit,
     String? rackLocation,
     String? imagePath,
+    bool isReady = true,
   }) async {
     final userId = await _requireDataOwnerUserId();
     if (id == null) {
@@ -431,6 +470,7 @@ class SupabasePosRepository implements PosRepository {
         unit: unit,
         rackLocation: rackLocation,
         imagePath: uploadedImagePath,
+        isReady: isReady,
       );
       await _client.from('products').insert({
         ..._productValues(product),
@@ -467,6 +507,7 @@ class SupabasePosRepository implements PosRepository {
       rackLocation: rackLocation,
       imagePath: uploadedImagePath,
       isActive: preserved.isActive,
+      isReady: isReady,
     );
     await _client
         .from('products')
@@ -510,6 +551,7 @@ class SupabasePosRepository implements PosRepository {
     if (productRows.length != cart.length) {
       throw Exception('Sebagian produk tidak ditemukan.');
     }
+    final nasiPaketCategoryIds = await _fetchNasiPaketCategoryIds(userId);
 
     final items = <TransactionItem>[];
     var totalAmount = 0.0;
@@ -522,7 +564,8 @@ class SupabasePosRepository implements PosRepository {
       if (quantity <= 0) {
         throw Exception('Jumlah produk harus lebih dari 0.');
       }
-      if (quantity > product.stockQty) {
+      final usesStock = !nasiPaketCategoryIds.contains(product.categoryId);
+      if (usesStock && quantity > product.stockQty) {
         throw Exception(
           'Stok ${product.name} tidak cukup. Sisa stok ${product.stockQty}.',
         );
@@ -587,16 +630,22 @@ class SupabasePosRepository implements PosRepository {
 
     for (final item in items) {
       final product = productRows[item.productId]!;
-      await _client
-          .from('products')
-          .update({'stock_qty': max(0, product.stockQty - item.quantity)})
-          .eq('id', item.productId)
-          .eq('owner_user_id', userId);
+      if (!nasiPaketCategoryIds.contains(product.categoryId)) {
+        await _client
+            .from('products')
+            .update({'stock_qty': max(0, product.stockQty - item.quantity)})
+            .eq('id', item.productId)
+            .eq('owner_user_id', userId);
+      }
     }
 
-    if (items.isNotEmpty) {
+    final stockItems = items.where((item) {
+      final product = productRows[item.productId]!;
+      return !nasiPaketCategoryIds.contains(product.categoryId);
+    }).toList();
+    if (stockItems.isNotEmpty) {
       await _client.from('stock_movements').insert(
-            items
+            stockItems
                 .map(
                   (item) => {
                     'id': 'stm-${now.microsecondsSinceEpoch}-${item.productId}',
@@ -628,6 +677,344 @@ class SupabasePosRepository implements PosRepository {
         'owner_user_id': userId,
       });
     }
+
+    return transaction;
+  }
+
+  @override
+  Future<PendingTransaction> savePendingTransactionFromCart({
+    required Map<String, int> cart,
+    required String? customerId,
+    required String customerName,
+    String? notes,
+  }) async {
+    if (cart.isEmpty) {
+      throw Exception('Keranjang masih kosong.');
+    }
+
+    final userId = await _requireDataOwnerUserId();
+    final now = DateTime.now();
+    final productRows = await _fetchProductsByIds(cart.keys.toList());
+    if (productRows.length != cart.length) {
+      throw Exception('Sebagian produk tidak ditemukan.');
+    }
+
+    final items = <PendingTransactionItem>[];
+    var totalAmount = 0.0;
+    for (final entry in cart.entries) {
+      final product = productRows[entry.key];
+      if (product == null) {
+        throw Exception('Produk tidak ditemukan.');
+      }
+      final quantity = entry.value;
+      if (quantity <= 0) {
+        throw Exception('Jumlah produk harus lebih dari 0.');
+      }
+      totalAmount += product.sellPrice * quantity;
+      items.add(
+        PendingTransactionItem(
+          productId: product.id,
+          productName: product.name,
+          quantity: quantity,
+          sellPrice: product.sellPrice,
+        ),
+      );
+    }
+
+    final pending = PendingTransaction(
+      id: _newRecordId('tmp', now),
+      customerId: customerId,
+      customerName: customerName,
+      totalAmount: totalAmount,
+      createdAt: now,
+      items: items,
+      notes: notes,
+    );
+
+    await _client.from('pending_transactions').insert({
+      'id': pending.id,
+      'customer_id': pending.customerId,
+      'customer_name': pending.customerName,
+      'total_amount': pending.totalAmount,
+      'notes': pending.notes,
+      'created_at': pending.createdAt.toIso8601String(),
+      'owner_user_id': userId,
+    });
+
+    await _client.from('pending_transaction_items').insert(
+          items
+              .map(
+                (item) => {
+                  'pending_transaction_id': pending.id,
+                  'product_id': item.productId,
+                  'product_name': item.productName,
+                  'quantity': item.quantity,
+                  'sell_price': item.sellPrice,
+                  'owner_user_id': userId,
+                },
+              )
+              .toList(),
+        );
+
+    return pending;
+  }
+
+  @override
+  Future<PendingTransaction> updatePendingTransaction({
+    required String id,
+    required Map<String, int> cart,
+    required String? customerId,
+    required String customerName,
+    String? notes,
+  }) async {
+    if (cart.isEmpty) {
+      throw Exception(
+        'Transaksi berlangsung harus memiliki minimal satu produk.',
+      );
+    }
+
+    final userId = await _requireDataOwnerUserId();
+    final pendingRow = await _client
+        .from('pending_transactions')
+        .select('id, created_at')
+        .eq('id', id)
+        .eq('owner_user_id', userId)
+        .maybeSingle();
+    if (pendingRow == null) {
+      throw Exception('Transaksi berlangsung tidak ditemukan.');
+    }
+
+    final productRows = await _fetchProductsByIds(cart.keys.toList());
+    if (productRows.length != cart.length) {
+      throw Exception('Sebagian produk tidak ditemukan.');
+    }
+
+    final items = <PendingTransactionItem>[];
+    var totalAmount = 0.0;
+    for (final entry in cart.entries) {
+      final product = productRows[entry.key];
+      if (product == null) {
+        throw Exception('Produk tidak ditemukan.');
+      }
+      final quantity = entry.value;
+      if (quantity <= 0) {
+        throw Exception('Jumlah produk harus lebih dari 0.');
+      }
+      totalAmount += product.sellPrice * quantity;
+      items.add(
+        PendingTransactionItem(
+          productId: product.id,
+          productName: product.name,
+          quantity: quantity,
+          sellPrice: product.sellPrice,
+        ),
+      );
+    }
+
+    await _client
+        .from('pending_transactions')
+        .update({
+          'customer_id': customerId,
+          'customer_name': customerName,
+          'total_amount': totalAmount,
+          'notes': notes,
+        })
+        .eq('id', id)
+        .eq('owner_user_id', userId);
+
+    await _client
+        .from('pending_transaction_items')
+        .delete()
+        .eq('pending_transaction_id', id)
+        .eq('owner_user_id', userId);
+
+    await _client.from('pending_transaction_items').insert(
+          items
+              .map(
+                (item) => {
+                  'pending_transaction_id': id,
+                  'product_id': item.productId,
+                  'product_name': item.productName,
+                  'quantity': item.quantity,
+                  'sell_price': item.sellPrice,
+                  'owner_user_id': userId,
+                },
+              )
+              .toList(),
+        );
+
+    return PendingTransaction(
+      id: id,
+      customerId: customerId,
+      customerName: customerName,
+      totalAmount: totalAmount,
+      createdAt: DateTime.parse(pendingRow.stringValue('created_at')),
+      items: items,
+      notes: notes,
+    );
+  }
+
+  @override
+  Future<TransactionRecord> checkoutPendingTransaction({
+    required String pendingTransactionId,
+    required PaymentMethod paymentMethod,
+  }) async {
+    final userId = await _requireDataOwnerUserId();
+    final now = DateTime.now();
+    final row = await _client
+        .from('pending_transactions')
+        .select(
+          'id, customer_id, customer_name, total_amount, notes, created_at, '
+          'pending_transaction_items(product_id, product_name, quantity, sell_price)',
+        )
+        .eq('id', pendingTransactionId)
+        .eq('owner_user_id', userId)
+        .maybeSingle();
+    if (row == null) {
+      throw Exception('Transaksi berlangsung tidak ditemukan.');
+    }
+
+    final pending = Map<String, dynamic>.from(row);
+    final itemRows = (pending['pending_transaction_items'] as List<dynamic>? ??
+            const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    if (itemRows.isEmpty) {
+      throw Exception('Transaksi berlangsung belum memiliki item.');
+    }
+
+    final items = itemRows
+        .map(
+          (item) => TransactionItem(
+            productId: item.stringValue('product_id'),
+            productName: item.stringValue('product_name'),
+            quantity: item.intValue('quantity'),
+            sellPrice: item.doubleValue('sell_price'),
+          ),
+        )
+        .toList();
+    final productRows =
+        await _fetchProductsByIds(items.map((item) => item.productId).toList());
+    final nasiPaketCategoryIds = await _fetchNasiPaketCategoryIds(userId);
+    if (productRows.length != items.length) {
+      throw Exception('Sebagian produk tidak ditemukan.');
+    }
+
+    for (final item in items) {
+      final product = productRows[item.productId];
+      if (product == null) {
+        throw Exception('Produk tidak ditemukan.');
+      }
+      if (!nasiPaketCategoryIds.contains(product.categoryId) &&
+          item.quantity > product.stockQty) {
+        throw Exception(
+          'Stok ${item.productName} tidak cukup. Sisa stok ${product.stockQty}.',
+        );
+      }
+    }
+
+    final totalAmount = items.fold(0.0, (sum, item) => sum + item.subtotal);
+    final transactionId = 'trx-${now.microsecondsSinceEpoch}';
+    final transactionCode = await _buildTransactionCode(now);
+    final customerId = pending['customer_id'] as String?;
+    final customerName = pending.stringValue('customer_name');
+    final transaction = TransactionRecord(
+      id: transactionId,
+      transactionCode: transactionCode,
+      customerId: customerId,
+      customerName: customerName,
+      totalAmount: totalAmount,
+      paymentMethod: paymentMethod,
+      amountPaid: paymentMethod == PaymentMethod.bon ? 0 : totalAmount,
+      changeAmount: 0,
+      createdAt: now,
+      items: items,
+      notes: pending['notes'] as String?,
+    );
+
+    await _client.from('transactions').insert({
+      'id': transaction.id,
+      'transaction_code': transaction.transactionCode,
+      'customer_id': transaction.customerId,
+      'customer_name': transaction.customerName,
+      'total_amount': transaction.totalAmount,
+      'payment_method': transaction.paymentMethod.name,
+      'amount_paid': transaction.amountPaid,
+      'change_amount': transaction.changeAmount,
+      'notes': transaction.notes,
+      'created_at': transaction.createdAt.toIso8601String(),
+      'owner_user_id': userId,
+    });
+
+    await _client.from('transaction_items').insert(
+          items
+              .map(
+                (item) => {
+                  'transaction_id': transaction.id,
+                  'product_id': item.productId,
+                  'product_name': item.productName,
+                  'quantity': item.quantity,
+                  'sell_price': item.sellPrice,
+                  'owner_user_id': userId,
+                },
+              )
+              .toList(),
+        );
+
+    for (final item in items) {
+      final product = productRows[item.productId]!;
+      if (!nasiPaketCategoryIds.contains(product.categoryId)) {
+        await _client
+            .from('products')
+            .update({'stock_qty': max(0, product.stockQty - item.quantity)})
+            .eq('id', item.productId)
+            .eq('owner_user_id', userId);
+      }
+    }
+
+    final stockItems = items.where((item) {
+      final product = productRows[item.productId]!;
+      return !nasiPaketCategoryIds.contains(product.categoryId);
+    }).toList();
+    if (stockItems.isNotEmpty) {
+      await _client.from('stock_movements').insert(
+            stockItems
+                .map(
+                  (item) => {
+                    'id': 'stm-${now.microsecondsSinceEpoch}-${item.productId}',
+                    'product_id': item.productId,
+                    'reference_name': item.productName,
+                    'quantity': item.quantity.toDouble(),
+                    'type': StockMovementType.stockOut.name,
+                    'notes': 'Transaksi ${transaction.transactionCode}',
+                    'created_at': now.toIso8601String(),
+                    'owner_user_id': userId,
+                  },
+                )
+                .toList(),
+          );
+    }
+
+    if (paymentMethod == PaymentMethod.bon && customerId != null) {
+      await _client.from('debts').insert({
+        'id': 'debt-${now.microsecondsSinceEpoch}',
+        'transaction_id': transaction.id,
+        'customer_id': customerId,
+        'customer_name': customerName,
+        'original_amount': totalAmount,
+        'paid_amount': 0,
+        'due_date': now.add(const Duration(days: 7)).toIso8601String(),
+        'notes': 'BON - Belum Lunas',
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+        'owner_user_id': userId,
+      });
+    }
+
+    await _client
+        .from('pending_transactions')
+        .delete()
+        .eq('id', pendingTransactionId)
+        .eq('owner_user_id', userId);
 
     return transaction;
   }
@@ -742,6 +1129,28 @@ class SupabasePosRepository implements PosRepository {
     };
   }
 
+  Future<Set<String>> _fetchNasiPaketCategoryIds(String userId) async {
+    final rows = await _client
+        .from('categories')
+        .select('id, name')
+        .eq('owner_user_id', userId);
+    return (rows as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .where((row) => _isNasiPaketCategoryName(row.stringValue('name')))
+        .map((row) => row.stringValue('id'))
+        .toSet();
+  }
+
+  String _newRecordId(String prefix, DateTime now) {
+    final suffix = _idRandom.nextInt(0x3fffffff).toRadixString(36);
+    return '$prefix-${now.microsecondsSinceEpoch}-$suffix';
+  }
+
+  bool _isNasiPaketCategoryName(String name) {
+    final normalized = name.trim().toLowerCase();
+    return normalized == 'nasi paket';
+  }
+
   Future<String> _buildTransactionCode(DateTime now) async {
     final userId = await _requireDataOwnerUserId();
     final start = DateTime(now.year, now.month, now.day).toIso8601String();
@@ -769,6 +1178,7 @@ class SupabasePosRepository implements PosRepository {
       rackLocation: row['rack_location'] as String?,
       imagePath: row['image_path'] as String?,
       isActive: row.intValue('is_active') == 1,
+      isReady: row['is_ready'] == null ? true : row.intValue('is_ready') == 1,
     );
   }
 
@@ -807,6 +1217,7 @@ class SupabasePosRepository implements PosRepository {
       'rack_location': product.rackLocation,
       'image_path': product.imagePath,
       'is_active': product.isActive ? 1 : 0,
+      'is_ready': product.isReady ? 1 : 0,
     };
   }
 

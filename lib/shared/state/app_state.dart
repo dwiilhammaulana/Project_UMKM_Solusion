@@ -6,22 +6,10 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../database/app_database.dart';
 import '../database/pos_repository.dart';
-import '../database/sqlite_pos_repository.dart';
 import '../database/supabase_pos_repository.dart';
 import '../models/app_models.dart';
 import '../supabase/supabase_providers.dart';
-
-final sqliteAppDatabaseProvider = Provider<AppDatabase>((ref) {
-  final database = AppDatabase();
-  ref.onDispose(database.close);
-  return database;
-});
-
-final sqlitePosRepositoryProvider = Provider<PosRepository>((ref) {
-  return SqlitePosRepository(ref.watch(sqliteAppDatabaseProvider));
-});
 
 final posRepositoryProvider = Provider<PosRepository>((ref) {
   return SupabasePosRepository(ref.watch(supabaseClientProvider));
@@ -48,6 +36,7 @@ class PosAppState extends ChangeNotifier {
   List<Product> _products = const [];
   List<Customer> _customers = const [];
   List<TransactionRecord> _transactions = const [];
+  List<PendingTransaction> _pendingTransactions = const [];
   List<DebtRecord> _debts = const [];
   List<DebtPayment> _payments = const [];
   List<StockMovement> _stockMovements = const [];
@@ -86,6 +75,7 @@ class PosAppState extends ChangeNotifier {
   List<Product> get products => _products;
   List<Customer> get customers => _customers;
   List<TransactionRecord> get transactions => _transactions;
+  List<PendingTransaction> get pendingTransactions => _pendingTransactions;
   List<DebtRecord> get debts => _debts;
   List<DebtPayment> get payments => _payments;
   List<StockMovement> get stockMovements => _stockMovements;
@@ -111,6 +101,9 @@ class PosAppState extends ChangeNotifier {
   double get cartTotal => _cartTotal;
 
   int get cartCount => _cartCount;
+
+  bool get cartContainsNasiPaket =>
+      _cartProducts.any((product) => isNasiPaketProduct(product));
 
   List<DebtRecord> get activeDebtsSorted => _activeDebtsSorted;
 
@@ -170,6 +163,7 @@ class PosAppState extends ChangeNotifier {
   Future<void> reload() => initialize();
 
   void addToCart(Product product) {
+    _ensureProductCanBeAdded(product);
     final nextQty = (_cart[product.id] ?? 0) + 1;
     _ensureCartQtyWithinStock(product.id, nextQty);
     _cart[product.id] = nextQty;
@@ -283,18 +277,21 @@ class PosAppState extends ChangeNotifier {
     required String unit,
     String? rackLocation,
     String? imagePath,
+    bool isReady = true,
   }) async {
+    final isNasiPaket = isNasiPaketCategory(categoryId);
     await _repository.saveProduct(
       id: id,
       name: name,
       categoryId: categoryId,
       sellPrice: sellPrice,
       costPrice: costPrice,
-      stockQty: stockQty,
-      minStock: minStock,
+      stockQty: isNasiPaket ? 0 : stockQty,
+      minStock: isNasiPaket ? 0 : minStock,
       unit: unit,
       rackLocation: rackLocation,
       imagePath: imagePath,
+      isReady: isReady,
     );
     await _reloadPersistedData();
     notifyListeners();
@@ -355,6 +352,148 @@ class PosAppState extends ChangeNotifier {
     return transaction;
   }
 
+  Future<PendingTransaction> moveCartToPendingTransaction({
+    String? notes,
+  }) async {
+    if (_cart.isEmpty) {
+      throw Exception('Keranjang masih kosong.');
+    }
+    if (!cartContainsNasiPaket) {
+      throw Exception(
+        'Transaksi sementara hanya untuk pesanan kategori nasi paket.',
+      );
+    }
+
+    final pending = await _repository.savePendingTransactionFromCart(
+      cart: _cart,
+      customerId: _selectedCustomerId,
+      customerName: selectedCustomer?.name ?? 'Umum / Tanpa Nama',
+      notes: notes,
+    );
+
+    await _reloadPersistedData();
+    _cart.clear();
+    _selectedCustomerId = null;
+    _selectedPaymentMethod = PaymentMethod.cash;
+    _rebuildCartDerivedData();
+    notifyListeners();
+    return pending;
+  }
+
+  Future<void> addProductToPendingTransaction({
+    required String pendingTransactionId,
+    required Product product,
+  }) async {
+    final pending = _requirePendingTransaction(pendingTransactionId);
+    _ensureProductCanBeAdded(product);
+    final cart = _pendingCart(pending);
+    final nextQty = (cart[product.id] ?? 0) + 1;
+    _ensureCartQtyWithinStock(product.id, nextQty);
+    cart[product.id] = nextQty;
+    await _savePendingTransaction(pending, cart: cart);
+  }
+
+  Future<void> increasePendingTransactionQty({
+    required String pendingTransactionId,
+    required String productId,
+  }) async {
+    final pending = _requirePendingTransaction(pendingTransactionId);
+    final product = _productById[productId];
+    if (product == null) {
+      throw Exception('Produk tidak ditemukan.');
+    }
+    _ensureProductCanBeAdded(product);
+    final cart = _pendingCart(pending);
+    final current = cart[productId];
+    if (current == null) {
+      return;
+    }
+    final nextQty = current + 1;
+    _ensureCartQtyWithinStock(productId, nextQty);
+    cart[productId] = nextQty;
+    await _savePendingTransaction(pending, cart: cart);
+  }
+
+  Future<void> decreasePendingTransactionQty({
+    required String pendingTransactionId,
+    required String productId,
+  }) async {
+    final pending = _requirePendingTransaction(pendingTransactionId);
+    final cart = _pendingCart(pending);
+    final current = cart[productId];
+    if (current == null) {
+      return;
+    }
+    if (current <= 1) {
+      if (cart.length <= 1) {
+        throw Exception(
+          'Transaksi berlangsung harus memiliki minimal satu produk.',
+        );
+      }
+      cart.remove(productId);
+    } else {
+      cart[productId] = current - 1;
+    }
+    await _savePendingTransaction(pending, cart: cart);
+  }
+
+  Future<void> removePendingTransactionItem({
+    required String pendingTransactionId,
+    required String productId,
+  }) async {
+    final pending = _requirePendingTransaction(pendingTransactionId);
+    final cart = _pendingCart(pending);
+    if (!cart.containsKey(productId)) {
+      return;
+    }
+    if (cart.length <= 1) {
+      throw Exception(
+        'Transaksi berlangsung harus memiliki minimal satu produk.',
+      );
+    }
+    cart.remove(productId);
+    await _savePendingTransaction(pending, cart: cart);
+  }
+
+  Future<void> setPendingTransactionCustomer({
+    required String pendingTransactionId,
+    required String? customerId,
+  }) async {
+    final pending = _requirePendingTransaction(pendingTransactionId);
+    final customer = customerId == null ? null : _customerById[customerId];
+    if (customerId != null && customer == null) {
+      throw Exception('Pelanggan tidak ditemukan.');
+    }
+    await _savePendingTransaction(
+      pending,
+      cart: _pendingCart(pending),
+      updateCustomer: true,
+      customerId: customerId,
+      customerName: customer?.name ?? 'Umum / Tanpa Nama',
+    );
+  }
+
+  Future<TransactionRecord> checkoutPendingTransaction({
+    required String pendingTransactionId,
+    required PaymentMethod paymentMethod,
+  }) async {
+    final pending = pendingTransactionById(pendingTransactionId);
+    if (pending == null) {
+      throw Exception('Transaksi berlangsung tidak ditemukan.');
+    }
+    if (paymentMethod == PaymentMethod.bon && pending.customerId == null) {
+      throw Exception('Transaksi BON wajib memilih pelanggan terdaftar.');
+    }
+
+    final transaction = await _repository.checkoutPendingTransaction(
+      pendingTransactionId: pendingTransactionId,
+      paymentMethod: paymentMethod,
+    );
+    await _reloadPersistedData();
+    notifyListeners();
+    return transaction;
+  }
+
   Future<void> recordDebtPayment({
     required String debtId,
     required double amount,
@@ -398,6 +537,62 @@ class PosAppState extends ChangeNotifier {
     return null;
   }
 
+  PendingTransaction? pendingTransactionById(String id) {
+    for (final transaction in _pendingTransactions) {
+      if (transaction.id == id) {
+        return transaction;
+      }
+    }
+    return null;
+  }
+
+  PendingTransaction _requirePendingTransaction(String id) {
+    final pending = pendingTransactionById(id);
+    if (pending == null) {
+      throw Exception('Transaksi berlangsung tidak ditemukan.');
+    }
+    return pending;
+  }
+
+  Map<String, int> _pendingCart(PendingTransaction pending) {
+    return {
+      for (final item in pending.items) item.productId: item.quantity,
+    };
+  }
+
+  Future<void> _savePendingTransaction(
+    PendingTransaction pending, {
+    required Map<String, int> cart,
+    bool updateCustomer = false,
+    String? customerId,
+    String? customerName,
+  }) async {
+    await _repository.updatePendingTransaction(
+      id: pending.id,
+      cart: cart,
+      customerId: updateCustomer ? customerId : pending.customerId,
+      customerName: updateCustomer
+          ? (customerName ?? 'Umum / Tanpa Nama')
+          : pending.customerName,
+      notes: pending.notes,
+    );
+    await _reloadPersistedData();
+    notifyListeners();
+  }
+
+  bool isNasiPaketCategory(String categoryId) {
+    return _isNasiPaketCategoryName(_categoryById[categoryId]?.name);
+  }
+
+  bool isNasiPaketProduct(Product product) {
+    return isNasiPaketCategory(product.categoryId);
+  }
+
+  bool _isNasiPaketCategoryName(String? name) {
+    final normalized = name?.trim().toLowerCase();
+    return normalized == 'nasi paket';
+  }
+
   List<DebtRecord> debtsByCustomer(String customerId) {
     return _debtsByCustomer[customerId] ?? const [];
   }
@@ -421,6 +616,7 @@ class PosAppState extends ChangeNotifier {
       _repository.fetchProducts(),
       _repository.fetchCustomers(),
       _repository.fetchTransactions(),
+      _repository.fetchPendingTransactions(),
       _repository.fetchDebts(),
       _repository.fetchPayments(),
       _repository.fetchStockMovements(),
@@ -432,10 +628,11 @@ class PosAppState extends ChangeNotifier {
     _products = results[2] as List<Product>;
     _customers = results[3] as List<Customer>;
     _transactions = results[4] as List<TransactionRecord>;
-    _debts = results[5] as List<DebtRecord>;
-    _payments = results[6] as List<DebtPayment>;
-    _stockMovements = results[7] as List<StockMovement>;
-    _operationalCosts = results[8] as List<OperationalCost>;
+    _pendingTransactions = results[5] as List<PendingTransaction>;
+    _debts = results[6] as List<DebtRecord>;
+    _payments = results[7] as List<DebtPayment>;
+    _stockMovements = results[8] as List<StockMovement>;
+    _operationalCosts = results[9] as List<OperationalCost>;
     _rebuildDerivedData();
     _selectedCustomerId =
         _customers.any((item) => item.id == _selectedCustomerId)
@@ -448,10 +645,19 @@ class PosAppState extends ChangeNotifier {
     if (product == null) {
       throw Exception('Produk tidak ditemukan.');
     }
+    if (isNasiPaketProduct(product)) {
+      return;
+    }
     if (requestedQty > product.stockQty) {
       throw Exception(
         'Stok ${product.name} tidak cukup. Sisa stok ${product.stockQty}.',
       );
+    }
+  }
+
+  void _ensureProductCanBeAdded(Product product) {
+    if (isNasiPaketProduct(product) && !product.isReady) {
+      throw Exception('${product.name} sedang kosong.');
     }
   }
 
@@ -465,7 +671,7 @@ class PosAppState extends ChangeNotifier {
         .toList()
       ..sort((a, b) => b.ageInDays.compareTo(a.ageInDays));
     _lowStockProducts = _products
-        .where((product) => product.isLowStock)
+        .where((product) => !isNasiPaketProduct(product) && product.isLowStock)
         .toList()
       ..sort((a, b) => a.stockQty.compareTo(b.stockQty));
     _totalRevenue =

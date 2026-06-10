@@ -1,20 +1,16 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
 import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
 import 'package:warung_kopi_pos/shared/biometrics/biometric_service.dart';
-import 'package:warung_kopi_pos/shared/database/app_database.dart';
-import 'package:warung_kopi_pos/shared/database/sqlite_pos_repository.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
 import 'package:warung_kopi_pos/shared/state/app_state.dart';
 import 'package:warung_kopi_pos/shared/utils/app_formatters.dart';
 import 'package:warung_kopi_pos/shared/utils/media_picker.dart';
+
+import 'support/fake_pos_repository.dart';
 
 void main() {
   Future<ProviderContainer> pumpApp(
@@ -29,13 +25,11 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final testDatabase = AppDatabase(inMemory: true);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          sqliteAppDatabaseProvider.overrideWithValue(testDatabase),
           posRepositoryProvider.overrideWithValue(
-            SqlitePosRepository(testDatabase),
+            FakePosRepository(),
           ),
           authControllerProvider.overrideWith((ref) {
             return authController ?? AuthController.test();
@@ -84,6 +78,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Product firstNasiPaketProduct(ProviderContainer container) {
+    final state = container.read(posStateProvider);
+    return state.products.firstWhere(state.isNasiPaketProduct);
+  }
+
+  Product firstStockProduct(ProviderContainer container) {
+    final state = container.read(posStateProvider);
+    return state.products.firstWhere((product) {
+      return !state.isNasiPaketProduct(product);
+    });
+  }
+
   Future<TransactionRecord> createTransaction(
     ProviderContainer container, {
     String? customerId,
@@ -109,6 +115,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tambah Produk'), findsOneWidget);
+  });
+
+  testWidgets('cashier can open products without add product button', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      authController: AuthController.test(role: 'kasir'),
+    );
+
+    expect(find.byKey(const Key('bottom-nav-/products')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Etalase Produk'), findsOneWidget);
+    expect(find.text('Tambah Produk'), findsNothing);
   });
 
   testWidgets('reports screen opens without blank state', (tester) async {
@@ -229,6 +252,201 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(explanation), findsNothing);
+  });
+
+  testWidgets('cashier has ongoing tab for temporary transactions', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('cashier-tab-new')), findsOneWidget);
+    expect(find.byKey(const Key('cashier-tab-ongoing')), findsOneWidget);
+    expect(find.byKey(const Key('cashier-tab-history')), findsOneWidget);
+  });
+
+  testWidgets('nasi paket cart uses move to ongoing button', (tester) async {
+    final container = await pumpApp(tester);
+    container
+        .read(posStateProvider)
+        .addToCart(firstNasiPaketProduct(container));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pindah ke Transaksi Sementara'), findsOneWidget);
+    expect(find.text('Mulai Pembayaran'), findsNothing);
+  });
+
+  testWidgets(
+    'moving multiple nasi paket carts from cashier keeps ongoing list visible',
+    (tester) async {
+      final container = await pumpApp(tester);
+      final state = container.read(posStateProvider);
+      final product = firstNasiPaketProduct(container);
+
+      await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+      await tester.pumpAndSettle();
+
+      state.addToCart(product);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('cashier-checkout-button')));
+      await tester.pumpAndSettle();
+
+      final firstPending = container.read(posStateProvider).pendingTransactions;
+      expect(firstPending, hasLength(1));
+      expect(
+        find.byKey(Key('pending-transaction-tile-${firstPending.single.id}')),
+        findsOneWidget,
+      );
+      expect(find.text('Detail Pesanan Berlangsung'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('cashier-tab-new')));
+      await tester.pumpAndSettle();
+
+      state.addToCart(product);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('cashier-checkout-button')));
+      await tester.pumpAndSettle();
+
+      final pendingTransactions =
+          container.read(posStateProvider).pendingTransactions;
+      expect(pendingTransactions, hasLength(2));
+      for (final pending in pendingTransactions) {
+        expect(
+          find.byKey(Key('pending-transaction-tile-${pending.id}')),
+          findsOneWidget,
+        );
+      }
+      expect(find.text('Detail Pesanan Berlangsung'), findsNothing);
+    },
+  );
+
+  testWidgets(
+      'moving nasi paket cart to pending does not checkout or cut stock',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final product = firstNasiPaketProduct(container);
+    final beforeTransactions = state.transactions.length;
+    final beforeStock = product.stockQty;
+
+    state.addToCart(product);
+    final pending = await state.moveCartToPendingTransaction();
+    await tester.pumpAndSettle();
+
+    final updatedProduct = container
+        .read(posStateProvider)
+        .products
+        .firstWhere((item) => item.id == product.id);
+    expect(pending.items.single.productId, product.id);
+    expect(container.read(posStateProvider).cart, isEmpty);
+    expect(container.read(posStateProvider).pendingTransactions, hasLength(1));
+    expect(container.read(posStateProvider).transactions.length,
+        beforeTransactions);
+    expect(updatedProduct.stockQty, beforeStock);
+  });
+
+  testWidgets('pending transaction can be opened and completed',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    state.addToCart(firstNasiPaketProduct(container));
+    final pending = await state.moveCartToPendingTransaction();
+    final beforeTransactions = state.transactions.length;
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cashier-tab-ongoing')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('pending-transaction-tile-${pending.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail Pesanan Berlangsung'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pending-start-payment-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Detail Pesanan'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pending-confirm-checkout-button')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(posStateProvider).pendingTransactions, isEmpty);
+    expect(container.read(posStateProvider).transactions.length,
+        beforeTransactions + 1);
+    expect(find.text('Transaksi Berhasil'), findsOneWidget);
+  });
+
+  testWidgets('mixed nasi paket pending checkout only cuts stock products',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final nasiProduct = firstNasiPaketProduct(container);
+    final stockProduct = firstStockProduct(container);
+    final beforeTransactions = state.transactions.length;
+
+    state.addToCart(nasiProduct);
+    state.addToCart(stockProduct);
+    final pending = await state.moveCartToPendingTransaction();
+    await state.checkoutPendingTransaction(
+      pendingTransactionId: pending.id,
+      paymentMethod: PaymentMethod.cash,
+    );
+    await tester.pumpAndSettle();
+
+    final updatedState = container.read(posStateProvider);
+    final updatedNasiProduct = updatedState.products.firstWhere(
+      (product) => product.id == nasiProduct.id,
+    );
+    final updatedStockProduct = updatedState.products.firstWhere(
+      (product) => product.id == stockProduct.id,
+    );
+    expect(updatedState.pendingTransactions, isEmpty);
+    expect(updatedState.transactions.length, beforeTransactions + 1);
+    expect(updatedNasiProduct.stockQty, nasiProduct.stockQty);
+    expect(updatedStockProduct.stockQty, stockProduct.stockQty - 1);
+  });
+
+  testWidgets('nasi paket uses ready status and empty item cannot be added',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final nasiCategory = state.categories.firstWhere(
+      (category) => category.name.toLowerCase() == 'nasi paket',
+    );
+
+    await state.saveProduct(
+      name: 'Nasi Kosong Test',
+      categoryId: nasiCategory.id,
+      sellPrice: 12000,
+      costPrice: 7000,
+      stockQty: 99,
+      minStock: 9,
+      unit: 'Porsi',
+      isReady: false,
+    );
+    await tester.pumpAndSettle();
+
+    final product = state.products.firstWhere(
+      (item) => item.name == 'Nasi Kosong Test',
+    );
+    expect(product.stockQty, 0);
+    expect(product.minStock, 0);
+    expect(product.isReady, isFalse);
+    expect(
+      () => state.addToCart(product),
+      throwsA(
+        isA<Exception>().having(
+          (error) => error.toString(),
+          'message',
+          contains('sedang kosong'),
+        ),
+      ),
+    );
   });
 
   testWidgets('cashier history tab shows transaction code and total amount', (
@@ -554,89 +772,6 @@ void main() {
 
     expect(container.read(posStateProvider).appProfile.photoPath, isNull);
   });
-
-  test(
-    'database migration preserves old data and adds new image/profile fields',
-    () async {
-      sqfliteFfiInit();
-      final factory = databaseFactoryFfi;
-      final name =
-          'warung_kopi_migration_test_${DateTime.now().microsecondsSinceEpoch}.db';
-      final dbPath = p.join(await factory.getDatabasesPath(), name);
-
-      final oldDb = await factory.openDatabase(
-        dbPath,
-        options: OpenDatabaseOptions(
-          version: 1,
-          onCreate: (db, version) async {
-            await db.execute('''
-            CREATE TABLE categories (
-              id TEXT PRIMARY KEY,
-              name TEXT NOT NULL,
-              description TEXT
-            )
-          ''');
-            await db.execute('''
-            CREATE TABLE products (
-              id TEXT PRIMARY KEY,
-              category_id TEXT NOT NULL,
-              name TEXT NOT NULL,
-              sell_price REAL NOT NULL,
-              cost_price REAL NOT NULL,
-              stock_qty INTEGER NOT NULL DEFAULT 0,
-              min_stock INTEGER NOT NULL DEFAULT 0,
-              unit TEXT NOT NULL,
-              rack_location TEXT,
-              is_active INTEGER NOT NULL DEFAULT 1
-            )
-          ''');
-            await db.insert('categories', {
-              'id': 'cat-1',
-              'name': 'Kopi',
-              'description': null,
-            });
-            await db.insert('products', {
-              'id': 'prd-legacy',
-              'category_id': 'cat-1',
-              'name': 'Produk Lama',
-              'sell_price': 10000,
-              'cost_price': 5000,
-              'stock_qty': 4,
-              'min_stock': 1,
-              'unit': 'gelas',
-              'rack_location': 'Rak A',
-              'is_active': 1,
-            });
-          },
-        ),
-      );
-      await oldDb.close();
-
-      final appDatabase = AppDatabase(
-        databaseName: name,
-        databaseFactoryOverride: factory,
-      );
-      final upgraded = await appDatabase.database;
-
-      final productRows = await upgraded.query(
-        'products',
-        where: 'id = ?',
-        whereArgs: ['prd-legacy'],
-      );
-      final profileRows = await upgraded.query('app_profile');
-
-      expect(productRows.single['name'], 'Produk Lama');
-      expect(productRows.single['image_path'], isNull);
-      expect(profileRows, isNotEmpty);
-
-      await appDatabase.close();
-      await factory.deleteDatabase(dbPath);
-      final file = File(dbPath);
-      if (file.existsSync()) {
-        file.deleteSync();
-      }
-    },
-  );
 }
 
 class FakeLogoutAuthController extends AuthController {
