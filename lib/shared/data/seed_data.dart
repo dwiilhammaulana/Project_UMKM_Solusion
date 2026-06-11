@@ -209,49 +209,39 @@ SeedData buildSeedData() {
   ];
 
   final reportSummaries = [
-    const ReportSummary(
-      label: 'Nov',
-      revenue: 8900000,
-      cost: 3600000,
-      operationalCost: 1700000,
-      activeDebtTotal: 540000,
-    ),
-    const ReportSummary(
-      label: 'Des',
-      revenue: 9400000,
-      cost: 3920000,
-      operationalCost: 1760000,
-      activeDebtTotal: 610000,
-    ),
-    const ReportSummary(
-      label: 'Jan',
-      revenue: 9100000,
-      cost: 3810000,
-      operationalCost: 1800000,
-      activeDebtTotal: 590000,
-    ),
-    const ReportSummary(
-      label: 'Feb',
-      revenue: 9800000,
-      cost: 4100000,
-      operationalCost: 1840000,
-      activeDebtTotal: 670000,
-    ),
-    const ReportSummary(
-      label: 'Mar',
-      revenue: 10400000,
-      cost: 4350000,
-      operationalCost: 1920000,
-      activeDebtTotal: 520000,
-    ),
-    const ReportSummary(
-      label: 'Apr',
-      revenue: 11200000,
-      cost: 4480000,
-      operationalCost: 1990000,
-      activeDebtTotal: 400000,
-    ),
-  ];
+  ReportSummary(
+    label: 'Nov',
+    period: DateTime(2025, 11, 1),
+    revenue: 8900000,
+    cost: 3600000,
+    operationalCost: 1700000,
+    activeDebtTotal: 540000,
+  ),
+  ReportSummary(
+    label: 'Des',
+    period: DateTime(2025, 12, 1),
+    revenue: 9400000,
+    cost: 3920000,
+    operationalCost: 1760000,
+    activeDebtTotal: 610000,
+  ),
+  ReportSummary(
+    label: 'Jan',
+    period: DateTime(2026, 1, 1),
+    revenue: 9100000,
+    cost: 3810000,
+    operationalCost: 1800000,
+    activeDebtTotal: 590000,
+  ),
+  ReportSummary(
+    label: 'Feb',
+    period: DateTime(2026, 2, 1),
+    revenue: 9800000,
+    cost: 4100000,
+    operationalCost: 1840000,
+    activeDebtTotal: 670000,
+  ),
+];
 
   return SeedData(
     appProfile: appProfile,

@@ -812,6 +812,7 @@ class PosAppState extends ChangeNotifier {
 
       return ReportSummary(
         label: label,
+        period: month,
         revenue: revenue,
         cost: cost,
         operationalCost: _operationalCostTotalByMonth[_monthKey(month)] ?? 0,
