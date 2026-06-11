@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../shared/ml/linear_regression.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
@@ -12,12 +12,36 @@ import '../../shared/widgets/common_widgets.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key});
+  
+  
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
     final reports = state.reportSummaries;
-    final latest = reports.last;
+    final profits =
+    reports.map((e) => e.netProfit).toList();
+
+    final model = LinearRegressionModel();
+
+    model.train(profits);
+
+    double predictedProfit = 0;
+
+      if (profits.length >= 2) {
+        model.train(profits);
+        predictedProfit = model.predict(profits.length + 1);
+      } else if (profits.isNotEmpty) {
+        predictedProfit = profits.last;
+      }
+    if (reports.isEmpty) {
+  return const Center(
+    child: Text('Belum ada data laporan'),
+  );
+}
+
+final latest = reports.last;
+    
     final totalRevenue = reports.fold<double>(
       0,
       (sum, item) => sum + item.revenue,
@@ -37,6 +61,25 @@ class AnalyticsScreen extends ConsumerWidget {
       (best, item) => item.netProfit > best.netProfit ? item : best,
     );
     final costBuckets = _buildCostBuckets(state.operationalCosts);
+
+    final mae = model.calculateMAE(profits);
+    final mse = model.calculateMSE(profits);
+    final rmse = model.calculateRMSE(profits);
+    final r2 = model.calculateR2(profits);
+    
+
+debugPrint('MAE  : $mae');
+debugPrint('MSE  : $mse');
+debugPrint('RMSE : $rmse');
+debugPrint('R2   : $r2');
+    debugPrint('Slope: ${model.slope}');
+debugPrint('Intercept: ${model.intercept}');
+debugPrint('Prediksi: $predictedProfit');
+if (reports.isEmpty) {
+  return const Center(
+    child: Text('Belum ada data laporan'),
+  );
+}
 
     return AppPageScrollView(
       children: [
@@ -59,7 +102,7 @@ class AnalyticsScreen extends ConsumerWidget {
                 icon: Icons.percent_rounded,
               ),
               StatusChip(
-                label: 'Bulan terbaik ${bestMonth.label}',
+               label: 'Bulan terbaik ${bestMonth.label}',
                 color: Colors.white,
                 icon: Icons.emoji_events_rounded,
               ),
@@ -68,6 +111,19 @@ class AnalyticsScreen extends ConsumerWidget {
                 color: Colors.white,
                 icon: Icons.show_chart_rounded,
               ),
+              StatusChip(
+              label: r2 >= 0.8
+                  ? 'Prediksi Baik'
+                  : r2 >= 0.6
+                      ? 'Prediksi Cukup'
+                      : 'Prediksi Lemah',
+              color: r2 >= 0.8
+                  ? AppTheme.success
+                  : r2 >= 0.6
+                      ? AppTheme.warning
+                      : AppTheme.danger,
+              icon: Icons.psychology_rounded,
+            ),
             ],
           ),
         ),
@@ -77,12 +133,13 @@ class AnalyticsScreen extends ConsumerWidget {
           totalCost: totalCost,
           totalProfit: totalProfit,
           averageProfit: averageProfit,
+          predictedProfit: predictedProfit,
         ),
         const SizedBox(height: 20),
         _ModernChartCard(
           title: 'Perbandingan Keuangan',
           subtitle:
-              'Pendapatan, modal produk, biaya toko, dan net profit dalam juta rupiah.',
+            'Perbandingan pendapatan, modal, biaya dan profit setiap bulan.',
           footer: 'Net profit = pendapatan - modal produk - biaya toko.',
           legends: const [
             _ChartLegend(label: 'Pendapatan', color: AppTheme.deepTeal),
@@ -104,16 +161,19 @@ class AnalyticsScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
         _ModernChartCard(
-          title: 'Tren Net Profit',
+          title: 'Tren Net Profit Bulanan',
           subtitle:
-              'Arah profit 6 bulan terakhir dengan garis referensi nol untuk membaca untung atau rugi.',
+              'Perkembangan profit bersih dari bulan ke bulan.',
           footer:
-              'Rata-rata profit: ${AppFormatters.currency(averageProfit)} per bulan.',
+              'Rata-rata profit: ${AppFormatters.currency(averageProfit)} per Bulan.',
           legends: const [
             _ChartLegend(label: 'Net Profit', color: AppTheme.success),
             _ChartLegend(label: 'Area positif', color: AppTheme.mint),
           ],
-          child: _ProfitTrendChart(reports: reports),
+          child: _ProfitTrendChart(
+          reports: reports,
+          predictedProfit: predictedProfit,
+        ),
         ),
       ],
     );
@@ -143,12 +203,14 @@ class _AnalyticsSummaryPanel extends StatelessWidget {
     required this.totalCost,
     required this.totalProfit,
     required this.averageProfit,
+    required this.predictedProfit,
   });
 
   final double totalRevenue;
   final double totalCost;
   final double totalProfit;
   final double averageProfit;
+  final double predictedProfit;
 
   @override
   Widget build(BuildContext context) {
@@ -158,9 +220,9 @@ class _AnalyticsSummaryPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionHeader(
-            title: 'Ringkasan 6 Bulan',
+            title: 'Ringkasan Bulanan',
             subtitle:
-                'Angka utama sebelum membaca diagram, supaya konteksnya tidak hilang.',
+                'Akumulasi performa usaha berdasarkan bulanan.',
           ),
           const SizedBox(height: 16),
           _MetricGrid(
@@ -188,6 +250,12 @@ class _AnalyticsSummaryPanel extends StatelessWidget {
                 value: AppFormatters.currency(averageProfit),
                 icon: Icons.stacked_line_chart_rounded,
                 color: averageProfit >= 0 ? AppTheme.info : AppTheme.danger,
+              ),
+              _AnalyticsMetricTile(
+              title: 'Prediksi Profit',
+              value: AppFormatters.currency(predictedProfit),
+              icon: Icons.psychology_rounded,
+              color: AppTheme.success,
               ),
             ],
           ),
@@ -446,9 +514,13 @@ class _CostBreakdownChart extends StatelessWidget {
 }
 
 class _ProfitTrendChart extends StatelessWidget {
-  const _ProfitTrendChart({required this.reports});
+  const _ProfitTrendChart({
+    required this.reports,
+    required this.predictedProfit,
+  });
 
   final List<ReportSummary> reports;
+  final double predictedProfit;
 
   @override
   Widget build(BuildContext context) {
@@ -459,10 +531,10 @@ class _ProfitTrendChart extends StatelessWidget {
       );
     }
 
-    final maxAbs = reports.fold<double>(
-      1,
-      (value, item) => math.max(value, item.netProfit.abs()),
-    );
+    final maxAbs = [
+      ...reports.map((e) => e.netProfit.abs()),
+      predictedProfit.abs(),
+    ].reduce(math.max);
     final maxY = _roundedMillion(maxAbs);
     final minY = reports.any((item) => item.netProfit < 0) ? -maxY : 0.0;
 
@@ -474,18 +546,28 @@ class _ProfitTrendChart extends StatelessWidget {
           touchTooltipData: LineTouchTooltipData(
             tooltipRoundedRadius: 14,
             getTooltipItems: (spots) {
-              return [
-                for (final spot in spots)
-                  LineTooltipItem(
-                    '${reports[spot.x.toInt()].label}\n'
-                    '${AppFormatters.currency(reports[spot.x.toInt()].netProfit)}',
+              return spots.map((spot) {
+                if (spot.x.toInt() == reports.length) {
+                  return LineTooltipItem(
+                    'Prediksi\n${AppFormatters.currency(predictedProfit)}',
                     const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 11,
                     ),
+                  );
+                }
+
+                return LineTooltipItem(
+                  '${reports[spot.x.toInt()].label}\n'
+                  '${AppFormatters.currency(reports[spot.x.toInt()].netProfit)}',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
                   ),
-              ];
+                );
+              }).toList();
             },
           ),
         ),
@@ -507,41 +589,32 @@ class _ProfitTrendChart extends StatelessWidget {
           interval: _chartInterval(maxY),
         ),
         lineBarsData: [
-          LineChartBarData(
-            isCurved: true,
-            preventCurveOverShooting: true,
-            color: AppTheme.success,
-            barWidth: 4,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 4,
-                  color: Colors.white,
-                  strokeWidth: 3,
-                  strokeColor: reports[index].netProfit >= 0
-                      ? AppTheme.success
-                      : AppTheme.danger,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.mint.withValues(alpha: 0.24),
-                  AppTheme.mint.withValues(alpha: 0.02),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-            spots: [
-              for (var i = 0; i < reports.length; i++)
-                FlSpot(i.toDouble(), _toMillion(reports[i].netProfit)),
-            ],
-          ),
-        ],
+  // data asli
+  LineChartBarData(
+    spots: [
+      for (var i = 0; i < reports.length; i++)
+        FlSpot(i.toDouble(), _toMillion(reports[i].netProfit)),
+    ],
+    color: AppTheme.success,
+  ),
+
+  // prediksi
+  LineChartBarData(
+    spots: [
+      FlSpot(
+        (reports.length - 1).toDouble(),
+        _toMillion(reports.last.netProfit),
+      ),
+      FlSpot(
+        reports.length.toDouble(),
+        _toMillion(predictedProfit),
+      ),
+    ],
+    color: Colors.orange,
+    dashArray: [6, 4],
+  ),
+],
+        
       ),
     );
   }
@@ -556,7 +629,7 @@ class _MetricGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 560 ? 4 : 2;
+        final columns = constraints.maxWidth >= 560 ? 5 : 2;
         const spacing = 10.0;
         final itemWidth =
             (constraints.maxWidth - (spacing * (columns - 1))) / columns;
@@ -781,8 +854,14 @@ FlTitlesData _bottomAndLeftTitles({
         reservedSize: 32,
         getTitlesWidget: (value, meta) {
           final index = value.toInt();
-          if (index < 0 || index >= reports.length || value != index) {
-            return const SizedBox.shrink();
+          if (index == reports.length) {
+            return const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Prediksi',
+                style: TextStyle(fontSize: 10),
+              ),
+            );
           }
           return Padding(
             padding: const EdgeInsets.only(top: 8),

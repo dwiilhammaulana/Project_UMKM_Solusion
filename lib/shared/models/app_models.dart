@@ -382,9 +382,24 @@ class OperationalCost {
   }
 }
 
+class YearSummary {
+  const YearSummary({
+    required this.year,
+    required this.revenue,
+    required this.cost,
+    required this.profit,
+  });
+
+  final int year;
+  final double revenue;
+  final double cost;
+  final double profit;
+}
+
 class ReportSummary {
   const ReportSummary({
     required this.label,
+    required this.period,
     required this.revenue,
     required this.cost,
     required this.operationalCost,
@@ -392,6 +407,7 @@ class ReportSummary {
   });
 
   final String label;
+  final DateTime period;
   final double revenue;
   final double cost;
   final double operationalCost;
