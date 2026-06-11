@@ -381,6 +381,45 @@ void main() {
     expect(find.text('Transaksi Berhasil'), findsOneWidget);
   });
 
+  testWidgets('ongoing transaction can add another product mid transaction',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final nasiProduct = firstNasiPaketProduct(container);
+    final extraProduct = firstStockProduct(container);
+
+    state.addToCart(nasiProduct);
+    final pending = await state.moveCartToPendingTransaction();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/cashier')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cashier-tab-ongoing')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('pending-transaction-tile-${pending.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detail Pesanan Berlangsung'), findsOneWidget);
+    expect(
+      find.byKey(const Key('pending-add-another-product-button')),
+      findsOneWidget,
+    );
+
+    await tester
+        .tap(find.byKey(const Key('pending-add-another-product-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('pending-add-product-${extraProduct.id}')));
+    await tester.pumpAndSettle();
+
+    final updatedPending =
+        container.read(posStateProvider).pendingTransactionById(pending.id)!;
+
+    expect(
+      updatedPending.items.any((item) => item.productId == extraProduct.id),
+      isTrue,
+    );
+  });
+
   testWidgets('mixed nasi paket pending checkout only cuts stock products',
       (tester) async {
     final container = await pumpApp(tester);

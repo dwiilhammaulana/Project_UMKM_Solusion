@@ -28,6 +28,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
   String _historyQuery = '';
   String _pendingCustomerQuery = '';
   String _pendingProductQuery = '';
+  bool _showPendingProductSuggestions = false;
   String? _selectedPendingTransactionId;
   PaymentMethod _pendingPaymentMethod = PaymentMethod.cash;
   late final TabController _tabController;
@@ -676,6 +677,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                     _selectedPendingTransactionId = pending.id;
                     _pendingCustomerQuery = '';
                     _pendingProductQuery = '';
+                    _showPendingProductSuggestions = false;
                     _pendingPaymentMethod = PaymentMethod.cash;
                   });
                 },
@@ -695,12 +697,17 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
     final pendingProductIds = {
       for (final item in pending.items) item.productId,
     };
-    final filteredProducts = productQuery.isEmpty
-        ? const <Product>[]
-        : state.products.where((product) {
-            return product.isActive &&
-                product.name.toLowerCase().contains(productQuery);
-          }).take(6).toList();
+    final filteredProducts =
+        productQuery.isEmpty && !_showPendingProductSuggestions
+            ? const <Product>[]
+            : state.products
+                .where((product) {
+                  return product.isActive &&
+                      (productQuery.isEmpty ||
+                          product.name.toLowerCase().contains(productQuery));
+                })
+                .take(6)
+                .toList();
     final customerQuery = _pendingCustomerQuery.trim().toLowerCase();
     final filteredCustomers = state.customers.where((customer) {
       return customer.isActive &&
@@ -711,8 +718,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
     final selectedCustomer = pending.customerId == null
         ? null
         : state.customerById(pending.customerId!);
-    final needsBonCustomer =
-        _pendingPaymentMethod == PaymentMethod.bon && pending.customerId == null;
+    final needsBonCustomer = _pendingPaymentMethod == PaymentMethod.bon &&
+        pending.customerId == null;
     _syncBonCustomerPulse(needsBonCustomer);
     final bonCustomerPulseController = _ensureBonCustomerPulseController();
 
@@ -728,6 +735,7 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                   _selectedPendingTransactionId = null;
                   _pendingCustomerQuery = '';
                   _pendingProductQuery = '';
+                  _showPendingProductSuggestions = false;
                 }),
                 icon: const AppIcon(Icons.arrow_back_rounded),
               ),
@@ -827,10 +835,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                                                 if (!context.mounted) return;
                                                 _showMessage(
                                                   context,
-                                                  error
-                                                      .toString()
-                                                      .replaceFirst(
-                                                          'Exception: ', ''),
+                                                  error.toString().replaceFirst(
+                                                      'Exception: ', ''),
                                                 );
                                               }
                                             },
@@ -939,9 +945,21 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
               ),
             ),
           ),
+          const SizedBox(height: 2),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('pending-add-another-product-button'),
+              onPressed: () => setState(() {
+                _showPendingProductSuggestions = true;
+              }),
+              icon: const AppIcon(Icons.add_shopping_cart_rounded),
+              label: const Text('Tambah Produk Lain'),
+            ),
+          ),
           const Divider(height: 22),
           const _CashierSectionHeader(
-            title: 'Tambah Produk',
+            title: 'Produk Tambahan',
             infoMessage:
                 'Cari produk lalu tambahkan ke pesanan berlangsung ini.',
           ),
@@ -949,7 +967,10 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
           AppSearchField(
             fieldKey: const Key('pending-product-search'),
             hintText: 'Cari produk untuk pesanan berlangsung',
-            onChanged: (value) => setState(() => _pendingProductQuery = value),
+            onChanged: (value) => setState(() {
+              _pendingProductQuery = value;
+              _showPendingProductSuggestions = true;
+            }),
           ),
           const SizedBox(height: 12),
           if (productQuery.isNotEmpty && filteredProducts.isEmpty)
@@ -1014,35 +1035,42 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                           ),
                         ),
                         const SizedBox(width: 8),
-                        FilledButton.icon(
-                          key: Key('pending-add-product-${product.id}'),
-                          onPressed: canAdd
-                              ? () async {
-                                  try {
-                                    await ref
-                                        .read(posStateProvider)
-                                        .addProductToPendingTransaction(
-                                          pendingTransactionId: pending.id,
-                                          product: product,
-                                        );
-                                  } catch (error) {
-                                    if (!context.mounted) return;
-                                    _showMessage(
-                                      context,
-                                      error.toString().replaceFirst(
-                                          'Exception: ', ''),
-                                    );
+                        SizedBox(
+                          width: 128,
+                          child: FilledButton.icon(
+                            key: Key('pending-add-product-${product.id}'),
+                            onPressed: canAdd
+                                ? () async {
+                                    try {
+                                      await ref
+                                          .read(posStateProvider)
+                                          .addProductToPendingTransaction(
+                                            pendingTransactionId: pending.id,
+                                            product: product,
+                                          );
+                                    } catch (error) {
+                                      if (!context.mounted) return;
+                                      _showMessage(
+                                        context,
+                                        error
+                                            .toString()
+                                            .replaceFirst('Exception: ', ''),
+                                      );
+                                    }
                                   }
-                                }
-                              : null,
-                          icon: const AppIcon(
-                            Icons.add_shopping_cart_rounded,
-                            size: 18,
-                          ),
-                          label: Text(
-                            canAdd
-                                ? (count > 0 ? 'Tambah ($count)' : 'Tambah')
-                                : 'Kosong',
+                                : null,
+                            icon: const AppIcon(
+                              Icons.add_shopping_cart_rounded,
+                              size: 18,
+                            ),
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                canAdd
+                                    ? (count > 0 ? 'Tambah ($count)' : 'Tambah')
+                                    : 'Kosong',
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1214,8 +1242,8 @@ class _CashierScreenState extends ConsumerState<CashierScreen>
                           border: pending.customerId == customer.id
                               ? null
                               : Border.all(
-                                  color: AppTheme.deepTeal
-                                      .withValues(alpha: 0.08),
+                                  color:
+                                      AppTheme.deepTeal.withValues(alpha: 0.08),
                                 ),
                           borderRadius: BorderRadius.circular(24),
                         ),

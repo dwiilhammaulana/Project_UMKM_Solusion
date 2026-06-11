@@ -61,6 +61,8 @@ Deno.serve(async (req) => {
     const email = String(body.email ?? "").trim().toLowerCase();
     const password = String(body.password ?? "");
     const fullName = String(body.full_name ?? "").trim();
+    const nik = String(body.nik ?? "").trim();
+    const phone = String(body.phone ?? "").trim();
 
     if (!email || !email.includes("@")) {
       return jsonResponse({ error: "Email kasir belum valid." }, 400);
@@ -71,6 +73,12 @@ Deno.serve(async (req) => {
     if (!fullName) {
       return jsonResponse({ error: "Nama kasir wajib diisi." }, 400);
     }
+    if (!/^\d{16}$/.test(nik)) {
+      return jsonResponse({ error: "NIK harus 16 digit angka." }, 400);
+    }
+    if (phone.length < 8) {
+      return jsonResponse({ error: "No HP belum valid." }, 400);
+    }
 
     const storeOwnerUserId = callerProfile.store_owner_user_id ?? caller.id;
     const { data: created, error: createError } =
@@ -80,6 +88,8 @@ Deno.serve(async (req) => {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
+          nik,
+          phone,
           role: "kasir",
           store_owner_user_id: storeOwnerUserId,
         },
@@ -96,6 +106,8 @@ Deno.serve(async (req) => {
       id: created.user.id,
       email,
       full_name: fullName,
+      nik,
+      phone,
       role: "kasir",
       store_owner_user_id: storeOwnerUserId,
     });

@@ -39,6 +39,8 @@ Fungsi: menyimpan profil akun yang terhubung ke `auth.users`.
 | `email` | `text` | NOT NULL | Email akun |
 | `full_name` | `text` | NULL | Nama lengkap dari metadata auth |
 | `avatar_url` | `text` | NULL | Avatar dari metadata auth |
+| `nik` | `text` | NULL | NIK kasir |
+| `phone` | `text` | NULL | Nomor HP kasir |
 | `created_at` | `text` | default waktu UTC | Timestamp pembuatan |
 | `updated_at` | `text` | default waktu UTC | Timestamp update |
 | `role` | `text` | NOT NULL default `admin`, check `admin/kasir` | Role akun aplikasi |
