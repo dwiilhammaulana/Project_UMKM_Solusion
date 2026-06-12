@@ -34,10 +34,10 @@ class AnalyticsScreen extends ConsumerWidget {
       } else if (profits.isNotEmpty) {
         predictedProfit = profits.last;
       }
-    if (reports.isEmpty) {
-  return const Center(
-    child: Text('Belum ada data laporan'),
-  );
+      if (reports.isEmpty) {
+      return const Center(
+        child: Text('Belum ada data laporan'),
+      );
 }
 
 final latest = reports.last;
@@ -76,6 +76,7 @@ debugPrint('R2   : $r2');
 debugPrint('Intercept: ${model.intercept}');
 debugPrint('Prediksi: $predictedProfit');
 if (reports.isEmpty) {
+  
   return const Center(
     child: Text('Belum ada data laporan'),
   );
@@ -334,6 +335,8 @@ class _ModernChartCard extends StatelessWidget {
     );
   }
 }
+
+
 
 class _FinancialBarsChart extends StatelessWidget {
   const _FinancialBarsChart({required this.reports});
@@ -619,6 +622,7 @@ class _ProfitTrendChart extends StatelessWidget {
     );
   }
 }
+
 
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.children});

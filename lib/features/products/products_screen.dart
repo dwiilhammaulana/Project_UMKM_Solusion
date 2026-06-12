@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 1. TAMBAHKAN IMPORT INI
 
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/models/app_models.dart';
@@ -440,6 +441,9 @@ class _ProductShowcaseCard extends StatelessWidget {
         ? (product.isReady ? 'Ready' : 'Kosong')
         : (product.isLowStock ? 'Stok tipis' : 'Tersedia');
 
+    // Mengambil tanggal besok dengan format YYYY-MM-DD
+    final tomorrowDate = DateTime.now().add(const Duration(days: 1)).toString().split(' ')[0];
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -528,6 +532,7 @@ class _ProductShowcaseCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    // Baris Informasi Stok dan Lokasi Rak
                     Row(
                       children: [
                         Expanded(
@@ -550,6 +555,43 @@ class _ProductShowcaseCard extends StatelessWidget {
                           ),
                         ],
                       ],
+                    ),
+                    const SizedBox(height: 6),
+                    // TAMPILKAN HASIL PREDIKSI DISINI
+                    FutureBuilder<double?>(
+                      future: PredictionService().getSalesForecast(
+                        // 2. DIUBAH: Mengirimkan product.id bertipe String secara langsung, tidak perlu di-parse ke int
+                        productId: product.id.toString(),
+                        targetDate: tomorrowDate,
+                        isPromoActive: false, // Default tidak ada promo harian
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 4),
+                            child: LinearProgressIndicator(minHeight: 2),
+                          );
+                        }
+                        
+                        final predictedQty = snapshot.data;
+                        if (predictedQty == null || predictedQty <= 0) {
+                          return const SizedBox.shrink();
+                        }
+
+                        // Deteksi jika stok saat ini kurang dari perkiraan kebutuhan esok hari
+                        final isStockDeficit = !isNasiPaket && (product.stockQty < predictedQty);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: _ShowcaseBadge(
+                            label: isStockDeficit 
+                                ? 'Esok butuh: ~${predictedQty.round()} unit (Stok kurang!)'
+                                : 'Prediksi esok: ~${predictedQty.round()} unit',
+                            color: isStockDeficit ? AppTheme.danger : AppTheme.deepTeal,
+                            compact: true,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 6),
                     SizedBox(
@@ -665,5 +707,39 @@ class _ShowcaseIconButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// SERVICE PREDICTION MENGGUNAKAN SUPABASE
+class PredictionService {
+  final _supabase = Supabase.instance.client;
+
+  Future<double?> getSalesForecast({
+    required String productId,
+    required String targetDate,
+    required bool isPromoActive,
+  }) async {
+    try {
+      // Mengambil data langsung dari tabel prediksi Supabase
+      final response = await _supabase
+          .from('product_forecasts')
+          .select('predicted_quantity')
+          .eq('product_id', productId)
+          .eq('target_date', targetDate)
+          .maybeSingle(); // Mengembalikan satu baris, atau null jika tidak ada data
+
+      if (response != null) {
+        final predictedQty = response['predicted_quantity'] as num;
+        
+        // Logika tambahan jika ada promo aktif
+        if (isPromoActive) {
+          return predictedQty.toDouble() * 1.30; // naikkan 30%
+        }
+        return predictedQty.toDouble();
+      }
+    } catch (e) {
+      print('Gagal mengambil data prediksi dari Supabase: $e');
+    }
+    return null;
   }
 }
