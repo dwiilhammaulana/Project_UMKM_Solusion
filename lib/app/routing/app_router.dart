@@ -5,6 +5,7 @@ import 'package:lottie/lottie.dart';
 
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/auth/login_screen.dart';
+import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/signup_screen.dart';
 import '../../features/auth/verify_email_screen.dart';
 import '../../features/cashier/cashier_screen.dart';
@@ -32,9 +33,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: auth,
     redirect: (context, state) {
       final location = state.uri.path;
-      final isAuthRoute = location == '/login' ||
+      final isPublicAuthRoute = location == '/login' ||
           location == '/signup' ||
           location == '/verify-email';
+      final isResetPasswordRoute = location == '/reset-password';
       final isLoadingRoute = location == '/loading';
       final isOnboardingRoute = location == '/onboarding';
 
@@ -42,15 +44,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isLoadingRoute ? null : '/loading';
       }
 
+      if (auth.status == AuthStatus.passwordRecovery) {
+        return isResetPasswordRoute ? null : '/reset-password';
+      }
+
       if (auth.status == AuthStatus.unauthenticated) {
         if (auth.pendingVerificationEmail != null &&
-            location != '/verify-email') {
+            location != '/verify-email' &&
+            !isResetPasswordRoute) {
           return '/verify-email';
         }
-        if (isAuthRoute) {
+        if (isPublicAuthRoute || isResetPasswordRoute) {
           return null;
         }
         return '/login';
+      }
+
+      if (isResetPasswordRoute) {
+        return null;
       }
 
       if (auth.status == AuthStatus.needsOnboarding) {
@@ -58,7 +69,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       final homeLocation = auth.isAdmin ? '/dashboard' : '/cashier';
-      if (isAuthRoute || isLoadingRoute || isOnboardingRoute) {
+      if (isPublicAuthRoute || isLoadingRoute || isOnboardingRoute) {
         return homeLocation;
       }
 
@@ -90,6 +101,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/verify-email',
         builder: (context, state) => const VerifyEmailScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        pageBuilder: (context, state) => _authTransitionPage(
+          state: state,
+          child: const ResetPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: '/onboarding',

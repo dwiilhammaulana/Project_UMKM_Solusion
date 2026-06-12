@@ -196,6 +196,82 @@ void main() {
     expect(find.text('Selamat datang di\nToko Saku!'), findsOneWidget);
   });
 
+  testWidgets('login shows forgot password and sends reset email',
+      (tester) async {
+    final authController = FakePasswordResetAuthController(
+      initialStatus: AuthStatus.unauthenticated,
+    );
+    await pumpApp(tester, authController: authController);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lupa password?'), findsOneWidget);
+
+    await tester.tap(find.text('Lupa password?'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lupa password'), findsOneWidget);
+
+    await tester.tap(find.text('Kirim Email'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Email wajib diisi'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).last, 'kasir');
+    await tester.tap(find.text('Kirim Email'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Format email belum valid'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).last, 'kasir@test.com');
+    await tester.tap(find.text('Kirim Email'));
+    await tester.pumpAndSettle();
+
+    expect(authController.passwordResetEmail, 'kasir@test.com');
+    expect(
+      find.text('Link ubah password sudah dikirim ke email kamu.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reset password validates fields and returns to login',
+      (tester) async {
+    final authController = FakePasswordResetAuthController(
+      initialStatus: AuthStatus.passwordRecovery,
+    );
+    await pumpApp(tester, authController: authController);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ubah password'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Password baru'),
+      'pendek',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Konfirmasi password'),
+      'beda',
+    );
+    await tester.tap(find.text('Ubah Password'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Password minimal 8 karakter'), findsOneWidget);
+    expect(find.text('Konfirmasi password belum sama'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Password baru'),
+      'passwordbaru',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Konfirmasi password'),
+      'passwordbaru',
+    );
+    await tester.tap(find.text('Ubah Password'));
+    await tester.pumpAndSettle();
+
+    expect(authController.updatedPassword, 'passwordbaru');
+    expect(find.text('Selamat datang di\nToko Saku!'), findsOneWidget);
+  });
+
   testWidgets(
     'cashier flow enforces registered customer for BON and can checkout',
     (tester) async {
@@ -591,6 +667,41 @@ class FakeLogoutAuthController extends AuthController {
   @override
   Future<void> signOut() async {
     signOutCallCount++;
+    _status = AuthStatus.unauthenticated;
+    notifyListeners();
+  }
+}
+
+class FakePasswordResetAuthController extends AuthController {
+  FakePasswordResetAuthController({
+    required AuthStatus initialStatus,
+  })  : _status = initialStatus,
+        super.test(status: initialStatus);
+
+  AuthStatus _status;
+  String? passwordResetEmail;
+  String? updatedPassword;
+
+  @override
+  AuthStatus get status => _status;
+
+  @override
+  bool get isAuthenticated =>
+      _status == AuthStatus.authenticated ||
+      _status == AuthStatus.needsOnboarding ||
+      _status == AuthStatus.passwordRecovery;
+
+  @override
+  bool get isPasswordRecovery => _status == AuthStatus.passwordRecovery;
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    passwordResetEmail = email;
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    updatedPassword = newPassword;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
   }

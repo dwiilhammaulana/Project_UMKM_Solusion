@@ -93,6 +93,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isSendingPasswordReset = false;
 
   @override
   void dispose() {
@@ -143,7 +144,18 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
               return null;
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _isSubmitting || _isSendingPasswordReset
+                  ? null
+                  : _showPasswordResetSheet,
+              style: _switchAuthButtonStyle,
+              child: const Text('Lupa password?'),
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -258,6 +270,146 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<void> _showPasswordResetSheet() async {
+    final resetFormKey = GlobalKey<FormState>();
+    var resetEmail = _emailController.text.trim();
+    var isSending = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> submitResetEmail() async {
+              if (!resetFormKey.currentState!.validate()) {
+                return;
+              }
+
+              setState(() => _isSendingPasswordReset = true);
+              setSheetState(() => isSending = true);
+
+              try {
+                await ref.read(authControllerProvider).sendPasswordResetEmail(
+                      resetEmail.trim(),
+                    );
+
+                if (!mounted || !sheetContext.mounted) return;
+                Navigator.of(sheetContext).pop();
+                _showMessage(
+                  'Link ubah password sudah dikirim ke email kamu.',
+                );
+              } on AuthFailure catch (error) {
+                _showMessage(error.message);
+              } catch (error) {
+                _showMessage(error.toString());
+              } finally {
+                if (mounted) {
+                  setState(() => _isSendingPasswordReset = false);
+                }
+                if (context.mounted) {
+                  setSheetState(() => isSending = false);
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 16),
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Form(
+                    key: resetFormKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const AppIcon(
+                              Icons.lock_reset_rounded,
+                              color: AppTheme.deepTeal,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Lupa password',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(color: AppTheme.deepTeal),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Masukkan email akun, lalu cek inbox untuk membuat password baru.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 18),
+                        TextFormField(
+                          initialValue: resetEmail,
+                          onChanged: (value) => resetEmail = value,
+                          keyboardType: TextInputType.emailAddress,
+                          style: const TextStyle(color: AppTheme.deepTeal),
+                          decoration: _inputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icons.alternate_email_rounded,
+                          ),
+                          validator: (value) {
+                            final text = value?.trim() ?? '';
+                            if (text.isEmpty) {
+                              return 'Email wajib diisi';
+                            }
+                            if (!text.contains('@')) {
+                              return 'Format email belum valid';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: isSending ? null : submitResetEmail,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.deepTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: Text(
+                              isSending ? 'Mengirim...' : 'Kirim Email',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton(
+                            onPressed: isSending
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            style: _switchAuthButtonStyle,
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showMessage(String message) {

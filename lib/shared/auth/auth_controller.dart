@@ -10,6 +10,7 @@ import 'auth_repository.dart';
 enum AuthStatus {
   initializing,
   unauthenticated,
+  passwordRecovery,
   authenticated,
   needsOnboarding,
 }
@@ -51,7 +52,8 @@ class AuthController extends ChangeNotifier {
         _isInitialized = true,
         _hasStoreProfile = status == AuthStatus.authenticated,
         _pendingVerificationEmail = pendingVerificationEmail,
-        _role = role;
+        _role = role,
+        _isPasswordRecovery = status == AuthStatus.passwordRecovery;
 
   final AuthRepository? _repository;
   final SupabaseClient? _client;
@@ -68,6 +70,7 @@ class AuthController extends ChangeNotifier {
   String? _pendingVerificationEmail;
   String? _role;
   String? _storeOwnerUserId;
+  bool _isPasswordRecovery = false;
 
   Session? get session => _session;
   User? get user => _user;
@@ -75,6 +78,7 @@ class AuthController extends ChangeNotifier {
   bool get isCheckingProfile => _isCheckingProfile;
   bool get hasStoreProfile => _hasStoreProfile;
   String? get pendingVerificationEmail => _pendingVerificationEmail;
+  bool get isPasswordRecovery => _isPasswordRecovery;
   String get role => _role == 'admin' ? 'admin' : 'kasir';
   bool get isAdmin => role == 'admin';
   bool get isKasir => role == 'kasir';
@@ -83,7 +87,8 @@ class AuthController extends ChangeNotifier {
   bool get isAuthenticated {
     if (_testStatus != null) {
       return _testStatus == AuthStatus.authenticated ||
-          _testStatus == AuthStatus.needsOnboarding;
+          _testStatus == AuthStatus.needsOnboarding ||
+          _testStatus == AuthStatus.passwordRecovery;
     }
     return _session != null && _user != null;
   }
@@ -94,6 +99,9 @@ class AuthController extends ChangeNotifier {
     }
     if (!_isInitialized || _isCheckingProfile) {
       return AuthStatus.initializing;
+    }
+    if (_isPasswordRecovery) {
+      return AuthStatus.passwordRecovery;
     }
     if (!isAuthenticated) {
       return AuthStatus.unauthenticated;
@@ -128,6 +136,7 @@ class AuthController extends ChangeNotifier {
   }) async {
     await _repository!.signInWithEmail(email: email, password: password);
     _pendingVerificationEmail = null;
+    _isPasswordRecovery = false;
     await _syncCurrentAuthState();
   }
 
@@ -148,6 +157,7 @@ class AuthController extends ChangeNotifier {
   Future<void> signInWithGoogle() async {
     await _repository!.signInWithGoogle();
     _pendingVerificationEmail = null;
+    _isPasswordRecovery = false;
     await _syncCurrentAuthState();
   }
 
@@ -159,12 +169,23 @@ class AuthController extends ChangeNotifier {
     await _repository!.resendSignupVerification(email);
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _repository!.sendPasswordResetEmail(email);
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    await _repository!.updatePassword(newPassword);
+    _isPasswordRecovery = false;
+    await signOut();
+  }
+
   Future<void> signOut() async {
     await _repository!.signOut();
     _pendingVerificationEmail = null;
     _hasStoreProfile = false;
     _role = null;
     _storeOwnerUserId = null;
+    _isPasswordRecovery = false;
     notifyListeners();
   }
 
@@ -179,11 +200,23 @@ class AuthController extends ChangeNotifier {
     _subscription = repository.authStateChanges.listen((event) {
       _session = event.session;
       _user = event.session?.user;
+      if (event.event == AuthChangeEvent.passwordRecovery) {
+        _isPasswordRecovery = true;
+        _pendingVerificationEmail = null;
+        _hasStoreProfile = false;
+        _role = null;
+        _storeOwnerUserId = null;
+        _isCheckingProfile = false;
+        _isInitialized = true;
+        notifyListeners();
+        return;
+      }
       if (_user == null) {
         _hasStoreProfile = false;
         _role = null;
         _storeOwnerUserId = null;
         _pendingVerificationEmail = null;
+        _isPasswordRecovery = false;
         _isCheckingProfile = false;
         _isInitialized = true;
         notifyListeners();
@@ -209,6 +242,7 @@ class AuthController extends ChangeNotifier {
       return;
     }
     _hasStoreProfile = false;
+    _isPasswordRecovery = false;
     _isCheckingProfile = false;
     _isInitialized = true;
     notifyListeners();

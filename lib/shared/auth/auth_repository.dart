@@ -143,6 +143,27 @@ class AuthRepository {
     }
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: authCallbackUrl,
+      );
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    }
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
     final googleSignInInit = _googleSignInInit;
