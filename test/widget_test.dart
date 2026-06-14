@@ -117,21 +117,41 @@ void main() {
     expect(find.text('Tambah Produk'), findsOneWidget);
   });
 
-  testWidgets('cashier can open products without add product button', (
+  testWidgets('cashier uses sidebar navigation without bottom nav', (
     tester,
   ) async {
     await pumpApp(
       tester,
-      authController: AuthController.test(role: 'kasir'),
+      authController: AuthController.test(
+        role: 'kasir',
+        displayName: 'Sari Kasir',
+      ),
     );
 
-    expect(find.byKey(const Key('bottom-nav-/products')), findsOneWidget);
+    expect(find.byKey(const Key('bottom-nav-/cashier')), findsNothing);
+    expect(find.byKey(const Key('bottom-nav-/products')), findsNothing);
+    expect(find.byKey(const Key('bottom-nav-/debts')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
+    await tester.tap(find.byKey(const Key('cashier-sidebar-menu-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sari Kasir'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('cashier-sidebar-/products')));
     await tester.pumpAndSettle();
 
     expect(find.text('Etalase Produk'), findsOneWidget);
     expect(find.text('Tambah Produk'), findsNothing);
+
+    await tester.dragFrom(const Offset(1, 500), const Offset(320, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Sari Kasir'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('cashier-sidebar-/debts')));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text('Manajemen BON yang lebih mudah dipantau.'), findsOneWidget);
   });
 
   testWidgets('reports screen opens without blank state', (tester) async {

@@ -38,6 +38,7 @@ class TransactionDetailScreen extends ConsumerWidget {
               pw.Text(
                   'Tanggal: ${AppFormatters.dateTime(transaction.createdAt)}'),
               pw.Text('Pelanggan: ${transaction.customerName}'),
+              pw.Text('Dibuat oleh: ${_creatorName(transaction)}'),
               pw.Text('Metode: ${transaction.paymentMethod.label}'),
               pw.Divider(),
               ...transaction.items.map(
@@ -95,8 +96,7 @@ class TransactionDetailScreen extends ConsumerWidget {
             icon: Icons.receipt_long_rounded,
           ),
           title: transaction.transactionCode,
-          subtitle:
-              '${transaction.customerName} - ${AppFormatters.dateTime(transaction.createdAt)}',
+          subtitle: AppFormatters.dateTime(transaction.createdAt),
           trailing: IconButton.filled(
             onPressed: () => context.pop(),
             style: IconButton.styleFrom(
@@ -127,69 +127,81 @@ class TransactionDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        GridView.count(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.0,
-          children: [
-            KpiCard(
-              title: 'Qty Produk',
-              value: '${transaction.totalQuantity}',
-              icon: Icons.inventory_2_rounded,
-              color: AppTheme.deepTeal,
-              subtitle: 'Total kuantitas dalam transaksi',
-            ),
-            KpiCard(
-              title: 'Jenis Item',
-              value: '${transaction.lineItemCount}',
-              icon: Icons.category_rounded,
-              color: AppTheme.info,
-              subtitle: 'Jumlah baris item pada struk',
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         AppSectionCard(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionHeader(
-                title: 'Ringkasan Transaksi',
-                subtitle:
-                    'Metadata utama transaksi yang tersimpan di database.',
+              Row(
+                children: [
+                  Expanded(
+                    child: _PaymentHighlight(
+                      label: 'Total',
+                      value: AppFormatters.currency(transaction.totalAmount),
+                      icon: Icons.receipt_long_rounded,
+                      color: AppTheme.deepTeal,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _PaymentHighlight(
+                      label: transaction.paymentMethod == PaymentMethod.bon
+                          ? 'Status'
+                          : 'Kembali',
+                      value: transaction.paymentMethod == PaymentMethod.bon
+                          ? 'BON'
+                          : AppFormatters.currency(transaction.changeAmount),
+                      icon: transaction.paymentMethod == PaymentMethod.bon
+                          ? Icons.schedule_rounded
+                          : Icons.payments_rounded,
+                      color: transaction.paymentMethod == PaymentMethod.bon
+                          ? AppTheme.warning
+                          : AppTheme.success,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              SummaryRow(
-                label: 'Kode transaksi',
-                value: transaction.transactionCode,
-              ),
-              SummaryRow(
-                label: 'Tanggal',
-                value: AppFormatters.dateTime(transaction.createdAt),
-              ),
-              SummaryRow(label: 'Pelanggan', value: transaction.customerName),
-              SummaryRow(
-                label: 'Metode bayar',
-                value: transaction.paymentMethod.label,
-              ),
-              SummaryRow(
-                label: 'Total transaksi',
-                value: AppFormatters.currency(transaction.totalAmount),
-              ),
-              SummaryRow(
-                label: 'Nominal dibayar',
+              const SizedBox(height: 14),
+              _CompactInfoRow(
+                icon: Icons.payments_rounded,
+                label: 'Dibayar',
                 value: AppFormatters.currency(transaction.amountPaid),
               ),
-              SummaryRow(
-                label: 'Kembalian',
-                value: AppFormatters.currency(transaction.changeAmount),
+              _CompactInfoRow(
+                icon: Icons.credit_score_rounded,
+                label: 'Metode',
+                value: transaction.paymentMethod.label,
+              ),
+              const Divider(height: 22),
+              SectionHeader(
+                title: 'Ringkasan Transaksi',
+                action: Tooltip(
+                  message: 'Cetak struk',
+                  child: IconButton.filled(
+                    onPressed: () => _printReceipt(context, transaction),
+                    icon: const AppIcon(Icons.print_rounded, size: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _CompactInfoRow(
+                icon: Icons.receipt_long_outlined,
+                label: 'Kode',
+                value: transaction.transactionCode,
+              ),
+              _CompactInfoRow(
+                icon: Icons.person_outline_rounded,
+                label: 'Pelanggan',
+                value: transaction.customerName,
+              ),
+              _CompactInfoRow(
+                icon: Icons.verified_user_rounded,
+                label: 'Dibuat oleh',
+                value: _creatorName(transaction),
               ),
               if ((transaction.notes ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
@@ -206,88 +218,84 @@ class TransactionDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _printReceipt(context, transaction);
-            },
-            icon: const AppIcon(Icons.print_rounded),
-            label: const Text('Cetak Struk'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: AppTheme.deepTeal,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-          ),
-        ),
         const SizedBox(height: 20),
         AppSectionCard(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionHeader(
+              SectionHeader(
                 title: 'Detail Item',
-                subtitle:
-                    'Daftar item, qty, harga jual, dan subtotal per item.',
-              ),
-              const SizedBox(height: 12),
-              ...transaction.items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _TransactionItemCard(item: item),
+                action: Wrap(
+                  spacing: 8,
+                  children: [
+                    _MiniMetric(
+                      label: 'Qty',
+                      value: '${transaction.totalQuantity}',
+                      color: AppTheme.deepTeal,
+                    ),
+                    _MiniMetric(
+                      label: 'Jenis',
+                      value: '${transaction.lineItemCount}',
+                      color: AppTheme.info,
+                    ),
+                  ],
                 ),
               ),
-              const Divider(height: 24),
-              SummaryRow(
-                label: 'Qty total produk',
-                value: '${transaction.totalQuantity}',
-              ),
-              SummaryRow(
-                label: 'Jumlah jenis item',
-                value: '${transaction.lineItemCount}',
-              ),
-              SummaryRow(
-                label: 'Grand total',
-                value: AppFormatters.currency(transaction.totalAmount),
-              ),
+              const SizedBox(height: 12),
+              for (var index = 0; index < transaction.items.length; index++)
+                _TransactionItemCard(
+                  item: transaction.items[index],
+                  index: index + 1,
+                ),
             ],
           ),
         ),
       ],
     );
   }
+
+  static String _creatorName(TransactionRecord transaction) {
+    final name = transaction.createdByName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+    return 'Belum tersedia';
+  }
 }
 
 class _TransactionItemCard extends StatelessWidget {
-  const _TransactionItemCard({required this.item});
+  const _TransactionItemCard({required this.item, required this.index});
 
   final TransactionItem item;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: AppTheme.foam,
-              borderRadius: BorderRadius.circular(16),
+              color: AppTheme.deepTeal.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const AppIcon(
-              Icons.shopping_bag_outlined,
-              color: AppTheme.deepTeal,
+            alignment: Alignment.center,
+            child: Text(
+              '$index',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: AppTheme.deepTeal,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -297,20 +305,167 @@ class _TransactionItemCard extends StatelessWidget {
               children: [
                 Text(
                   item.productName,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${item.quantity} x ${AppFormatters.currency(item.sellPrice)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'Subtotal',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                AppFormatters.currency(item.subtotal),
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentHighlight extends StatelessWidget {
+  const _PaymentHighlight({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 104),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppIcon(icon, color: color, size: 20),
+          const SizedBox(height: 14),
+          Text(label, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: theme.textTheme.titleLarge?.copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactInfoRow extends StatelessWidget {
+  const _CompactInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppTheme.foam,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: AppIcon(icon, size: 16, color: AppTheme.deepTeal),
+          ),
+          const SizedBox(width: 10),
+          Text(label, style: theme.textTheme.bodyMedium),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.titleMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Text(
-            AppFormatters.currency(item.subtotal),
-            style: Theme.of(context).textTheme.titleMedium,
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 1. TAMBAHKAN IMPORT INI
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/models/app_models.dart';
@@ -260,10 +262,16 @@ class _ProductsCompactHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.viewPaddingOf(context).top;
+    final leadingMenuClearance = shellLeadingMenuClearance(context);
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 14),
+      padding: EdgeInsets.fromLTRB(
+        20 + leadingMenuClearance,
+        topInset + 12,
+        20,
+        14,
+      ),
       decoration: BoxDecoration(
         color: AppTheme.deepTeal,
         borderRadius: const BorderRadius.vertical(
@@ -442,7 +450,8 @@ class _ProductShowcaseCard extends StatelessWidget {
         : (product.isLowStock ? 'Stok tipis' : 'Tersedia');
 
     // Mengambil tanggal besok dengan format YYYY-MM-DD
-    final tomorrowDate = DateTime.now().add(const Duration(days: 1)).toString().split(' ')[0];
+    final tomorrowDate =
+        DateTime.now().add(const Duration(days: 1)).toString().split(' ')[0];
 
     return Material(
       color: Colors.transparent,
@@ -566,28 +575,32 @@ class _ProductShowcaseCard extends StatelessWidget {
                         isPromoActive: false, // Default tidak ada promo harian
                       ),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 4),
                             child: LinearProgressIndicator(minHeight: 2),
                           );
                         }
-                        
+
                         final predictedQty = snapshot.data;
                         if (predictedQty == null || predictedQty <= 0) {
                           return const SizedBox.shrink();
                         }
 
                         // Deteksi jika stok saat ini kurang dari perkiraan kebutuhan esok hari
-                        final isStockDeficit = !isNasiPaket && (product.stockQty < predictedQty);
+                        final isStockDeficit =
+                            !isNasiPaket && (product.stockQty < predictedQty);
 
                         return Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: _ShowcaseBadge(
-                            label: isStockDeficit 
+                            label: isStockDeficit
                                 ? 'Esok butuh: ~${predictedQty.round()} unit (Stok kurang!)'
                                 : 'Prediksi esok: ~${predictedQty.round()} unit',
-                            color: isStockDeficit ? AppTheme.danger : AppTheme.deepTeal,
+                            color: isStockDeficit
+                                ? AppTheme.danger
+                                : AppTheme.deepTeal,
                             compact: true,
                           ),
                         );
@@ -712,16 +725,16 @@ class _ShowcaseIconButton extends StatelessWidget {
 
 // SERVICE PREDICTION MENGGUNAKAN SUPABASE
 class PredictionService {
-  final _supabase = Supabase.instance.client;
-
   Future<double?> getSalesForecast({
     required String productId,
     required String targetDate,
     required bool isPromoActive,
   }) async {
     try {
+      final supabase = Supabase.instance.client;
+
       // Mengambil data langsung dari tabel prediksi Supabase
-      final response = await _supabase
+      final response = await supabase
           .from('product_forecasts')
           .select('predicted_quantity')
           .eq('product_id', productId)
@@ -730,15 +743,20 @@ class PredictionService {
 
       if (response != null) {
         final predictedQty = response['predicted_quantity'] as num;
-        
+
         // Logika tambahan jika ada promo aktif
         if (isPromoActive) {
           return predictedQty.toDouble() * 1.30; // naikkan 30%
         }
         return predictedQty.toDouble();
       }
-    } catch (e) {
-      print('Gagal mengambil data prediksi dari Supabase: $e');
+    } catch (error, stackTrace) {
+      developer.log(
+        'Gagal mengambil data prediksi dari Supabase',
+        name: 'PredictionService',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     return null;
   }

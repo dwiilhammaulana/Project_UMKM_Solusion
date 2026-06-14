@@ -136,15 +136,54 @@ class AppIcon extends StatelessWidget {
 const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
 const double kShellBottomBarHeight = 74;
 const double kShellBottomOverlaySpacing = 20;
+const double kShellLeadingMenuClearance = 56;
+const double kShellTopMenuClearance = 58;
+
+class AppShellChromeScope extends InheritedWidget {
+  const AppShellChromeScope({
+    super.key,
+    required this.hasBottomNavigation,
+    required super.child,
+  });
+
+  final bool hasBottomNavigation;
+
+  static AppShellChromeScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<AppShellChromeScope>();
+  }
+
+  @override
+  bool updateShouldNotify(AppShellChromeScope oldWidget) {
+    return hasBottomNavigation != oldWidget.hasBottomNavigation;
+  }
+}
 
 double shellBottomClearance(
   BuildContext context, {
   double extraSpacing = 0,
 }) {
+  final hasBottomNavigation =
+      AppShellChromeScope.maybeOf(context)?.hasBottomNavigation ?? true;
+  final navigationClearance = hasBottomNavigation ? kShellBottomBarHeight : 0.0;
+
   return MediaQuery.viewPaddingOf(context).bottom +
-      kShellBottomBarHeight +
+      navigationClearance +
       kShellBottomOverlaySpacing +
       extraSpacing;
+}
+
+bool hasShellLeadingMenu(BuildContext context) {
+  final hasBottomNavigation =
+      AppShellChromeScope.maybeOf(context)?.hasBottomNavigation ?? true;
+  return !hasBottomNavigation;
+}
+
+double shellLeadingMenuClearance(BuildContext context) {
+  return hasShellLeadingMenu(context) ? kShellLeadingMenuClearance : 0;
+}
+
+double shellTopMenuClearance(BuildContext context) {
+  return hasShellLeadingMenu(context) ? kShellTopMenuClearance : 0;
 }
 
 class AppPageScrollView extends StatelessWidget {
@@ -161,9 +200,11 @@ class AppPageScrollView extends StatelessWidget {
   Widget build(BuildContext context) {
     final basePadding =
         padding is EdgeInsets ? padding as EdgeInsets : kPagePadding;
+    final topMenuClearance =
+        basePadding.top > 0 ? shellTopMenuClearance(context) : 0.0;
     final resolvedPadding = EdgeInsets.fromLTRB(
       basePadding.left,
-      basePadding.top,
+      basePadding.top + topMenuClearance,
       basePadding.right,
       basePadding.bottom + shellBottomClearance(context),
     );

@@ -193,6 +193,8 @@ class TransactionRecord {
     required this.createdAt,
     required this.items,
     this.notes,
+    this.createdByUserId,
+    this.createdByName,
   });
 
   final String id;
@@ -206,6 +208,8 @@ class TransactionRecord {
   final DateTime createdAt;
   final List<TransactionItem> items;
   final String? notes;
+  final String? createdByUserId;
+  final String? createdByName;
 
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 

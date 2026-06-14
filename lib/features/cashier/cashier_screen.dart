@@ -2135,7 +2135,7 @@ class _CashierTabHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 14),
+      padding: EdgeInsets.fromLTRB(76, topInset + 12, 20, 14),
       decoration: BoxDecoration(
         color: AppTheme.deepTeal,
         borderRadius: const BorderRadius.vertical(

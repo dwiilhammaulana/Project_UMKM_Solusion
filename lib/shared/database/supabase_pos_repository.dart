@@ -16,6 +16,15 @@ class SupabasePosRepository implements PosRepository {
   static final Random _idRandom = Random();
   static const _mediaBucket = 'app-media';
   static const _transactionInsertMaxAttempts = 5;
+  static const _transactionSelectColumns =
+      'id, transaction_code, customer_id, customer_name, total_amount, '
+      'payment_method, amount_paid, change_amount, notes, created_at, '
+      'created_by_user_id, created_by_name, '
+      'transaction_items(product_id, product_name, quantity, sell_price)';
+  static const _legacyTransactionSelectColumns =
+      'id, transaction_code, customer_id, customer_name, total_amount, '
+      'payment_method, amount_paid, change_amount, notes, created_at, '
+      'transaction_items(product_id, product_name, quantity, sell_price)';
 
   static const _defaultCategories = <Map<String, String?>>[
     {'slug': 'nasi-paket', 'name': 'nasi paket', 'description': null},
@@ -89,17 +98,25 @@ class SupabasePosRepository implements PosRepository {
   @override
   Future<List<TransactionRecord>> fetchTransactions() async {
     final userId = await _requireDataOwnerUserId();
-    final rows = await _client
-        .from('transactions')
-        .select(
-          'id, transaction_code, customer_id, customer_name, total_amount, '
-          'payment_method, amount_paid, change_amount, notes, created_at, '
-          'transaction_items(product_id, product_name, quantity, sell_price)',
-        )
-        .eq('owner_user_id', userId)
-        .order('created_at', ascending: false);
+    List<dynamic> rows;
+    try {
+      rows = await _client
+          .from('transactions')
+          .select(_transactionSelectColumns)
+          .eq('owner_user_id', userId)
+          .order('created_at', ascending: false);
+    } on PostgrestException catch (error) {
+      if (!_isTransactionCreatorColumnMissing(error)) {
+        rethrow;
+      }
+      rows = await _client
+          .from('transactions')
+          .select(_legacyTransactionSelectColumns)
+          .eq('owner_user_id', userId)
+          .order('created_at', ascending: false);
+    }
 
-    return (rows as List<dynamic>).cast<Map<String, dynamic>>().map((row) {
+    return rows.cast<Map<String, dynamic>>().map((row) {
       final itemRows =
           (row['transaction_items'] as List<dynamic>? ?? const <dynamic>[])
               .cast<Map<String, dynamic>>();
@@ -125,6 +142,8 @@ class SupabasePosRepository implements PosRepository {
             )
             .toList(),
         notes: row['notes'] as String?,
+        createdByUserId: row['created_by_user_id'] as String?,
+        createdByName: row['created_by_name'] as String?,
       );
     }).toList();
   }
@@ -1161,6 +1180,7 @@ class SupabasePosRepository implements PosRepository {
     required List<TransactionItem> items,
     String? notes,
   }) async {
+    final creator = await _currentTransactionCreator();
     for (var attempt = 0; attempt < _transactionInsertMaxAttempts; attempt++) {
       final transaction = TransactionRecord(
         id: _newRecordId('trx', now),
@@ -1178,24 +1198,21 @@ class SupabasePosRepository implements PosRepository {
         createdAt: now,
         items: items,
         notes: notes,
+        createdByUserId: creator.userId,
+        createdByName: creator.name,
       );
 
       try {
-        await _client.from('transactions').insert({
-          'id': transaction.id,
-          'transaction_code': transaction.transactionCode,
-          'customer_id': transaction.customerId,
-          'customer_name': transaction.customerName,
-          'total_amount': transaction.totalAmount,
-          'payment_method': transaction.paymentMethod.name,
-          'amount_paid': transaction.amountPaid,
-          'change_amount': transaction.changeAmount,
-          'notes': transaction.notes,
-          'created_at': transaction.createdAt.toIso8601String(),
-          'owner_user_id': userId,
-        });
+        final values = _transactionValues(transaction, userId);
+        await _client.from('transactions').insert(values);
         return transaction;
       } on PostgrestException catch (error) {
+        if (_isTransactionCreatorColumnMissing(error)) {
+          await _client
+              .from('transactions')
+              .insert(_transactionValues(transaction, userId, legacy: true));
+          return transaction;
+        }
         if (!_isDuplicateTransactionCodeError(error) ||
             attempt == _transactionInsertMaxAttempts - 1) {
           rethrow;
@@ -1206,9 +1223,73 @@ class SupabasePosRepository implements PosRepository {
     throw StateError('Gagal membuat kode transaksi unik.');
   }
 
+  Map<String, Object?> _transactionValues(
+    TransactionRecord transaction,
+    String ownerUserId, {
+    bool legacy = false,
+  }) {
+    return {
+      'id': transaction.id,
+      'transaction_code': transaction.transactionCode,
+      'customer_id': transaction.customerId,
+      'customer_name': transaction.customerName,
+      'total_amount': transaction.totalAmount,
+      'payment_method': transaction.paymentMethod.name,
+      'amount_paid': transaction.amountPaid,
+      'change_amount': transaction.changeAmount,
+      'notes': transaction.notes,
+      'created_at': transaction.createdAt.toIso8601String(),
+      'owner_user_id': ownerUserId,
+      if (!legacy) ...{
+        'created_by_user_id': transaction.createdByUserId,
+        'created_by_name': transaction.createdByName,
+      },
+    };
+  }
+
   bool _isDuplicateTransactionCodeError(PostgrestException error) {
     final text = '${error.code} ${error.message} ${error.details}';
     return text.contains('23505') && text.contains('transaction_code');
+  }
+
+  Future<_TransactionCreator> _currentTransactionCreator() async {
+    final user = _client.auth.currentUser;
+    final userId = _requireUserId();
+
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', userId)
+          .maybeSingle();
+      final profile = row == null ? null : Map<String, dynamic>.from(row);
+      final name = _firstNonBlank([
+        profile?['full_name'] as String?,
+        profile?['email'] as String?,
+        user?.userMetadata?['full_name'] as String?,
+        user?.email,
+      ]);
+      return _TransactionCreator(userId: userId, name: name ?? userId);
+    } on PostgrestException catch (error) {
+      if (!_isProfileLookupUnavailable(error)) {
+        rethrow;
+      }
+      final name = _firstNonBlank([
+        user?.userMetadata?['full_name'] as String?,
+        user?.email,
+      ]);
+      return _TransactionCreator(userId: userId, name: name ?? userId);
+    }
+  }
+
+  String? _firstNonBlank(Iterable<String?> values) {
+    for (final value in values) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
+    }
+    return null;
   }
 
   Product _mapProduct(Map<String, dynamic> row) {
@@ -1415,6 +1496,21 @@ class SupabasePosRepository implements PosRepository {
     final text = '${error.code} ${error.message}';
     return text.contains('42703') || text.contains('store_owner_user_id');
   }
+
+  bool _isTransactionCreatorColumnMissing(PostgrestException error) {
+    final text = '${error.code} ${error.message} ${error.details}';
+    return text.contains('42703') ||
+        text.contains('created_by_user_id') ||
+        text.contains('created_by_name');
+  }
+
+  bool _isProfileLookupUnavailable(PostgrestException error) {
+    final text = '${error.code} ${error.message} ${error.details}';
+    return text.contains('42703') ||
+        text.contains('profiles') ||
+        text.contains('full_name') ||
+        text.contains('email');
+  }
 }
 
 extension on Map<String, dynamic> {
@@ -1423,4 +1519,14 @@ extension on Map<String, dynamic> {
   int intValue(String key) => (this[key] as num).toInt();
 
   double doubleValue(String key) => (this[key] as num).toDouble();
+}
+
+class _TransactionCreator {
+  const _TransactionCreator({
+    required this.userId,
+    required this.name,
+  });
+
+  final String userId;
+  final String name;
 }

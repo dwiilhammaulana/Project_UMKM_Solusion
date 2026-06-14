@@ -1,24 +1,41 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'dart:io';
+
+const _runSupabaseDebugTest = bool.fromEnvironment('RUN_SUPABASE_DEBUG_TEST');
+
+void logMessage(Object? message) => stdout.writeln(message);
+
+Map<String, String> loadEnvFile(String path) {
+  final env = <String, String>{};
+
+  for (final line in File(path).readAsLinesSync()) {
+    final trimmedLine = line.trim();
+    if (trimmedLine.isEmpty || trimmedLine.startsWith('#')) {
+      continue;
+    }
+
+    final separatorIndex = trimmedLine.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    final key = trimmedLine.substring(0, separatorIndex).trim();
+    final value = trimmedLine.substring(separatorIndex + 1).trim();
+    env[key] = value;
+  }
+
+  return env;
+}
 
 void main() {
   test('Debug Supabase db and triggers', () async {
-    // Load env variables manually
-    final lines = File('.env').readAsLinesSync();
-    final env = <String, String>{};
-    for (final line in lines) {
-      if (line.trim().isEmpty || line.startsWith('#')) continue;
-      final parts = line.split('=');
-      if (parts.length >= 2) {
-        env[parts[0].trim()] = parts.sublist(1).join('=').trim();
-      }
-    }
+    final env = loadEnvFile('.env');
     final supabaseUrl = env['SUPABASE_URL']!;
     final supabaseAnonKey = env['SUPABASE_ANON_KEY']!;
 
-    print('Connecting to Supabase: $supabaseUrl');
+    logMessage('Connecting to Supabase: $supabaseUrl');
 
     final client = SupabaseClient(
       supabaseUrl,
@@ -30,7 +47,7 @@ void main() {
 
     final email = 'test${DateTime.now().millisecondsSinceEpoch}@gmail.com';
     final password = 'password123';
-    print('Signing up temporary user: $email');
+    logMessage('Signing up temporary user: $email');
 
     try {
       final authResponse = await client.auth.signUp(
@@ -45,11 +62,11 @@ void main() {
       );
       final user = authResponse.user;
       if (user == null) {
-        print('Sign up failed: User is null');
+        logMessage('Sign up failed: User is null');
         return;
       }
-      print('Signed up successfully. User ID: ${user.id}');
-      print('User Metadata: ${user.userMetadata}');
+      logMessage('Signed up successfully. User ID: ${user.id}');
+      logMessage('User Metadata: ${user.userMetadata}');
 
       // Wait a bit for the trigger to run
       await Future.delayed(const Duration(seconds: 2));
@@ -62,20 +79,20 @@ void main() {
           .maybeSingle();
 
       if (profile == null) {
-        print('Profile not found in public.profiles table!');
+        logMessage('Profile not found in public.profiles table!');
       } else {
-        print('Created Profile:');
-        print('id: ${profile['id']}');
-        print('email: ${profile['email']}');
-        print('full_name: ${profile['full_name']}');
-        print('nik: ${profile['nik']}');
-        print('phone: ${profile['phone']}');
-        print('role: ${profile['role']}');
-        print('store_owner: ${profile['store_owner_user_id']}');
+        logMessage('Created Profile:');
+        logMessage('id: ${profile['id']}');
+        logMessage('email: ${profile['email']}');
+        logMessage('full_name: ${profile['full_name']}');
+        logMessage('nik: ${profile['nik']}');
+        logMessage('phone: ${profile['phone']}');
+        logMessage('role: ${profile['role']}');
+        logMessage('store_owner: ${profile['store_owner_user_id']}');
       }
 
       // Try updating nik and phone of the profile
-      print('Attempting to update profile directly...');
+      logMessage('Attempting to update profile directly...');
       await client.from('profiles').update({
         'nik': '9876543210987654',
         'phone': '08987654321',
@@ -83,15 +100,16 @@ void main() {
 
       final updatedProfile = await client
           .from('profiles')
-          .select('*')
+          .select('nik, phone')
           .eq('id', user.id)
           .single();
-      print('Updated Profile directly:');
-      print('nik: ${updatedProfile['nik']}');
-      print('phone: ${updatedProfile['phone']}');
+      logMessage('Updated Profile directly:');
+      logMessage('nik: ${updatedProfile['nik']}');
+      logMessage('phone: ${updatedProfile['phone']}');
     } catch (e, stack) {
-      print('Error during test: $e');
-      print(stack);
+      logMessage('Error during test: $e');
+      logMessage(stack);
+      rethrow;
     }
-  });
+  }, skip: !_runSupabaseDebugTest);
 }

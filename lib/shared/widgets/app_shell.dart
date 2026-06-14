@@ -70,7 +70,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
     final auth = ref.watch(authControllerProvider);
-    final items = auth.isAdmin ? _adminItems : _cashierItems;
+    final isAdmin = auth.isAdmin;
+    final items = isAdmin ? _adminItems : _cashierItems;
     final selectedIndex = _selectedIndex(items);
     final drawBehindStatusBar = currentLocation == '/dashboard' ||
         currentLocation.startsWith('/dashboard/') ||
@@ -90,88 +91,100 @@ class AppShell extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: Colors.white,
         extendBody: true,
+        drawerEnableOpenDragGesture: !isAdmin,
+        drawerEdgeDragWidth: isAdmin ? null : 96,
+        drawer: isAdmin
+            ? null
+            : _CashierDrawer(
+                items: _cashierItems,
+                selectedIndex: selectedIndex,
+                cashierName: auth.displayName ?? auth.emailAddress,
+                cashierEmail: auth.emailAddress,
+                onSignOut: () => ref.read(authControllerProvider).signOut(),
+              ),
         body: Container(
           decoration: const BoxDecoration(gradient: AppTheme.pageGradient),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -120,
-                right: -80,
-                child: _BackdropOrb(
-                  size: 260,
-                  color: AppTheme.mint.withValues(alpha: 0.20),
+          child: AppShellChromeScope(
+            hasBottomNavigation: isAdmin,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -120,
+                  right: -80,
+                  child: _BackdropOrb(
+                    size: 260,
+                    color: AppTheme.mint.withValues(alpha: 0.20),
+                  ),
                 ),
-              ),
-              Positioned(
-                left: -100,
-                top: 120,
-                child: _BackdropOrb(
-                  size: 220,
-                  color: AppTheme.info.withValues(alpha: 0.12),
+                Positioned(
+                  left: -100,
+                  top: 120,
+                  child: _BackdropOrb(
+                    size: 220,
+                    color: AppTheme.info.withValues(alpha: 0.12),
+                  ),
                 ),
-              ),
-              Positioned(
-                right: -100,
-                bottom: 120,
-                child: _BackdropOrb(
-                  size: 240,
-                  color: AppTheme.foam,
+                Positioned(
+                  right: -100,
+                  bottom: 120,
+                  child: _BackdropOrb(
+                    size: 240,
+                    color: AppTheme.foam,
+                  ),
                 ),
-              ),
-              SafeArea(
-                top: !drawBehindStatusBar,
-                bottom: false,
-                child: state.isLoading
-                    ? const LoadingState()
-                    : state.errorMessage != null
-                        ? ErrorState(
-                            title: 'Data aplikasi gagal dimuat',
-                            subtitle: state.errorMessage!,
-                            onRetry: () => ref.read(posStateProvider).reload(),
-                          )
-                        : child,
-              ),
-            ],
-          ),
-        ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.midnight.withValues(alpha: 0.08),
-                blurRadius: 22,
-                offset: const Offset(0, -8),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  for (var index = 0; index < items.length; index++)
-                    Expanded(
-                      child: _BottomNavDestination(
-                        key: Key('bottom-nav-${items[index].path}'),
-                        item: items[index],
-                        selected: index == selectedIndex,
-                        onTap: () => context.go(items[index].path),
-                      ),
-                    ),
-                  if (!auth.isAdmin) ...[
-                    const SizedBox(width: 6),
-                    _SignOutNavButton(
-                      onPressed: () =>
-                          ref.read(authControllerProvider).signOut(),
-                    ),
-                  ],
-                ],
-              ),
+                SafeArea(
+                  top: !drawBehindStatusBar,
+                  bottom: false,
+                  child: state.isLoading
+                      ? const LoadingState()
+                      : state.errorMessage != null
+                          ? ErrorState(
+                              title: 'Data aplikasi gagal dimuat',
+                              subtitle: state.errorMessage!,
+                              onRetry: () =>
+                                  ref.read(posStateProvider).reload(),
+                            )
+                          : child,
+                ),
+                if (!isAdmin) const _CashierMenuButton(),
+              ],
             ),
           ),
         ),
+        bottomNavigationBar: isAdmin
+            ? Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.midnight.withValues(alpha: 0.08),
+                      blurRadius: 22,
+                      offset: const Offset(0, -8),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        for (var index = 0; index < items.length; index++)
+                          Expanded(
+                            child: _BottomNavDestination(
+                              key: Key('bottom-nav-${items[index].path}'),
+                              item: items[index],
+                              selected: index == selectedIndex,
+                              onTap: () => context.go(items[index].path),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : null,
       ),
     );
   }
@@ -184,6 +197,202 @@ class AppShell extends ConsumerWidget {
       }
     }
     return 0;
+  }
+}
+
+class _CashierDrawer extends StatelessWidget {
+  const _CashierDrawer({
+    required this.items,
+    required this.selectedIndex,
+    required this.cashierName,
+    required this.cashierEmail,
+    required this.onSignOut,
+  });
+
+  final List<_NavItem> items;
+  final int selectedIndex;
+  final String cashierName;
+  final String cashierEmail;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = cashierName.trim().isEmpty ? cashierEmail : cashierName;
+    final showEmail = cashierEmail.trim().isNotEmpty &&
+        cashierEmail.trim().toLowerCase() != displayName.trim().toLowerCase();
+
+    return Drawer(
+      width: 304,
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.midnight, AppTheme.deepTeal],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    if (showEmail) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        cashierEmail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    const StatusChip(
+                      label: 'Kasir',
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            for (var index = 0; index < items.length; index++)
+              _CashierDrawerItem(
+                key: Key('cashier-sidebar-${items[index].path}'),
+                item: items[index],
+                selected: index == selectedIndex,
+              ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+              child: _CashierDrawerSignOutButton(onSignOut: onSignOut),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashierDrawerItem extends StatelessWidget {
+  const _CashierDrawerItem({
+    super.key,
+    required this.item,
+    required this.selected,
+  });
+
+  final _NavItem item;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundColor = selected ? Colors.white : AppTheme.deepTeal;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: selected ? AppTheme.deepTeal : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            final router = GoRouter.of(context);
+            Navigator.of(context).pop();
+            router.go(item.path);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: foregroundColor,
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CashierDrawerSignOutButton extends StatelessWidget {
+  const _CashierDrawerSignOutButton({required this.onSignOut});
+
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      key: const Key('cashier-sidebar-sign-out'),
+      onPressed: () {
+        Navigator.of(context).pop();
+        onSignOut();
+      },
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      child: const Text('Keluar'),
+    );
+  }
+}
+
+class _CashierMenuButton extends StatelessWidget {
+  const _CashierMenuButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.viewPaddingOf(context).top + 10;
+
+    return Positioned(
+      top: topPadding,
+      left: 16,
+      child: Builder(
+        builder: (context) {
+          return Tooltip(
+            message: 'Buka menu kasir',
+            child: SizedBox(
+              width: 46,
+              height: 46,
+              child: IconButton.filled(
+                key: const Key('cashier-sidebar-menu-button'),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.94),
+                  foregroundColor: AppTheme.deepTeal,
+                  shadowColor: AppTheme.midnight.withValues(alpha: 0.18),
+                  elevation: 8,
+                ),
+                icon: const Icon(Icons.menu_rounded),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -255,33 +464,6 @@ class _BottomNavDestination extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SignOutNavButton extends StatelessWidget {
-  const _SignOutNavButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Keluar',
-      child: SizedBox(
-        width: 56,
-        height: 58,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
-            ),
-          ),
-          child: const AppIcon(Icons.logout_rounded, size: 22),
         ),
       ),
     );
