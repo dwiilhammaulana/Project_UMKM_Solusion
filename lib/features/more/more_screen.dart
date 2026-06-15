@@ -275,9 +275,10 @@ class _MoreHero extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 18),
-                  _ProfileEditAvatar(
+                  AppProfileEditAvatar(
                     photoPath: profile.photoPath,
                     onEditProfile: onEditProfile,
+                    size: 84,
                   ),
                 ],
               ),
@@ -295,32 +296,6 @@ class _MoreHero extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileEditAvatar extends StatelessWidget {
-  const _ProfileEditAvatar({
-    required this.photoPath,
-    required this.onEditProfile,
-  });
-
-  final String? photoPath;
-  final VoidCallback onEditProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Edit profil toko',
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onEditProfile,
-          child: AppProfileAvatar(photoPath: photoPath, size: 84),
         ),
       ),
     );

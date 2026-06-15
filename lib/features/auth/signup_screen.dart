@@ -9,6 +9,7 @@ import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
 
+import 'auth_form_helpers.dart';
 import 'auth_scaffold.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -19,24 +20,6 @@ class SignupScreen extends ConsumerStatefulWidget {
 }
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
-  static final ButtonStyle _primaryButtonStyle = FilledButton.styleFrom(
-    backgroundColor: Colors.white.withValues(alpha: 0.72),
-    foregroundColor: AppTheme.deepTeal,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-  );
-
-  static final ButtonStyle _googleButtonStyle = OutlinedButton.styleFrom(
-    foregroundColor: AppTheme.deepTeal,
-    side: BorderSide(
-      color: AppTheme.deepTeal.withValues(alpha: 0.58),
-    ),
-    padding: const EdgeInsets.symmetric(vertical: 16),
-  );
-
-  static final ButtonStyle _switchAuthButtonStyle = TextButton.styleFrom(
-    foregroundColor: AppTheme.deepTeal,
-  );
-
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -47,22 +30,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    if (keyboardInset <= 0) {
-      _stableKeyboardInset = 0;
-      return;
-    }
-    if (_stableKeyboardInset > 0) {
-      return;
-    }
-
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final estimatedKeyboardInset =
-        (screenHeight * 0.38).clamp(260.0, 360.0).toDouble();
-    _stableKeyboardInset = keyboardInset > estimatedKeyboardInset
-        ? keyboardInset
-        : estimatedKeyboardInset;
+    _stableKeyboardInset = resolveStableKeyboardInset(
+      context,
+      _stableKeyboardInset,
+    );
   }
 
   @override
@@ -99,7 +70,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             TextFormField(
               controller: _fullNameController,
               style: const TextStyle(color: AppTheme.deepTeal),
-              decoration: _inputDecoration(
+              decoration: authInputDecoration(
                 labelText: 'Nama lengkap',
                 prefixIcon: Icons.person_outline_rounded,
               ),
@@ -109,43 +80,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               style: const TextStyle(color: AppTheme.deepTeal),
-              decoration: _inputDecoration(
+              decoration: authInputDecoration(
                 labelText: 'Email',
                 prefixIcon: Icons.alternate_email_rounded,
               ),
-              validator: (value) {
-                final text = value?.trim() ?? '';
-                if (text.isEmpty) {
-                  return 'Email wajib diisi';
-                }
-                if (!text.contains('@')) {
-                  return 'Format email belum valid';
-                }
-                return null;
-              },
+              validator: validateAuthEmail,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _passwordController,
               obscureText: true,
               style: const TextStyle(color: AppTheme.deepTeal),
-              decoration: _inputDecoration(
+              decoration: authInputDecoration(
                 labelText: 'Password',
                 prefixIcon: Icons.lock_outline_rounded,
               ),
-              validator: (value) {
-                if ((value ?? '').length < 8) {
-                  return 'Password minimal 8 karakter';
-                }
-                return null;
-              },
+              validator: validateMinPasswordLength,
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: _isSubmitting ? null : _submitSignUp,
-                style: _primaryButtonStyle,
+                style: AuthFormStyles.primaryButton,
                 child: Text(_isSubmitting ? 'Membuat akun...' : 'Daftar'),
               ),
             ),
@@ -154,7 +111,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _isSubmitting ? null : _submitGoogleLogin,
-                style: _googleButtonStyle,
+                style: AuthFormStyles.googleButton,
                 icon: const AppIcon(Icons.account_circle_outlined, size: 16),
                 label: const Text('Daftar dengan Google'),
               ),
@@ -163,47 +120,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Center(
               child: TextButton(
                 onPressed: _isSubmitting ? null : () => context.go('/login'),
-                style: _switchAuthButtonStyle,
+                style: AuthFormStyles.textButton,
                 child: const Text('Sudah punya akun? Masuk'),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String labelText,
-    required IconData prefixIcon,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
-      prefixIcon: AppIcon(
-        prefixIcon,
-        color: AppTheme.deepTeal,
-        size: 16,
-      ),
-      prefixIconConstraints: const BoxConstraints(
-        minWidth: 40,
-        minHeight: 40,
-      ),
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.58),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.72),
-          width: 1.4,
         ),
       ),
     );
@@ -240,9 +161,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
       context.go('/verify-email');
     } on AuthFailure catch (error) {
-      _showMessage(error.message);
+      if (mounted) {
+        showAuthMessage(context, error.message);
+      }
     } catch (error) {
-      _showMessage(error.toString());
+      if (mounted) {
+        showAuthMessage(context, error.toString());
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -275,9 +200,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         }
       }
     } on AuthFailure catch (error) {
-      _showMessage(error.message);
+      if (mounted) {
+        showAuthMessage(context, error.message);
+      }
     } catch (error) {
-      _showMessage(error.toString());
+      if (mounted) {
+        showAuthMessage(context, error.toString());
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -304,14 +233,5 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _isStoreOwnerColumnMissing(PostgrestException error) {
     final text = '${error.code} ${error.message}';
     return text.contains('42703') || text.contains('store_owner_user_id');
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 }

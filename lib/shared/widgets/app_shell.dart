@@ -146,7 +146,6 @@ class AppShell extends ConsumerWidget {
                             )
                           : child,
                 ),
-                if (!isAdmin) const _CashierMenuButton(),
               ],
             ),
           ),
@@ -356,42 +355,6 @@ class _CashierDrawerSignOutButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
       child: const Text('Keluar'),
-    );
-  }
-}
-
-class _CashierMenuButton extends StatelessWidget {
-  const _CashierMenuButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.viewPaddingOf(context).top + 10;
-
-    return Positioned(
-      top: topPadding,
-      left: 16,
-      child: Builder(
-        builder: (context) {
-          return Tooltip(
-            message: 'Buka menu kasir',
-            child: SizedBox(
-              width: 46,
-              height: 46,
-              child: IconButton.filled(
-                key: const Key('cashier-sidebar-menu-button'),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.94),
-                  foregroundColor: AppTheme.deepTeal,
-                  shadowColor: AppTheme.midnight.withValues(alpha: 0.18),
-                  elevation: 8,
-                ),
-                icon: const Icon(Icons.menu_rounded),
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }

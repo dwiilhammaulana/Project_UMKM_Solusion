@@ -6,6 +6,7 @@ import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
+import 'auth_form_helpers.dart';
 import 'auth_scaffold.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -17,16 +18,6 @@ class ResetPasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
-  static final ButtonStyle _primaryButtonStyle = FilledButton.styleFrom(
-    backgroundColor: Colors.white.withValues(alpha: 0.72),
-    foregroundColor: AppTheme.deepTeal,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-  );
-
-  static final ButtonStyle _textButtonStyle = TextButton.styleFrom(
-    foregroundColor: AppTheme.deepTeal,
-  );
-
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -70,7 +61,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             controller: _passwordController,
             obscureText: true,
             style: const TextStyle(color: AppTheme.deepTeal),
-            decoration: _inputDecoration(
+            decoration: authInputDecoration(
               labelText: 'Password baru',
               prefixIcon: Icons.lock_outline_rounded,
             ),
@@ -79,10 +70,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               if (text.isEmpty) {
                 return 'Password baru wajib diisi';
               }
-              if (text.length < 8) {
-                return 'Password minimal 8 karakter';
-              }
-              return null;
+              return validateMinPasswordLength(value);
             },
           ),
           const SizedBox(height: 12),
@@ -90,7 +78,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             controller: _confirmPasswordController,
             obscureText: true,
             style: const TextStyle(color: AppTheme.deepTeal),
-            decoration: _inputDecoration(
+            decoration: authInputDecoration(
               labelText: 'Konfirmasi password',
               prefixIcon: Icons.lock_reset_rounded,
             ),
@@ -110,7 +98,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
             width: double.infinity,
             child: FilledButton(
               onPressed: _isSubmitting ? null : _submitNewPassword,
-              style: _primaryButtonStyle,
+              style: AuthFormStyles.primaryButton,
               child: Text(_isSubmitting ? 'Menyimpan...' : 'Ubah Password'),
             ),
           ),
@@ -118,7 +106,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           Center(
             child: TextButton(
               onPressed: _isSubmitting ? null : () => context.go('/login'),
-              style: _textButtonStyle,
+              style: AuthFormStyles.textButton,
               child: const Text('Kembali ke login'),
             ),
           ),
@@ -158,46 +146,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         const SizedBox(height: 18),
         FilledButton(
           onPressed: () => context.go('/login'),
-          style: _primaryButtonStyle,
+          style: AuthFormStyles.primaryButton,
           child: const Text('Kembali ke Login'),
         ),
       ],
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String labelText,
-    required IconData prefixIcon,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
-      prefixIcon: AppIcon(
-        prefixIcon,
-        color: AppTheme.deepTeal,
-        size: 16,
-      ),
-      prefixIconConstraints: const BoxConstraints(
-        minWidth: 40,
-        minHeight: 40,
-      ),
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.58),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.72),
-          width: 1.4,
-        ),
-      ),
     );
   }
 
@@ -214,25 +166,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           .updatePassword(_passwordController.text);
 
       if (!mounted) return;
-      _showMessage('Password berhasil diubah. Silakan login kembali.');
+      showAuthMessage(
+          context, 'Password berhasil diubah. Silakan login kembali.');
       context.go('/login');
     } on AuthFailure catch (error) {
-      _showMessage(error.message);
+      showAuthMessage(context, error.message);
     } catch (error) {
-      _showMessage(error.toString());
+      showAuthMessage(context, error.toString());
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 }

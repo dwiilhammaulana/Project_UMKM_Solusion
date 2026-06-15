@@ -2071,24 +2071,22 @@ class _BonCustomerSearchPulse extends StatelessWidget {
       animation: animation,
       builder: (context, child) {
         final strength = animation.value;
-        return Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            color: AppTheme.danger.withValues(alpha: 0.05 * strength),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.danger.withValues(alpha: 0.32 + strength * 0.38),
-              width: 1.2 + strength * 0.8,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.danger.withValues(alpha: 0.14 * strength),
-                blurRadius: 12 + strength * 8,
-                spreadRadius: strength * 1.5,
+        return RepaintBoundary(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppTheme.danger.withValues(alpha: 0.04 * strength),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color:
+                    AppTheme.danger.withValues(alpha: 0.28 + strength * 0.34),
+                width: 1.4,
               ),
-            ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: child,
+            ),
           ),
-          child: child,
         );
       },
       child: child,
@@ -2135,7 +2133,7 @@ class _CashierTabHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(76, topInset + 12, 20, 14),
+      padding: EdgeInsets.fromLTRB(20, topInset + 12, 20, 14),
       decoration: BoxDecoration(
         color: AppTheme.deepTeal,
         borderRadius: const BorderRadius.vertical(

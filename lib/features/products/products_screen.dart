@@ -26,8 +26,11 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  final PredictionService _predictionService = PredictionService();
   String _query = '';
   String? _categoryId;
+  String? _forecastCacheKey;
+  Future<Map<String, double>>? _forecastFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -46,94 +49,113 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         .where((category) => _productCategoryNames.contains(category.name))
         .take(3)
         .toList();
+    final forecastDate = _forecastDateForTomorrow();
+    final forecastFuture = _forecastFutureFor(state.products, forecastDate);
 
-    return AppPageScrollView(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
-      children: [
-        _ProductsCompactHeader(
-          categories: productCategories,
-          selectedCategoryId: _categoryId,
-          onSearchChanged: (value) => setState(() => _query = value),
-          onCategorySelected: (categoryId) => setState(
-            () => _categoryId = _categoryId == categoryId ? null : categoryId,
+    return CustomScrollView(
+      cacheExtent: 720,
+      slivers: [
+        SliverToBoxAdapter(
+          child: _ProductsCompactHeader(
+            categories: productCategories,
+            selectedCategoryId: _categoryId,
+            onSearchChanged: (value) => setState(() => _query = value),
+            onCategorySelected: (categoryId) => setState(
+              () => _categoryId = _categoryId == categoryId ? null : categoryId,
+            ),
+            onAddProduct: canManageProducts
+                ? () => showProductFormSheet(context, ref)
+                : null,
           ),
-          onAddProduct: canManageProducts
-              ? () => showProductFormSheet(context, ref)
-              : null,
         ),
-        const SizedBox(height: 16),
-        Padding(
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SectionHeader(
-                title: 'Etalase Produk',
-                action: StatusChip(
-                  label: '${state.products.length} produk aktif',
-                  color: AppTheme.deepTeal,
-                ),
+          sliver: SliverToBoxAdapter(
+            child: SectionHeader(
+              title: 'Etalase Produk',
+              action: StatusChip(
+                label: '${state.products.length} produk aktif',
+                color: AppTheme.deepTeal,
               ),
-              const SizedBox(height: 16),
-              if (filtered.isEmpty)
-                const EmptyState(
-                  icon: Icons.search_off_rounded,
-                  title: 'Produk tidak ditemukan',
-                  subtitle: 'Coba ubah kata kunci atau filter kategori.',
-                )
-              else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final width = constraints.maxWidth;
-                    final crossAxisCount = width >= 820
-                        ? 4
-                        : width >= 560
-                            ? 3
-                            : 2;
-                    const gridGap = 12.0;
-                    final cardWidth = (width - (crossAxisCount - 1) * gridGap) /
-                        crossAxisCount;
-                    return Wrap(
-                      spacing: gridGap,
-                      runSpacing: gridGap,
-                      children: [
-                        for (final product in filtered)
-                          SizedBox(
-                            width: cardWidth,
-                            child: _ProductShowcaseCard(
-                              key: Key('product-card-${product.id}'),
-                              product: product,
-                              categoryName:
-                                  state.categoryNameById(product.categoryId),
-                              count: state.cart[product.id] ?? 0,
-                              onAdd: () {
-                                try {
-                                  ref.read(posStateProvider).addToCart(product);
-                                } catch (error) {
-                                  _showMessage(
-                                    error
-                                        .toString()
-                                        .replaceFirst('Exception: ', ''),
-                                  );
-                                }
-                              },
-                              onEdit: () => showProductFormSheet(
-                                context,
-                                ref,
-                                product: product,
-                              ),
-                              onLongPress: canManageProducts
-                                  ? () => _showProductActions(context, product)
-                                  : null,
-                              showManageActions: canManageProducts,
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-            ],
+            ),
           ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        if (filtered.isEmpty)
+          const SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
+              child: EmptyState(
+                icon: Icons.search_off_rounded,
+                title: 'Produk tidak ditemukan',
+                subtitle: 'Coba ubah kata kunci atau filter kategori.',
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverLayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.crossAxisExtent;
+                final crossAxisCount = width >= 820
+                    ? 4
+                    : width >= 560
+                        ? 3
+                        : 2;
+                const gridColumnGap = 12.0;
+                const gridRowGap = 8.0;
+                final cardWidth =
+                    (width - (crossAxisCount - 1) * gridColumnGap) /
+                        crossAxisCount;
+                final cardHeight = cardWidth + (width >= 560 ? 176 : 174);
+
+                return SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: gridColumnGap,
+                    mainAxisSpacing: gridRowGap,
+                    mainAxisExtent: cardHeight,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = filtered[index];
+                      return _ProductShowcaseCard(
+                        key: Key('product-card-${product.id}'),
+                        product: product,
+                        categoryName:
+                            state.categoryNameById(product.categoryId),
+                        count: state.cart[product.id] ?? 0,
+                        forecastFuture: forecastFuture,
+                        onAdd: () {
+                          try {
+                            ref.read(posStateProvider).addToCart(product);
+                          } catch (error) {
+                            _showMessage(
+                              error.toString().replaceFirst('Exception: ', ''),
+                            );
+                          }
+                        },
+                        onEdit: () => showProductFormSheet(
+                          context,
+                          ref,
+                          product: product,
+                        ),
+                        onLongPress: canManageProducts
+                            ? () => _showProductActions(context, product)
+                            : null,
+                        showManageActions: canManageProducts,
+                      );
+                    },
+                    childCount: filtered.length,
+                  ),
+                );
+              },
+            ),
+          ),
+        SliverToBoxAdapter(
+          child: SizedBox(height: shellBottomClearance(context) + 20),
         ),
       ],
     );
@@ -189,6 +211,28 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         );
       },
     );
+  }
+
+  Future<Map<String, double>> _forecastFutureFor(
+    List<Product> products,
+    String targetDate,
+  ) {
+    final productIds = products.map((product) => product.id).toList()..sort();
+    final cacheKey = '$targetDate|${productIds.join(',')}';
+    if (_forecastCacheKey != cacheKey || _forecastFuture == null) {
+      _forecastCacheKey = cacheKey;
+      _forecastFuture = _predictionService.getSalesForecasts(
+        productIds: productIds,
+        targetDate: targetDate,
+        isPromoActive: false,
+      );
+    }
+    return _forecastFuture!;
+  }
+
+  String _forecastDateForTomorrow() {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    return DateUtils.dateOnly(tomorrow).toIso8601String().split('T').first;
   }
 
   Future<void> _confirmDeleteProduct(Product product) async {
@@ -262,12 +306,11 @@ class _ProductsCompactHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.viewPaddingOf(context).top;
-    final leadingMenuClearance = shellLeadingMenuClearance(context);
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
-        20 + leadingMenuClearance,
+        20,
         topInset + 12,
         20,
         14,
@@ -425,6 +468,7 @@ class _ProductShowcaseCard extends StatelessWidget {
     required this.product,
     required this.categoryName,
     required this.count,
+    required this.forecastFuture,
     required this.onAdd,
     required this.onEdit,
     required this.onLongPress,
@@ -434,6 +478,7 @@ class _ProductShowcaseCard extends StatelessWidget {
   final Product product;
   final String categoryName;
   final int count;
+  final Future<Map<String, double>> forecastFuture;
   final VoidCallback onAdd;
   final VoidCallback onEdit;
   final VoidCallback? onLongPress;
@@ -449,204 +494,198 @@ class _ProductShowcaseCard extends StatelessWidget {
         ? (product.isReady ? 'Ready' : 'Kosong')
         : (product.isLowStock ? 'Stok tipis' : 'Tersedia');
 
-    // Mengambil tanggal besok dengan format YYYY-MM-DD
-    final tomorrowDate =
-        DateTime.now().add(const Duration(days: 1)).toString().split(' ')[0];
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onLongPress: onLongPress,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: AppTheme.deepTeal.withValues(alpha: 0.08),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onLongPress: onLongPress,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: AppTheme.deepTeal.withValues(alpha: 0.08),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.midnight.withValues(alpha: 0.07),
+                  blurRadius: 22,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.midnight.withValues(alpha: 0.07),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: AppMediaPreview(
-                        imagePath: product.imagePath,
-                        width: double.infinity,
-                        height: double.infinity,
-                        label: 'Foto\nproduk',
-                        borderRadius: 0,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    right: 10,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _ShowcaseBadge(
-                            label: categoryName,
-                            color: AppTheme.deepTeal,
-                          ),
-                        ),
-                        if (showManageActions) ...[
-                          const SizedBox(width: 8),
-                          _ShowcaseIconButton(
-                            tooltip: 'Edit produk',
-                            icon: Icons.edit_outlined,
-                            onPressed: onEdit,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
                   children: [
-                    Text(
-                      product.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        AppFormatters.currency(product.sellPrice),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppTheme.deepTeal,
-                            ),
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: AppMediaPreview(
+                          imagePath: product.imagePath,
+                          width: double.infinity,
+                          height: double.infinity,
+                          label: 'Foto\nproduk',
+                          borderRadius: 0,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Baris Informasi Stok dan Lokasi Rak
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ShowcaseBadge(
-                            label: isNasiPaket
-                                ? stockLabel
-                                : '$stockLabel ${product.stockQty} ${product.unit}',
-                            color: stockColor,
-                            compact: true,
-                          ),
-                        ),
-                        if ((product.rackLocation ?? '').trim().isNotEmpty) ...[
-                          const SizedBox(width: 6),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      right: 10,
+                      child: Row(
+                        children: [
                           Expanded(
                             child: _ShowcaseBadge(
-                              label: product.rackLocation!,
-                              color: AppTheme.info,
-                              compact: true,
+                              label: categoryName,
+                              color: AppTheme.deepTeal,
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // TAMPILKAN HASIL PREDIKSI DISINI
-                    FutureBuilder<double?>(
-                      future: PredictionService().getSalesForecast(
-                        // 2. DIUBAH: Mengirimkan product.id bertipe String secara langsung, tidak perlu di-parse ke int
-                        productId: product.id.toString(),
-                        targetDate: tomorrowDate,
-                        isPromoActive: false, // Default tidak ada promo harian
-                      ),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 4),
-                            child: LinearProgressIndicator(minHeight: 2),
-                          );
-                        }
-
-                        final predictedQty = snapshot.data;
-                        if (predictedQty == null || predictedQty <= 0) {
-                          return const SizedBox.shrink();
-                        }
-
-                        // Deteksi jika stok saat ini kurang dari perkiraan kebutuhan esok hari
-                        final isStockDeficit =
-                            !isNasiPaket && (product.stockQty < predictedQty);
-
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: _ShowcaseBadge(
-                            label: isStockDeficit
-                                ? 'Esok butuh: ~${predictedQty.round()} unit (Stok kurang!)'
-                                : 'Prediksi esok: ~${predictedQty.round()} unit',
-                            color: isStockDeficit
-                                ? AppTheme.danger
-                                : AppTheme.deepTeal,
-                            compact: true,
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(36),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed:
-                            isNasiPaket && !product.isReady ? null : onAdd,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const AppIcon(
-                              Icons.add_shopping_cart_rounded,
-                              size: 18,
-                            ),
+                          if (showManageActions) ...[
                             const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                isNasiPaket && !product.isReady
-                                    ? 'Kosong'
-                                    : (count > 0
-                                        ? 'Tambah ($count)'
-                                        : 'Tambah'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            _ShowcaseIconButton(
+                              tooltip: 'Edit produk',
+                              icon: Icons.edit_outlined,
+                              onPressed: onEdit,
                             ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          AppFormatters.currency(product.sellPrice),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: AppTheme.deepTeal,
+                                  ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Baris Informasi Stok dan Lokasi Rak
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ShowcaseBadge(
+                              label: isNasiPaket
+                                  ? stockLabel
+                                  : '$stockLabel ${product.stockQty} ${product.unit}',
+                              color: stockColor,
+                              compact: true,
+                            ),
+                          ),
+                          if ((product.rackLocation ?? '')
+                              .trim()
+                              .isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: _ShowcaseBadge(
+                                label: product.rackLocation!,
+                                color: AppTheme.info,
+                                compact: true,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      FutureBuilder<Map<String, double>>(
+                        future: forecastFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final predictedQty = snapshot.data?[product.id];
+                          if (predictedQty == null || predictedQty <= 0) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final isStockDeficit =
+                              !isNasiPaket && (product.stockQty < predictedQty);
+
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: _ShowcaseBadge(
+                              label: isStockDeficit
+                                  ? 'Esok butuh: ~${predictedQty.round()} unit (Stok kurang!)'
+                                  : 'Prediksi esok: ~${predictedQty.round()} unit',
+                              color: isStockDeficit
+                                  ? AppTheme.danger
+                                  : AppTheme.deepTeal,
+                              compact: true,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(36),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          onPressed:
+                              isNasiPaket && !product.isReady ? null : onAdd,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const AppIcon(
+                                Icons.add_shopping_cart_rounded,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  isNasiPaket && !product.isReady
+                                      ? 'Kosong'
+                                      : (count > 0
+                                          ? 'Tambah ($count)'
+                                          : 'Tambah'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -725,31 +764,30 @@ class _ShowcaseIconButton extends StatelessWidget {
 
 // SERVICE PREDICTION MENGGUNAKAN SUPABASE
 class PredictionService {
-  Future<double?> getSalesForecast({
-    required String productId,
+  Future<Map<String, double>> getSalesForecasts({
+    required List<String> productIds,
     required String targetDate,
     required bool isPromoActive,
   }) async {
+    if (productIds.isEmpty) {
+      return const {};
+    }
+
     try {
       final supabase = Supabase.instance.client;
 
-      // Mengambil data langsung dari tabel prediksi Supabase
       final response = await supabase
           .from('product_forecasts')
-          .select('predicted_quantity')
-          .eq('product_id', productId)
-          .eq('target_date', targetDate)
-          .maybeSingle(); // Mengembalikan satu baris, atau null jika tidak ada data
+          .select('product_id, predicted_quantity')
+          .inFilter('product_id', productIds)
+          .eq('target_date', targetDate);
 
-      if (response != null) {
-        final predictedQty = response['predicted_quantity'] as num;
-
-        // Logika tambahan jika ada promo aktif
-        if (isPromoActive) {
-          return predictedQty.toDouble() * 1.30; // naikkan 30%
-        }
-        return predictedQty.toDouble();
-      }
+      return {
+        for (final row in response)
+          if (row['product_id'] != null && row['predicted_quantity'] != null)
+            row['product_id'] as String: _promoAdjustedQuantity(
+                row['predicted_quantity'], isPromoActive),
+      };
     } catch (error, stackTrace) {
       developer.log(
         'Gagal mengambil data prediksi dari Supabase',
@@ -758,6 +796,14 @@ class PredictionService {
         stackTrace: stackTrace,
       );
     }
-    return null;
+    return const {};
+  }
+
+  double _promoAdjustedQuantity(Object value, bool isPromoActive) {
+    final predictedQty = value as num;
+    if (isPromoActive) {
+      return predictedQty.toDouble() * 1.30;
+    }
+    return predictedQty.toDouble();
   }
 }

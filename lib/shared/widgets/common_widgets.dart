@@ -136,8 +136,6 @@ class AppIcon extends StatelessWidget {
 const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
 const double kShellBottomBarHeight = 74;
 const double kShellBottomOverlaySpacing = 20;
-const double kShellLeadingMenuClearance = 56;
-const double kShellTopMenuClearance = 58;
 
 class AppShellChromeScope extends InheritedWidget {
   const AppShellChromeScope({
@@ -172,20 +170,6 @@ double shellBottomClearance(
       extraSpacing;
 }
 
-bool hasShellLeadingMenu(BuildContext context) {
-  final hasBottomNavigation =
-      AppShellChromeScope.maybeOf(context)?.hasBottomNavigation ?? true;
-  return !hasBottomNavigation;
-}
-
-double shellLeadingMenuClearance(BuildContext context) {
-  return hasShellLeadingMenu(context) ? kShellLeadingMenuClearance : 0;
-}
-
-double shellTopMenuClearance(BuildContext context) {
-  return hasShellLeadingMenu(context) ? kShellTopMenuClearance : 0;
-}
-
 class AppPageScrollView extends StatelessWidget {
   const AppPageScrollView({
     super.key,
@@ -200,11 +184,9 @@ class AppPageScrollView extends StatelessWidget {
   Widget build(BuildContext context) {
     final basePadding =
         padding is EdgeInsets ? padding as EdgeInsets : kPagePadding;
-    final topMenuClearance =
-        basePadding.top > 0 ? shellTopMenuClearance(context) : 0.0;
     final resolvedPadding = EdgeInsets.fromLTRB(
       basePadding.left,
-      basePadding.top + topMenuClearance,
+      basePadding.top,
       basePadding.right,
       basePadding.bottom + shellBottomClearance(context),
     );
@@ -1042,6 +1024,7 @@ class LoadingState extends StatelessWidget {
             height: 112,
             fit: BoxFit.contain,
             repeat: true,
+            renderCache: RenderCache.drawingCommands,
             errorBuilder: (_, __, ___) => const CircularProgressIndicator(),
           ),
           const SizedBox(height: 10),
@@ -1180,40 +1163,102 @@ class AppMediaPreview extends StatelessWidget {
         (trimmedPath.startsWith('http://') ||
             trimmedPath.startsWith('https://'));
 
-    Widget child;
-    if (isRemote) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Image.network(
-          trimmedPath,
-          fit: BoxFit.cover,
-          width: width,
-          height: height,
-          errorBuilder: (_, __, ___) => _placeholder(context),
+    return RepaintBoundary(
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final resolvedWidth = _finiteDimension(width, constraints.maxWidth);
+            final resolvedHeight =
+                _finiteDimension(height, constraints.maxHeight);
+            final cacheSize = _cacheSizeFor(context, constraints);
+            final cacheExtent = cacheSize == null
+                ? null
+                : cacheSize.width > cacheSize.height
+                    ? cacheSize.width
+                    : cacheSize.height;
+
+            Widget child;
+            if (isRemote) {
+              child = _coverImage(
+                Image.network(
+                  trimmedPath,
+                  cacheWidth: cacheExtent,
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, __, ___) => _placeholder(context),
+                ),
+              );
+            } else if (hasPath) {
+              child = _coverImage(
+                Image.file(
+                  File(trimmedPath),
+                  cacheWidth: cacheExtent,
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, __, ___) => _placeholder(context),
+                ),
+              );
+            } else {
+              child = _placeholder(context);
+            }
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: SizedBox(
+                width: resolvedWidth,
+                height: resolvedHeight,
+                child: child,
+              ),
+            );
+          },
         ),
-      );
-    } else if (hasPath) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: Image.file(
-          File(trimmedPath),
-          fit: BoxFit.cover,
-          width: width,
-          height: height,
-          errorBuilder: (_, __, ___) => _placeholder(context),
-        ),
-      );
-    } else {
-      child = _placeholder(context);
+      ),
+    );
+  }
+
+  Widget _coverImage(Widget image) {
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: image,
+      ),
+    );
+  }
+
+  ({int width, int height})? _cacheSizeFor(
+    BuildContext context,
+    BoxConstraints constraints,
+  ) {
+    final resolvedWidth = _finiteDimension(width, constraints.maxWidth);
+    final resolvedHeight = _finiteDimension(height, constraints.maxHeight);
+    if (resolvedWidth == null || resolvedHeight == null) {
+      return null;
     }
 
-    return SizedBox(width: width, height: height, child: child);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    return (
+      width: (resolvedWidth * pixelRatio).round(),
+      height: (resolvedHeight * pixelRatio).round(),
+    );
+  }
+
+  double? _finiteDimension(double preferred, double constrained) {
+    if (preferred.isFinite && preferred > 0) {
+      return preferred;
+    }
+    if (constrained.isFinite && constrained > 0) {
+      return constrained;
+    }
+    return null;
   }
 
   Widget _placeholder(BuildContext context) {
     return Container(
-      width: width,
-      height: height,
+      width: width.isFinite ? width : null,
+      height: height.isFinite ? height : null,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
         gradient: const LinearGradient(
@@ -1269,6 +1314,35 @@ class AppProfileAvatar extends StatelessWidget {
           height: size,
           borderRadius: size,
           placeholderIcon: Icons.storefront_rounded,
+        ),
+      ),
+    );
+  }
+}
+
+class AppProfileEditAvatar extends StatelessWidget {
+  const AppProfileEditAvatar({
+    super.key,
+    required this.photoPath,
+    required this.onEditProfile,
+    this.size = 56,
+  });
+
+  final String? photoPath;
+  final VoidCallback onEditProfile;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Edit profil toko',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onEditProfile,
+          child: AppProfileAvatar(photoPath: photoPath, size: size),
         ),
       ),
     );

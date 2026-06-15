@@ -6,6 +6,7 @@ import '../../shared/auth/auth_repository.dart';
 import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/common_widgets.dart';
+import 'auth_form_helpers.dart';
 import 'auth_scaffold.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -21,22 +22,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    if (keyboardInset <= 0) {
-      _stableKeyboardInset = 0;
-      return;
-    }
-    if (_stableKeyboardInset > 0) {
-      return;
-    }
-
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final estimatedKeyboardInset =
-        (screenHeight * 0.38).clamp(260.0, 360.0).toDouble();
-    _stableKeyboardInset = keyboardInset > estimatedKeyboardInset
-        ? keyboardInset
-        : estimatedKeyboardInset;
+    _stableKeyboardInset = resolveStableKeyboardInset(
+      context,
+      _stableKeyboardInset,
+    );
   }
 
   @override
@@ -71,24 +60,6 @@ class _LoginForm extends ConsumerStatefulWidget {
 }
 
 class _LoginFormState extends ConsumerState<_LoginForm> {
-  static final ButtonStyle _primaryButtonStyle = FilledButton.styleFrom(
-    backgroundColor: Colors.white.withValues(alpha: 0.72),
-    foregroundColor: AppTheme.deepTeal,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-  );
-
-  static final ButtonStyle _googleButtonStyle = OutlinedButton.styleFrom(
-    foregroundColor: AppTheme.deepTeal,
-    side: BorderSide(
-      color: AppTheme.deepTeal.withValues(alpha: 0.58),
-    ),
-    padding: const EdgeInsets.symmetric(vertical: 16),
-  );
-
-  static final ButtonStyle _switchAuthButtonStyle = TextButton.styleFrom(
-    foregroundColor: AppTheme.deepTeal,
-  );
-
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -113,36 +84,22 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(color: AppTheme.deepTeal),
-            decoration: _inputDecoration(
+            decoration: authInputDecoration(
               labelText: 'Email',
               prefixIcon: Icons.alternate_email_rounded,
             ),
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (text.isEmpty) {
-                return 'Email wajib diisi';
-              }
-              if (!text.contains('@')) {
-                return 'Format email belum valid';
-              }
-              return null;
-            },
+            validator: validateAuthEmail,
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _passwordController,
             obscureText: true,
             style: const TextStyle(color: AppTheme.deepTeal),
-            decoration: _inputDecoration(
+            decoration: authInputDecoration(
               labelText: 'Password',
               prefixIcon: Icons.lock_outline_rounded,
             ),
-            validator: (value) {
-              if ((value ?? '').isEmpty) {
-                return 'Password wajib diisi';
-              }
-              return null;
-            },
+            validator: validateRequiredPassword,
           ),
           const SizedBox(height: 4),
           Align(
@@ -151,7 +108,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
               onPressed: _isSubmitting || _isSendingPasswordReset
                   ? null
                   : _showPasswordResetSheet,
-              style: _switchAuthButtonStyle,
+              style: AuthFormStyles.textButton,
               child: const Text('Lupa password?'),
             ),
           ),
@@ -160,7 +117,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             width: double.infinity,
             child: FilledButton(
               onPressed: _isSubmitting ? null : _submitEmailLogin,
-              style: _primaryButtonStyle,
+              style: AuthFormStyles.primaryButton,
               child: Text(_isSubmitting ? 'Masuk...' : 'Masuk'),
             ),
           ),
@@ -169,7 +126,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _isSubmitting ? null : _submitGoogleLogin,
-              style: _googleButtonStyle,
+              style: AuthFormStyles.googleButton,
               icon: const AppIcon(Icons.account_circle_outlined, size: 16),
               label: const Text('Masuk dengan Google'),
             ),
@@ -178,47 +135,11 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
           Center(
             child: TextButton(
               onPressed: _isSubmitting ? null : () => context.go('/signup'),
-              style: _switchAuthButtonStyle,
+              style: AuthFormStyles.textButton,
               child: const Text('Belum punya akun? Daftar'),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String labelText,
-    required IconData prefixIcon,
-  }) {
-    return InputDecoration(
-      labelText: labelText,
-      labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
-      prefixIcon: AppIcon(
-        prefixIcon,
-        color: AppTheme.deepTeal,
-        size: 16,
-      ),
-      prefixIconConstraints: const BoxConstraints(
-        minWidth: 40,
-        minHeight: 40,
-      ),
-      filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.58),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.72),
-          width: 1.4,
-        ),
       ),
     );
   }
@@ -241,9 +162,9 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       if (!mounted) return;
       context.go(auth.isAdmin ? '/dashboard' : '/cashier');
     } on AuthFailure catch (error) {
-      _showMessage(error.message);
+      showAuthMessage(context, error.message);
     } catch (error) {
-      _showMessage(error.toString());
+      showAuthMessage(context, error.toString());
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -262,9 +183,9 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
       if (!mounted) return;
       context.go(auth.isAdmin ? '/dashboard' : '/cashier');
     } on AuthFailure catch (error) {
-      _showMessage(error.message);
+      showAuthMessage(context, error.message);
     } catch (error) {
-      _showMessage(error.toString());
+      showAuthMessage(context, error.toString());
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -300,13 +221,14 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
 
                 if (!mounted || !sheetContext.mounted) return;
                 Navigator.of(sheetContext).pop();
-                _showMessage(
+                showAuthMessage(
+                  context,
                   'Link ubah password sudah dikirim ke email kamu.',
                 );
               } on AuthFailure catch (error) {
-                _showMessage(error.message);
+                showAuthMessage(context, error.message);
               } catch (error) {
-                _showMessage(error.toString());
+                showAuthMessage(context, error.toString());
               } finally {
                 if (mounted) {
                   setState(() => _isSendingPasswordReset = false);
@@ -360,20 +282,11 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
                           onChanged: (value) => resetEmail = value,
                           keyboardType: TextInputType.emailAddress,
                           style: const TextStyle(color: AppTheme.deepTeal),
-                          decoration: _inputDecoration(
+                          decoration: authInputDecoration(
                             labelText: 'Email',
                             prefixIcon: Icons.alternate_email_rounded,
                           ),
-                          validator: (value) {
-                            final text = value?.trim() ?? '';
-                            if (text.isEmpty) {
-                              return 'Email wajib diisi';
-                            }
-                            if (!text.contains('@')) {
-                              return 'Format email belum valid';
-                            }
-                            return null;
-                          },
+                          validator: validateAuthEmail,
                         ),
                         const SizedBox(height: 18),
                         SizedBox(
@@ -396,7 +309,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
                             onPressed: isSending
                                 ? null
                                 : () => Navigator.of(sheetContext).pop(),
-                            style: _switchAuthButtonStyle,
+                            style: AuthFormStyles.textButton,
                             child: const Text('Batal'),
                           ),
                         ),
@@ -409,15 +322,6 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
           },
         );
       },
-    );
-  }
-
-  void _showMessage(String message) {
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
     );
   }
 }

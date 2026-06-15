@@ -133,7 +133,8 @@ class _DashboardHero extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _ProfileEditAvatar(
+                      AppProfileEditAvatar(
+                        key: const Key('dashboard-edit-profile-button'),
                         photoPath: profile.photoPath,
                         onEditProfile: onEditProfile,
                       ),
@@ -222,33 +223,6 @@ class _DashboardHeroLogo extends StatelessWidget {
           'logo_putih.png',
           height: 34,
           fit: BoxFit.contain,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileEditAvatar extends StatelessWidget {
-  const _ProfileEditAvatar({
-    required this.photoPath,
-    required this.onEditProfile,
-  });
-
-  final String? photoPath;
-  final VoidCallback onEditProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Edit profil toko',
-      child: Material(
-        key: const Key('dashboard-edit-profile-button'),
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onEditProfile,
-          child: AppProfileAvatar(photoPath: photoPath, size: 56),
         ),
       ),
     );
