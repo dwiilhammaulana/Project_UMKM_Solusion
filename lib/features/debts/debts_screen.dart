@@ -849,20 +849,27 @@ class _DebtPaymentSheetState extends ConsumerState<_DebtPaymentSheet> {
                   const InputDecoration(labelText: 'Nominal pembayaran'),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Text(
+              'Metode bayar',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Row(
               children: [
                 for (final item in const [
                   PaymentMethod.cash,
                   PaymentMethod.qris,
                   PaymentMethod.transfer,
-                ])
-                  ChoiceChip(
-                    label: Text(item.label),
-                    selected: _method == item,
-                    onSelected: (_) => setState(() => _method = item),
+                ]) ...[
+                  Expanded(
+                    child: _DebtPaymentMethodButton(
+                      method: item,
+                      selected: _method == item,
+                      onTap: () => setState(() => _method = item),
+                    ),
                   ),
+                  if (item != PaymentMethod.transfer) const SizedBox(width: 8),
+                ],
               ],
             ),
             const SizedBox(height: 16),
@@ -890,6 +897,58 @@ class _DebtPaymentSheetState extends ConsumerState<_DebtPaymentSheet> {
               child: const Text('Simpan Pembayaran'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DebtPaymentMethodButton extends StatelessWidget {
+  const _DebtPaymentMethodButton({
+    required this.method,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final PaymentMethod method;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = selected ? Colors.white : AppTheme.deepTeal;
+    final background =
+        selected ? AppTheme.deepTeal : Colors.white.withValues(alpha: 0.9);
+
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.deepTeal
+                  : AppTheme.deepTeal.withValues(alpha: 0.14),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Text(
+            method.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
       ),
     );

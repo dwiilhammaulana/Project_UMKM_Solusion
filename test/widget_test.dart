@@ -557,6 +557,115 @@ void main() {
     expect(find.text('${transaction.lineItemCount}'), findsWidgets);
   });
 
+  testWidgets('paid transaction detail shows Lunas instead of change amount', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final transaction = await createTransaction(container);
+    await tester.pumpAndSettle();
+
+    await openCashierHistoryTab(tester);
+    await tester
+        .tap(find.byKey(Key('transaction-history-tile-${transaction.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Status'), findsWidgets);
+    expect(find.text('Lunas'), findsOneWidget);
+  });
+
+  testWidgets('BON transaction detail shows debt payment history', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final transaction = await createTransaction(
+      container,
+      customerId: 'cus-001',
+      paymentMethod: PaymentMethod.bon,
+    );
+    final debt = container
+        .read(posStateProvider)
+        .debts
+        .firstWhere((item) => item.transactionId == transaction.id);
+    const paymentAmount = 1000.0;
+    await container.read(posStateProvider).recordDebtPayment(
+          debtId: debt.id,
+          amount: paymentAmount,
+          paymentMethod: PaymentMethod.cash,
+          notes: 'Cicilan pertama',
+        );
+    await tester.pumpAndSettle();
+
+    await openCashierHistoryTab(tester);
+    await tester
+        .tap(find.byKey(Key('transaction-history-tile-${transaction.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Riwayat Pembayaran BON'), findsOneWidget);
+    expect(find.text(AppFormatters.currency(paymentAmount)), findsOneWidget);
+    expect(find.text('Cicilan pertama'), findsOneWidget);
+  });
+
+  testWidgets('BON transaction detail uses actual paid debt amount and status',
+      (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    final transaction = await createTransaction(
+      container,
+      customerId: 'cus-001',
+      paymentMethod: PaymentMethod.bon,
+    );
+    var debt = container
+        .read(posStateProvider)
+        .debts
+        .firstWhere((item) => item.transactionId == transaction.id);
+    final partialPayment = debt.originalAmount / 2;
+    await container.read(posStateProvider).recordDebtPayment(
+          debtId: debt.id,
+          amount: partialPayment,
+          paymentMethod: PaymentMethod.cash,
+        );
+    await tester.pumpAndSettle();
+
+    await openCashierHistoryTab(tester);
+    await tester
+        .tap(find.byKey(Key('transaction-history-tile-${transaction.id}')));
+    await tester.pumpAndSettle();
+
+    final paidAmountRow = find.byKey(
+      const Key('transaction-paid-amount-row'),
+    );
+    expect(
+      find.descendant(
+        of: paidAmountRow,
+        matching: find.text(AppFormatters.currency(partialPayment)),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Cicilan'), findsOneWidget);
+    expect(find.text('Lunas'), findsNothing);
+
+    debt = container
+        .read(posStateProvider)
+        .debts
+        .firstWhere((item) => item.transactionId == transaction.id);
+    await container.read(posStateProvider).recordDebtPayment(
+          debtId: debt.id,
+          amount: debt.remainingAmount,
+          paymentMethod: PaymentMethod.cash,
+        );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: paidAmountRow,
+        matching: find.text(AppFormatters.currency(transaction.totalAmount)),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Lunas'), findsOneWidget);
+  });
+
   testWidgets('receipt sheet can open detail transaction after checkout', (
     tester,
   ) async {

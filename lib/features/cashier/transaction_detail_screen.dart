@@ -16,7 +16,10 @@ class TransactionDetailScreen extends ConsumerWidget {
 
   final String transactionId;
   Future<void> _printReceipt(
-      BuildContext context, TransactionRecord transaction) async {
+    BuildContext context,
+    TransactionRecord transaction,
+    DebtRecord? debt,
+  ) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -57,10 +60,8 @@ class TransactionDetailScreen extends ConsumerWidget {
               pw.Divider(),
               pw.Text(
                   'Total: ${AppFormatters.currency(transaction.totalAmount)}'),
-              pw.Text(
-                  'Bayar: ${AppFormatters.currency(transaction.amountPaid)}'),
-              pw.Text(
-                  'Kembali: ${AppFormatters.currency(transaction.changeAmount)}'),
+              pw.Text('Bayar: ${_amountPaidLabel(transaction, debt)}'),
+              pw.Text('Status: ${_paymentStatusLabel(transaction, debt)}'),
             ],
           );
         },
@@ -84,6 +85,12 @@ class TransactionDetailScreen extends ConsumerWidget {
         subtitle: 'Buka kembali riwayat transaksi lalu pilih data yang lain.',
       );
     }
+
+    final debt = _debtForTransaction(state, transaction);
+    final debtPayments = debt == null
+        ? const <DebtPayment>[]
+        : (state.payments.where((payment) => payment.debtId == debt.id).toList()
+          ..sort((a, b) => b.paidAt.compareTo(a.paidAt)));
 
     return AppPageScrollView(
       children: [
@@ -146,15 +153,11 @@ class TransactionDetailScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _PaymentHighlight(
-                      label: transaction.paymentMethod == PaymentMethod.bon
-                          ? 'Status'
-                          : 'Kembali',
-                      value: transaction.paymentMethod == PaymentMethod.bon
-                          ? 'BON'
-                          : AppFormatters.currency(transaction.changeAmount),
+                      label: 'Status',
+                      value: _paymentStatusLabel(transaction, debt),
                       icon: transaction.paymentMethod == PaymentMethod.bon
                           ? Icons.schedule_rounded
-                          : Icons.payments_rounded,
+                          : Icons.verified_rounded,
                       color: transaction.paymentMethod == PaymentMethod.bon
                           ? AppTheme.warning
                           : AppTheme.success,
@@ -164,9 +167,10 @@ class TransactionDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               _CompactInfoRow(
+                key: const Key('transaction-paid-amount-row'),
                 icon: Icons.payments_rounded,
                 label: 'Dibayar',
-                value: AppFormatters.currency(transaction.amountPaid),
+                value: _amountPaidLabel(transaction, debt),
               ),
               _CompactInfoRow(
                 icon: Icons.credit_score_rounded,
@@ -179,7 +183,7 @@ class TransactionDetailScreen extends ConsumerWidget {
                 action: Tooltip(
                   message: 'Cetak struk',
                   child: IconButton.filled(
-                    onPressed: () => _printReceipt(context, transaction),
+                    onPressed: () => _printReceipt(context, transaction, debt),
                     icon: const AppIcon(Icons.print_rounded, size: 18),
                   ),
                 ),
@@ -218,6 +222,10 @@ class TransactionDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
+        if (transaction.paymentMethod == PaymentMethod.bon) ...[
+          const SizedBox(height: 20),
+          _DebtPaymentHistoryCard(payments: debtPayments),
+        ],
         const SizedBox(height: 20),
         AppSectionCard(
           padding: const EdgeInsets.all(16),
@@ -261,6 +269,136 @@ class TransactionDetailScreen extends ConsumerWidget {
       return name;
     }
     return 'Belum tersedia';
+  }
+
+  static DebtRecord? _debtForTransaction(
+    PosAppState state,
+    TransactionRecord transaction,
+  ) {
+    for (final debt in state.debts) {
+      if (debt.transactionId == transaction.id) {
+        return debt;
+      }
+    }
+    return null;
+  }
+
+  static String _paymentStatusLabel(
+    TransactionRecord transaction,
+    DebtRecord? debt,
+  ) {
+    if (transaction.paymentMethod != PaymentMethod.bon) {
+      return 'Lunas';
+    }
+    if (debt == null) {
+      return 'BON';
+    }
+    return switch (debt.status) {
+      DebtStatus.paid => 'Lunas',
+      DebtStatus.partial => 'Cicilan',
+      DebtStatus.unpaid => 'Belum Lunas',
+    };
+  }
+
+  static String _amountPaidLabel(
+    TransactionRecord transaction,
+    DebtRecord? debt,
+  ) {
+    if (transaction.paymentMethod == PaymentMethod.bon && debt != null) {
+      return AppFormatters.currency(debt.paidAmount);
+    }
+    return AppFormatters.currency(transaction.amountPaid);
+  }
+}
+
+class _DebtPaymentHistoryCard extends StatelessWidget {
+  const _DebtPaymentHistoryCard({required this.payments});
+
+  final List<DebtPayment> payments;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(title: 'Riwayat Pembayaran BON'),
+          const SizedBox(height: 12),
+          if (payments.isEmpty)
+            const EmptyState(
+              icon: Icons.payments_outlined,
+              title: 'Belum ada cicilan',
+              subtitle: 'Cicilan bon akan muncul di sini setelah dicatat.',
+            )
+          else
+            ...payments.map(
+              (payment) => _DebtPaymentHistoryTile(payment: payment),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebtPaymentHistoryTile extends StatelessWidget {
+  const _DebtPaymentHistoryTile({required this.payment});
+
+  final DebtPayment payment;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppTheme.foam,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const AppIcon(
+              Icons.payments_rounded,
+              color: AppTheme.deepTeal,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppFormatters.currency(payment.amount),
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${payment.paymentMethod.label} - ${AppFormatters.dateTime(payment.paidAt)}',
+                  style: theme.textTheme.bodySmall,
+                ),
+                if ((payment.notes ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    payment.notes!.trim(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -387,6 +525,7 @@ class _PaymentHighlight extends StatelessWidget {
 
 class _CompactInfoRow extends StatelessWidget {
   const _CompactInfoRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.value,
