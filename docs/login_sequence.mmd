@@ -1,0 +1,63 @@
+sequenceDiagram
+    autonumber
+    actor Pengguna
+    participant LoginScreen
+    participant AuthController
+    participant AuthRepository
+    participant SupabaseAuth as Supabase Auth
+    participant SupabaseDB as Supabase Database
+    participant BiometricLock as Biometric Lock
+    participant Router as GoRouter
+
+    Pengguna->>LoginScreen: Isi email dan password
+    Pengguna->>LoginScreen: Tekan tombol Masuk
+    LoginScreen->>LoginScreen: Validasi form email dan password
+
+    alt Form tidak valid
+        LoginScreen-->>Pengguna: Tampilkan pesan validasi
+    else Form valid
+        LoginScreen->>AuthController: signInWithEmail(email, password)
+        AuthController->>AuthRepository: signInWithEmail(email, password)
+        AuthRepository->>SupabaseAuth: signInWithPassword(email, password)
+
+        alt Email/password salah
+            SupabaseAuth-->>AuthRepository: AuthException invalid credentials
+            AuthRepository-->>AuthController: AuthFailure Email atau password tidak cocok
+            AuthController-->>LoginScreen: Gagal login
+            LoginScreen-->>Pengguna: Tampilkan snackbar error
+        else Email belum diverifikasi
+            SupabaseAuth-->>AuthRepository: AuthException email not confirmed
+            AuthRepository-->>AuthController: AuthFailure Email belum diverifikasi
+            AuthController-->>LoginScreen: Gagal login
+            LoginScreen-->>Pengguna: Tampilkan pesan verifikasi email
+        else Koneksi bermasalah
+            SupabaseAuth-->>AuthRepository: AuthException network/socket
+            AuthRepository-->>AuthController: AuthFailure koneksi bermasalah
+            AuthController-->>LoginScreen: Gagal login
+            LoginScreen-->>Pengguna: Tampilkan snackbar error
+        else Login berhasil
+            SupabaseAuth-->>AuthRepository: Session dan User aktif
+            AuthRepository-->>AuthController: Login berhasil
+
+            AuthController->>SupabaseAuth: Ambil currentSession dan currentUser
+            AuthController->>SupabaseDB: Ambil profiles role dan store_owner_user_id
+            SupabaseDB-->>AuthController: Data role admin atau kasir
+
+            AuthController->>SupabaseDB: Cek app_profile berdasarkan owner_user_id
+            SupabaseDB-->>AuthController: Status profil toko
+
+            AuthController-->>LoginScreen: Status auth diperbarui
+            LoginScreen->>BiometricLock: markUnlockedForCurrentSession()
+
+            alt Belum punya profil toko
+                LoginScreen->>Router: Navigasi ke /onboarding
+                Router-->>Pengguna: Tampilkan halaman onboarding
+            else Role admin
+                LoginScreen->>Router: context.go('/dashboard')
+                Router-->>Pengguna: Tampilkan Dashboard Admin
+            else Role kasir
+                LoginScreen->>Router: context.go('/cashier')
+                Router-->>Pengguna: Tampilkan Halaman Kasir
+            end
+        end
+    end

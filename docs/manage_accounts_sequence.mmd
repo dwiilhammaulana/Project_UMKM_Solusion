@@ -1,0 +1,164 @@
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Router as GoRouter
+    participant AuthController
+    participant MoreScreen
+    participant UsersScreen
+    participant CreateSheet as CreateCashierSheet
+    participant EditSheet as EditCashierSheet
+    participant SupabaseAuth as Supabase Auth
+    participant EdgeCreate as admin-create-cashier
+    participant EdgeDelete as admin-delete-cashier
+    participant SupabaseDB as Supabase Database
+
+    Admin->>Router: Buka menu Lainnya
+    Router->>AuthController: Cek status login dan role
+
+    alt Belum login
+        Router-->>Admin: Redirect ke /login
+    else Login sebagai kasir
+        Router-->>Admin: Redirect ke /cashier
+    else Login sebagai admin
+        Router->>MoreScreen: Buka /more
+        MoreScreen-->>Admin: Tampilkan menu Kelola Akun
+    end
+
+    Admin->>MoreScreen: Tekan Kelola Akun
+    MoreScreen->>Router: context.go('/users')
+    Router->>AuthController: Validasi akses admin
+    Router->>UsersScreen: Buka UsersScreen
+
+    UsersScreen->>SupabaseDB: Select profiles id, email, full_name, role, nik, phone, created_at
+    SupabaseDB-->>UsersScreen: Daftar user toko
+
+    alt Daftar user gagal dimuat
+        UsersScreen-->>Admin: Tampilkan Daftar user gagal dimuat dan tombol coba lagi
+    else Daftar user kosong
+        UsersScreen-->>Admin: Tampilkan Belum ada user
+    else Daftar user tersedia
+        UsersScreen-->>Admin: Tampilkan User toko
+        Note over UsersScreen,Admin: Admin hanya ditampilkan sebagai data.<br/>Aksi edit dan hapus hanya muncul untuk role kasir.
+    end
+
+    opt Tambah akun kasir
+        Admin->>UsersScreen: Tekan Tambah kasir
+        UsersScreen->>CreateSheet: showModalBottomSheet()
+        CreateSheet-->>Admin: Tampilkan form Tambah Akun Kasir
+        Admin->>CreateSheet: Isi nama, NIK, No HP, email, password sementara
+        Admin->>CreateSheet: Tekan Buat akun kasir
+        CreateSheet->>CreateSheet: Validasi form
+
+        alt Form tidak valid
+            CreateSheet-->>Admin: Tampilkan pesan validasi
+        else Form valid
+            CreateSheet->>EdgeCreate: Invoke admin-create-cashier
+            EdgeCreate->>SupabaseAuth: Validasi Authorization dan ambil caller
+            SupabaseAuth-->>EdgeCreate: User admin aktif
+            EdgeCreate->>SupabaseDB: Select profil caller
+            SupabaseDB-->>EdgeCreate: role dan store_owner_user_id
+
+            alt Caller bukan admin atau sesi tidak valid
+                EdgeCreate-->>CreateSheet: Error hanya admin owner yang bisa membuat akun kasir
+                CreateSheet-->>Admin: Tampilkan pesan error
+            else Caller admin valid
+                EdgeCreate->>EdgeCreate: Validasi email, password, nama, NIK, No HP
+
+                alt Data request tidak valid
+                    EdgeCreate-->>CreateSheet: Error validasi data kasir
+                    CreateSheet-->>Admin: Tampilkan pesan error
+                else Data request valid
+                    EdgeCreate->>SupabaseAuth: auth.admin.createUser(role kasir, metadata identitas)
+                    SupabaseAuth-->>EdgeCreate: User kasir dibuat
+                    EdgeCreate->>SupabaseDB: Upsert profiles kasir
+                    Note over EdgeCreate,SupabaseDB: Menyimpan email, full_name, nik,<br/>phone, role kasir, store_owner_user_id
+                    SupabaseDB-->>EdgeCreate: Profile kasir tersimpan
+                    EdgeCreate-->>CreateSheet: Sukses
+                    CreateSheet-->>UsersScreen: Tutup sheet dengan created true
+                    UsersScreen->>SupabaseDB: Reload daftar profiles
+                    SupabaseDB-->>UsersScreen: Daftar user terbaru
+                    UsersScreen-->>Admin: Tampilkan snackbar Akun kasir berhasil dibuat
+                end
+            end
+        end
+    end
+
+    opt Edit informasi kasir
+        Admin->>UsersScreen: Tekan tombol edit pada user kasir
+        UsersScreen->>SupabaseDB: RPC admin_get_cashier_info(cashier_user_id)
+
+        alt RPC admin_get_cashier_info tidak tersedia
+            UsersScreen->>SupabaseDB: Fallback select profiles by id
+            SupabaseDB-->>UsersScreen: Data kasir
+        else RPC tersedia
+            SupabaseDB-->>UsersScreen: Data kasir dari profiles dan auth metadata
+        end
+
+        alt Data kasir gagal dimuat
+            UsersScreen-->>Admin: Tampilkan pesan error
+        else Data kasir berhasil dimuat
+            UsersScreen->>EditSheet: showModalBottomSheet(user)
+            EditSheet-->>Admin: Tampilkan form Edit Informasi Kasir
+            Admin->>EditSheet: Ubah nama, email, NIK, atau No HP
+            Admin->>EditSheet: Tekan Simpan perubahan
+            EditSheet->>EditSheet: Validasi form
+
+            alt Form tidak valid
+                EditSheet-->>Admin: Tampilkan pesan validasi
+            else Form valid
+                EditSheet->>SupabaseDB: RPC admin_update_cashier_info
+                SupabaseDB->>SupabaseDB: Validasi caller admin, target role kasir, dan toko yang sama
+                SupabaseDB->>SupabaseDB: Validasi email unik, NIK 16 digit, No HP minimal 8 digit
+
+                alt Validasi server gagal
+                    SupabaseDB-->>EditSheet: Error update informasi kasir
+                    EditSheet-->>Admin: Tampilkan pesan error
+                else Validasi server berhasil
+                    SupabaseDB->>SupabaseAuth: Update auth.users email dan metadata kasir
+                    SupabaseDB->>SupabaseDB: Update public.profiles
+                    SupabaseDB-->>EditSheet: Informasi kasir diperbarui
+                    EditSheet-->>UsersScreen: Tutup sheet dengan updated true
+                    UsersScreen->>SupabaseDB: Reload daftar profiles
+                    SupabaseDB-->>UsersScreen: Daftar user terbaru
+                    UsersScreen-->>Admin: Tampilkan snackbar Informasi kasir berhasil diperbarui
+                end
+            end
+        end
+    end
+
+    opt Hapus akun kasir
+        Admin->>UsersScreen: Tekan tombol hapus pada user kasir
+        UsersScreen-->>Admin: Tampilkan dialog Hapus akun kasir?
+
+        alt Admin batal
+            Admin-->>UsersScreen: Tekan Batal
+            UsersScreen-->>Admin: Dialog ditutup
+        else Admin konfirmasi
+            Admin->>UsersScreen: Tekan Hapus
+            UsersScreen->>EdgeDelete: Invoke admin-delete-cashier(user_id)
+            EdgeDelete->>SupabaseAuth: Validasi Authorization dan ambil caller
+            SupabaseAuth-->>EdgeDelete: User admin aktif
+            EdgeDelete->>SupabaseDB: Select profil caller dan profil kasir target
+            SupabaseDB-->>EdgeDelete: Role dan store_owner_user_id
+
+            alt Edge Function tidak tersedia
+                UsersScreen->>SupabaseDB: Fallback RPC admin_delete_cashier(cashier_user_id)
+                SupabaseDB->>SupabaseDB: Validasi caller admin, target kasir, dan toko yang sama
+                SupabaseDB->>SupabaseAuth: Delete auth.users target kasir
+                SupabaseDB-->>UsersScreen: Sukses hapus kasir
+                UsersScreen->>SupabaseDB: Reload daftar profiles
+                SupabaseDB-->>UsersScreen: Daftar user terbaru
+                UsersScreen-->>Admin: Tampilkan snackbar Akun kasir berhasil dihapus
+            else Validasi delete gagal
+                EdgeDelete-->>UsersScreen: Error hapus akun kasir
+                UsersScreen-->>Admin: Tampilkan pesan error
+            else Validasi delete berhasil
+                EdgeDelete->>SupabaseAuth: auth.admin.deleteUser(user_id)
+                SupabaseAuth-->>EdgeDelete: User kasir dihapus
+                EdgeDelete-->>UsersScreen: Sukses
+                UsersScreen->>SupabaseDB: Reload daftar profiles
+                SupabaseDB-->>UsersScreen: Daftar user terbaru
+                UsersScreen-->>Admin: Tampilkan snackbar Akun kasir berhasil dihapus
+            end
+        end
+    end

@@ -1,0 +1,48 @@
+flowchart TD
+    %% Flowchart usulan sistem UMKM Warung Kopi
+    %% Simbol global:
+    %% ([...]) = Terminator, [...] = Process, {...} = Decision
+    %% [/.../] = Data/Input-Output, [\...\] = Document, ((...)) = Connector
+
+    start([Mulai])
+    login[/Input data login/]
+    checkLogin{Login valid?}
+    retryLogin[/Input ulang data login/]
+    loginOk((Masuk sistem))
+    menu{Pilih menu}
+
+    product[Kelola produk]
+    productData[/Data produk tersimpan/]
+    nextProduct((Lanjut))
+
+    transaction[Proses transaksi penjualan]
+    payment{Jenis pembayaran?}
+    cash[Terima pembayaran]
+    bon[Catat data BON pelanggan]
+    paid{Transaksi lunas?}
+    receipt[\Cetak struk penjualan\]
+    history[/Simpan riwayat transaksi/]
+    nextTransaction((Lanjut))
+
+    report[\Laporan penjualan\]
+    nextReport((Lanjut))
+
+    logout[Logout]
+    finish([Selesai])
+
+    start --> login --> checkLogin
+    checkLogin -- Tidak --> retryLogin --> loginOk
+    checkLogin -- Ya --> loginOk --> menu
+
+    menu -- Produk --> product --> productData --> nextProduct
+    nextProduct --> transaction
+
+    menu -- Transaksi --> transaction --> payment
+    payment -- Tunai / Non-tunai --> cash --> paid
+    payment -- BON / Hutang --> bon --> paid
+    paid -- Belum --> nextTransaction
+    paid -- Ya --> receipt --> history --> nextTransaction
+    nextTransaction --> report
+
+    menu -- Laporan --> report --> nextReport
+    nextReport --> logout --> finish

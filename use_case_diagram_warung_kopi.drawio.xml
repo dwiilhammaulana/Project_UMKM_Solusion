@@ -1,0 +1,92 @@
+<mxfile host="app.diagrams.net" modified="2026-07-09T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="warung-kopi-professional-use-case" name="Use Case Diagram">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="system" value="Sistem POS Warung Kopi" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=2;fontStyle=1;fontSize=18;verticalAlign=top;spacingTop=14;" vertex="1" parent="1">
+          <mxGeometry x="250" y="50" width="700" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="actor-cashier" value="Kasir" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=15;fontStyle=1;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="70" y="300" width="90" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-owner" value="Admin / Pemilik" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fontSize=15;fontStyle=1;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="300" width="110" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="uc-login" value="Login dan Logout" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="510" y="95" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-view-products" value="Melihat Produk" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="330" y="200" width="180" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-transaction" value="Memproses Transaksi Penjualan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="565" y="200" width="230" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-receipt" value="Mencetak Struk" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="565" y="310" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-bon" value="Mencatat BON / Hutang" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="320" y="310" width="210" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-manage-products" value="Mengelola Produk" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="670" y="430" width="190" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-dashboard" value="Melihat Dashboard" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="340" y="430" width="190" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-reports" value="Melihat Laporan Penjualan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="335" y="555" width="220" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-users" value="Mengelola Akun Kasir" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="655" y="555" width="210" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-cashier-login" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-cashier" target="uc-login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cashier-view-products" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-cashier" target="uc-view-products">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cashier-transaction" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-cashier" target="uc-transaction">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cashier-bon" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-cashier" target="uc-bon">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-owner-login" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-owner-dashboard" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-owner-manage-products" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-manage-products">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-owner-bon" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-bon">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-owner-reports" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-reports">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-owner-users" style="endArrow=none;html=1;rounded=0;strokeColor=#000000;strokeWidth=1.5;" edge="1" parent="1" source="actor-owner" target="uc-users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-include-receipt" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;html=1;rounded=0;strokeColor=#000000;dashed=1;strokeWidth=1.5;fontSize=12;" edge="1" parent="1" source="uc-transaction" target="uc-receipt">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="650" y="285" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-extend-bon" value="&lt;&lt;extend&gt;&gt;" style="endArrow=open;html=1;rounded=0;strokeColor=#000000;dashed=1;strokeWidth=1.5;fontSize=12;" edge="1" parent="1" source="uc-bon" target="uc-transaction">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="285" as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

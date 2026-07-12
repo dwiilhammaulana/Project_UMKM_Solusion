@@ -1,0 +1,110 @@
+sequenceDiagram
+    autonumber
+    actor Kasir
+    participant CashierScreen
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant ReceiptSheet as Receipt Sheet
+
+    Kasir->>CashierScreen: Pilih produk
+    CashierScreen->>PosAppState: addToCart(product)
+    PosAppState->>PosAppState: Validasi produk, Ready/Kosong, dan stok
+
+    alt Produk tidak bisa ditambahkan
+        PosAppState-->>CashierScreen: Error produk tidak valid atau stok kurang
+        CashierScreen-->>Kasir: Tampilkan pesan error
+    else Produk valid
+        PosAppState->>PosAppState: Update cart, total item, dan total checkout
+        PosAppState-->>CashierScreen: Keranjang diperbarui
+        CashierScreen-->>Kasir: Tampilkan ringkasan keranjang
+    end
+
+    Kasir->>CashierScreen: Pilih pelanggan jika diperlukan
+    CashierScreen->>PosAppState: setSelectedCustomer(customerId)
+    Kasir->>CashierScreen: Pilih metode pembayaran
+    CashierScreen->>PosAppState: setPaymentMethod(cash/qris/transfer/bon)
+    Kasir->>CashierScreen: Tekan tombol checkout
+
+    alt Keranjang berisi nasi paket
+        CashierScreen->>PosAppState: moveCartToPendingTransaction(notes)
+        PosAppState->>Repository: savePendingTransactionFromCart(cart, customer, notes)
+        Repository->>SupabaseDB: Ambil data produk dari cart
+        SupabaseDB-->>Repository: Data produk
+        Repository->>Repository: Hitung item dan total transaksi sementara
+        Repository->>SupabaseDB: Insert pending_transactions
+        Repository->>SupabaseDB: Insert pending_transaction_items
+        SupabaseDB-->>Repository: Transaksi sementara tersimpan
+        Repository-->>PosAppState: PendingTransaction
+        PosAppState->>Repository: reload persisted data
+        Repository-->>PosAppState: Data terbaru
+        PosAppState->>PosAppState: Kosongkan cart dan reset pembayaran
+        PosAppState-->>CashierScreen: Transaksi dipindah
+        CashierScreen-->>Kasir: Tampilkan pesan transaksi berlangsung
+    else Keranjang transaksi biasa
+        CashierScreen->>CashierScreen: Tampilkan dialog konfirmasi pembayaran
+        Kasir->>CashierScreen: Konfirmasi pembayaran
+        CashierScreen->>PosAppState: checkout(notes)
+
+        alt Keranjang kosong
+            PosAppState-->>CashierScreen: Error Keranjang masih kosong
+            CashierScreen-->>Kasir: Tampilkan pesan error
+        else Metode BON tanpa pelanggan
+            PosAppState-->>CashierScreen: Error BON wajib memilih pelanggan
+            CashierScreen-->>Kasir: Tampilkan pesan error
+        else Valid
+            PosAppState->>Repository: checkout(cart, customer, paymentMethod, notes)
+            Repository->>SupabaseDB: Ambil owner user dan data produk
+            SupabaseDB-->>Repository: Data owner dan produk
+            Repository->>SupabaseDB: Ambil kategori nasi paket
+            SupabaseDB-->>Repository: Category id nasi paket
+            Repository->>Repository: Validasi qty, stok, dan hitung total
+
+            alt Stok tidak cukup
+                Repository-->>PosAppState: Error stok produk tidak cukup
+                PosAppState-->>CashierScreen: Checkout gagal
+                CashierScreen-->>Kasir: Tampilkan pesan error
+            else Stok cukup
+                Repository->>Repository: Buat kode transaksi unik
+                Repository->>SupabaseDB: Insert transactions
+                Repository->>SupabaseDB: Insert transaction_items
+
+                opt Ada item stok non nasi paket
+                    Repository->>SupabaseDB: Update stock_qty produk
+                    Repository->>SupabaseDB: Insert stock_movements stockOut
+                end
+
+                opt Metode pembayaran BON
+                    Repository->>SupabaseDB: Insert debts dengan status Belum Lunas
+                end
+
+                SupabaseDB-->>Repository: Transaksi tersimpan
+                Repository-->>PosAppState: TransactionRecord
+                PosAppState->>Repository: reload persisted data
+                Repository-->>PosAppState: Data terbaru
+                PosAppState->>PosAppState: Kosongkan cart, reset pelanggan, reset payment cash
+                PosAppState-->>CashierScreen: Checkout berhasil
+                CashierScreen->>ReceiptSheet: showReceiptSheet(transaction)
+                ReceiptSheet-->>Kasir: Tampilkan struk transaksi
+            end
+        end
+    end
+
+    opt Checkout transaksi berlangsung
+        Kasir->>CashierScreen: Buka tab Transaksi Berlangsung
+        Kasir->>CashierScreen: Pilih transaksi dan konfirmasi pembayaran
+        CashierScreen->>PosAppState: checkoutPendingTransaction(id, paymentMethod)
+        PosAppState->>Repository: checkoutPendingTransaction(id, paymentMethod)
+        Repository->>SupabaseDB: Ambil pending_transactions dan item
+        SupabaseDB-->>Repository: Data transaksi berlangsung
+        Repository->>Repository: Validasi stok non nasi paket dan hitung total
+        Repository->>SupabaseDB: Insert transactions dan transaction_items
+        Repository->>SupabaseDB: Update stok dan stock_movements jika perlu
+        Repository->>SupabaseDB: Insert debts jika metode BON
+        Repository->>SupabaseDB: Delete pending_transactions
+        Repository-->>PosAppState: TransactionRecord
+        PosAppState->>Repository: reload persisted data
+        PosAppState-->>CashierScreen: Checkout transaksi berlangsung berhasil
+        CashierScreen->>ReceiptSheet: showReceiptSheet(transaction)
+        ReceiptSheet-->>Kasir: Tampilkan struk transaksi
+    end

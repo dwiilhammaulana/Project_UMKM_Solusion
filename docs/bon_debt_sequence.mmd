@@ -1,0 +1,117 @@
+sequenceDiagram
+    autonumber
+    actor Kasir
+    participant CashierScreen
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant DebtsScreen
+    participant DebtPaymentSheet
+    participant TransactionDetail as Transaction Detail
+
+    Kasir->>CashierScreen: Pilih produk untuk transaksi
+    CashierScreen->>PosAppState: addToCart(product)
+    PosAppState->>PosAppState: Validasi produk, stok, dan status Ready/Kosong
+    PosAppState-->>CashierScreen: Keranjang dan total diperbarui
+
+    Kasir->>CashierScreen: Pilih pelanggan terdaftar
+    CashierScreen->>PosAppState: setSelectedCustomer(customerId)
+    Kasir->>CashierScreen: Pilih metode pembayaran BON
+    CashierScreen->>PosAppState: setPaymentMethod(PaymentMethod.bon)
+    Kasir->>CashierScreen: Tekan Mulai Pembayaran
+
+    CashierScreen->>CashierScreen: Tampilkan dialog konfirmasi pembayaran
+    Kasir->>CashierScreen: Konfirmasi transaksi BON
+    CashierScreen->>PosAppState: checkout(notes)
+
+    alt Pelanggan belum dipilih
+        PosAppState-->>CashierScreen: Error BON wajib memilih pelanggan terdaftar
+        CashierScreen-->>Kasir: Tampilkan pesan error
+    else Data valid
+        PosAppState->>Repository: checkout(cart, customerId, customerName, BON, notes)
+        Repository->>SupabaseDB: Ambil owner user dan data produk
+        SupabaseDB-->>Repository: Data owner dan produk
+        Repository->>SupabaseDB: Ambil kategori nasi paket
+        SupabaseDB-->>Repository: Category id nasi paket
+        Repository->>Repository: Validasi qty, stok, dan hitung total
+
+        alt Stok tidak cukup
+            Repository-->>PosAppState: Error stok produk tidak cukup
+            PosAppState-->>CashierScreen: Checkout gagal
+            CashierScreen-->>Kasir: Tampilkan pesan error
+        else Stok cukup
+            Repository->>Repository: Buat TransactionRecord
+            Note over Repository: amountPaid = 0 karena metode BON
+            Repository->>SupabaseDB: Insert transactions
+            Repository->>SupabaseDB: Insert transaction_items
+
+            opt Ada item stok non nasi paket
+                Repository->>SupabaseDB: Update stock_qty produk
+                Repository->>SupabaseDB: Insert stock_movements stockOut
+            end
+
+            Repository->>SupabaseDB: Insert debts
+            Note over SupabaseDB: original_amount = total transaksi<br/>paid_amount = 0<br/>notes = BON - Belum Lunas
+            SupabaseDB-->>Repository: Transaksi dan utang tersimpan
+            Repository-->>PosAppState: TransactionRecord
+            PosAppState->>Repository: reload persisted data
+            Repository-->>PosAppState: Transactions, debts, payments terbaru
+            PosAppState->>PosAppState: Kosongkan cart dan reset metode pembayaran
+            PosAppState-->>CashierScreen: Checkout BON berhasil
+            CashierScreen-->>Kasir: Tampilkan struk BON - Belum Lunas
+        end
+    end
+
+    Kasir->>DebtsScreen: Buka menu Hutang/BON
+    DebtsScreen->>PosAppState: Baca activeDebtsSorted
+    PosAppState-->>DebtsScreen: Daftar utang aktif
+    DebtsScreen-->>Kasir: Tampilkan BON Belum Lunas atau Cicilan
+
+    Kasir->>DebtsScreen: Tekan Bayar Cicilan / Lunasi
+    DebtsScreen->>DebtPaymentSheet: showDebtPaymentSheet(debt)
+    DebtPaymentSheet-->>Kasir: Tampilkan sisa utang dan pilihan metode bayar
+    Kasir->>DebtPaymentSheet: Isi nominal pembayaran
+    Kasir->>DebtPaymentSheet: Pilih Tunai / E-Wallet / Transfer
+    Kasir->>DebtPaymentSheet: Tekan Simpan Pembayaran
+
+    DebtPaymentSheet->>PosAppState: recordDebtPayment(debtId, amount, method)
+    PosAppState->>Repository: recordDebtPayment(debtId, amount, method, notes)
+    Repository->>SupabaseDB: Ambil debts(original_amount, paid_amount)
+    SupabaseDB-->>Repository: Data utang
+    Repository->>Repository: Hitung remainingAmount
+
+    alt Nominal <= 0
+        Repository-->>PosAppState: Error nominal pembayaran harus lebih dari 0
+        PosAppState-->>DebtPaymentSheet: Pembayaran gagal
+        DebtPaymentSheet-->>Kasir: Tampilkan pesan error
+    else Nominal melebihi sisa utang
+        Repository-->>PosAppState: Error nominal melebihi sisa utang
+        PosAppState-->>DebtPaymentSheet: Pembayaran gagal
+        DebtPaymentSheet-->>Kasir: Tampilkan pesan error
+    else Nominal valid
+        Repository->>SupabaseDB: Insert debt_payments
+        Note over SupabaseDB: Menyimpan riwayat cicilan dan metode bayar
+        Repository->>SupabaseDB: Update debts.paid_amount = paid_amount + amount
+        Repository->>SupabaseDB: Update debts.updated_at
+        SupabaseDB-->>Repository: Pembayaran tersimpan
+        Repository-->>PosAppState: Sukses
+        PosAppState->>Repository: reload persisted data
+        Repository-->>PosAppState: Debts dan debt_payments terbaru
+        PosAppState-->>DebtPaymentSheet: Pembayaran berhasil
+        DebtPaymentSheet-->>DebtsScreen: Tutup bottom sheet
+
+        alt paid_amount < original_amount
+            DebtsScreen-->>Kasir: Status BON menjadi Cicilan
+        else paid_amount >= original_amount
+            DebtsScreen-->>Kasir: Status BON menjadi Lunas
+        end
+    end
+
+    opt Lihat detail transaksi BON
+        Kasir->>TransactionDetail: Buka detail transaksi BON
+        TransactionDetail->>PosAppState: Cari transaction dan debt terkait
+        PosAppState-->>TransactionDetail: TransactionRecord, DebtRecord, DebtPayment
+        TransactionDetail->>TransactionDetail: Hitung Dibayar dari debt.paidAmount
+        TransactionDetail->>TransactionDetail: Hitung status dari DebtStatus
+        TransactionDetail-->>Kasir: Tampilkan Dibayar, Belum Lunas/Cicilan/Lunas, dan Riwayat Pembayaran BON
+    end

@@ -1,0 +1,101 @@
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Router as GoRouter
+    participant AuthController
+    participant MoreScreen
+    participant AnalyticsScreen
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant Regression as LinearRegressionModel
+    participant Chart as fl_chart
+
+    Admin->>Router: Buka halaman Analitik
+    Router->>AuthController: Cek status login dan role
+
+    alt Belum login
+        Router-->>Admin: Redirect ke /login
+    else Login sebagai kasir
+        Router-->>Admin: Redirect ke /cashier
+    else Login sebagai admin
+        Router->>MoreScreen: Buka /more
+        Admin->>MoreScreen: Tekan Analitik
+        MoreScreen->>Router: context.go('/analytics')
+        Router->>AnalyticsScreen: Buka AnalyticsScreen
+    end
+
+    AnalyticsScreen->>PosAppState: watch(posStateProvider)
+
+    alt Data belum dimuat
+        PosAppState->>Repository: initialize / reload persisted data
+        Repository->>SupabaseDB: fetchProducts()
+        SupabaseDB-->>Repository: Data produk dan modal
+        Repository->>SupabaseDB: fetchTransactions()
+        SupabaseDB-->>Repository: Data transaksi
+        Repository->>SupabaseDB: fetchPayments()
+        SupabaseDB-->>Repository: Data pembayaran BON
+        Repository->>SupabaseDB: fetchDebts()
+        SupabaseDB-->>Repository: Data BON
+        Repository->>SupabaseDB: fetchOperationalCosts()
+        SupabaseDB-->>Repository: Data biaya operasional
+        Repository-->>PosAppState: Data aplikasi
+        PosAppState->>PosAppState: Rebuild operational cost indexes
+        PosAppState->>PosAppState: Rebuild reportSummaries 6 bulan terakhir
+    else Data sudah tersedia
+        PosAppState-->>AnalyticsScreen: State terbaru
+    end
+
+    AnalyticsScreen->>PosAppState: Ambil reportSummaries
+    PosAppState-->>AnalyticsScreen: Data laporan bulanan
+
+    alt Belum ada data laporan
+        AnalyticsScreen-->>Admin: Tampilkan Belum ada data laporan
+    else Data laporan tersedia
+        AnalyticsScreen->>AnalyticsScreen: Ambil netProfit tiap bulan
+        AnalyticsScreen->>Regression: train(profits)
+
+        alt Data profit minimal 2 bulan
+            Regression->>Regression: Hitung slope dan intercept
+            AnalyticsScreen->>Regression: predict(profits.length + 1)
+            Regression-->>AnalyticsScreen: Prediksi profit bulan berikutnya
+        else Data profit hanya 1 bulan
+            AnalyticsScreen->>AnalyticsScreen: Gunakan profit terakhir sebagai prediksi
+        end
+
+        AnalyticsScreen->>Regression: calculateMAE, calculateMSE, calculateRMSE, calculateR2
+        Regression-->>AnalyticsScreen: Nilai evaluasi prediksi
+        AnalyticsScreen->>AnalyticsScreen: Hitung totalRevenue, totalCost, totalProfit
+        AnalyticsScreen->>AnalyticsScreen: Hitung averageProfit, profitMargin, bestMonth
+        AnalyticsScreen->>PosAppState: Ambil operationalCosts
+        PosAppState-->>AnalyticsScreen: Daftar biaya operasional
+        AnalyticsScreen->>AnalyticsScreen: Kelompokkan biaya berdasarkan nama biaya
+        AnalyticsScreen->>AnalyticsScreen: Urutkan costBuckets dari nominal terbesar
+
+        AnalyticsScreen-->>Admin: Render hero Analitik
+        Note over AnalyticsScreen,Admin: Menampilkan margin, bulan terbaik,<br/>rata-rata profit, dan kualitas prediksi.
+
+        AnalyticsScreen-->>Admin: Tampilkan Ringkasan Bulanan
+        Note over AnalyticsScreen,Admin: Pendapatan, Total Biaya, Net Profit,<br/>Rata-rata, dan Prediksi Profit.
+
+        AnalyticsScreen->>Chart: Render Perbandingan Keuangan
+        Note over AnalyticsScreen,Chart: Bar chart pendapatan, modal,<br/>biaya operasional, dan net profit per bulan.
+        Chart-->>Admin: Grafik perbandingan keuangan
+
+        alt Tidak ada biaya operasional
+            AnalyticsScreen-->>Admin: Tampilkan Belum ada biaya operasional
+        else Ada biaya operasional
+            AnalyticsScreen->>Chart: Render Komposisi Biaya Operasional
+            Note over AnalyticsScreen,Chart: Pie chart dan legend biaya<br/>berdasarkan costBuckets.
+            Chart-->>Admin: Grafik komposisi biaya
+        end
+
+        AnalyticsScreen->>Chart: Render Tren Net Profit Bulanan
+        Note over AnalyticsScreen,Chart: Line chart profit aktual dan garis prediksi.
+        Chart-->>Admin: Grafik tren profit dan prediksi
+
+        opt Admin menyentuh grafik
+            Admin->>Chart: Tap / hover bar, pie, atau line chart
+            Chart-->>Admin: Tampilkan tooltip nilai rupiah dan periode
+        end
+    end

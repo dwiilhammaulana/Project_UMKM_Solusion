@@ -1,0 +1,160 @@
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Router as GoRouter
+    participant AuthController
+    participant ProductsScreen
+    participant ProductFormSheet
+    participant MediaPicker
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant Storage as Supabase Storage
+    participant SupabaseDB as Supabase Database
+
+    Admin->>Router: Buka menu Produk
+    Router->>AuthController: Cek status login dan role
+
+    alt Belum login
+        Router-->>Admin: Redirect ke /login
+    else Login sebagai kasir
+        Router->>ProductsScreen: Buka /products mode lihat saja
+        ProductsScreen-->>Admin: Tombol tambah, edit, hapus disembunyikan
+    else Login sebagai admin
+        Router->>ProductsScreen: Buka /products mode kelola
+        ProductsScreen-->>Admin: Tampilkan Tambah Produk dan aksi kelola
+    end
+
+    opt Tambah produk baru
+        Admin->>ProductsScreen: Tekan Tambah Produk
+        ProductsScreen->>ProductFormSheet: showProductFormSheet()
+        ProductFormSheet-->>Admin: Tampilkan form Produk Baru
+        Admin->>ProductFormSheet: Isi nama, kategori, harga, stok/ready, satuan, rak
+
+        opt Upload foto produk
+            Admin->>ProductFormSheet: Tekan Upload Foto
+            ProductFormSheet->>MediaPicker: pickImagePath()
+            MediaPicker-->>ProductFormSheet: Path foto lokal
+            ProductFormSheet-->>Admin: Preview foto produk
+        end
+
+        Admin->>ProductFormSheet: Tekan Simpan Produk
+        ProductFormSheet->>ProductFormSheet: Validasi form
+
+        alt Form tidak valid
+            ProductFormSheet-->>Admin: Tampilkan pesan validasi
+        else Form valid
+            ProductFormSheet->>PosAppState: saveProduct(id null, data produk)
+            PosAppState->>PosAppState: Jika kategori nasi paket, stok dan min stok dibuat 0
+            PosAppState->>Repository: saveProduct(id null, data produk)
+            Repository->>Repository: Ambil owner_user_id
+            Repository->>Repository: Buat productId baru
+
+            alt Foto lokal dipilih
+                Repository->>Storage: Upload file ke bucket app-media
+                Note over Repository,Storage: Object path: owner/products/productId-timestamp.ext
+                Storage-->>Repository: Public URL foto
+                Repository->>Repository: Hapus file temporary jika dari toko_saku_uploads
+            else Foto kosong atau sudah remote URL
+                Repository->>Repository: Pakai imagePath apa adanya
+            end
+
+            Repository->>SupabaseDB: Insert products
+            Note over SupabaseDB: Menyimpan name, category_id, sell_price,<br/>cost_price, stock_qty, min_stock,<br/>unit, rack_location, image_path, is_ready, owner_user_id
+            SupabaseDB-->>Repository: Produk tersimpan
+            Repository-->>PosAppState: Sukses
+            PosAppState->>Repository: reload persisted data
+            Repository->>SupabaseDB: fetchProducts dan data pendukung
+            SupabaseDB-->>Repository: Data terbaru
+            Repository-->>PosAppState: Products terbaru
+            PosAppState-->>ProductFormSheet: Save berhasil
+            ProductFormSheet-->>ProductsScreen: Tutup sheet
+            ProductsScreen-->>Admin: Produk baru tampil di etalase
+        end
+    end
+
+    opt Edit produk
+        Admin->>ProductsScreen: Long press kartu produk
+        ProductsScreen-->>Admin: Tampilkan aksi Edit Produk dan Hapus Produk
+        Admin->>ProductsScreen: Pilih Edit Produk
+        ProductsScreen->>ProductFormSheet: showProductFormSheet(product)
+        ProductFormSheet-->>Admin: Tampilkan form Edit Produk dengan data lama
+        Admin->>ProductFormSheet: Ubah data produk
+
+        opt Ganti atau hapus foto
+            Admin->>ProductFormSheet: Tekan Ganti Foto atau Hapus Foto
+            ProductFormSheet->>MediaPicker: pickImagePath jika ganti foto
+            MediaPicker-->>ProductFormSheet: Path foto lokal baru
+            ProductFormSheet-->>Admin: Preview foto diperbarui
+        end
+
+        Admin->>ProductFormSheet: Tekan Update Produk
+        ProductFormSheet->>ProductFormSheet: Validasi form
+
+        alt Form tidak valid
+            ProductFormSheet-->>Admin: Tampilkan pesan validasi
+        else Form valid
+            ProductFormSheet->>PosAppState: saveProduct(id existing, data produk)
+            PosAppState->>PosAppState: Terapkan aturan nasi paket jika kategori nasi paket
+            PosAppState->>Repository: saveProduct(id existing, data produk)
+            Repository->>SupabaseDB: Select products by id dan owner_user_id
+            SupabaseDB-->>Repository: Produk lama
+
+            alt Produk tidak ditemukan
+                Repository-->>PosAppState: Error Produk tidak ditemukan
+                PosAppState-->>ProductFormSheet: Update gagal
+                ProductFormSheet-->>Admin: Tampilkan pesan error
+            else Produk ditemukan
+                alt Foto lokal baru dipilih
+                    Repository->>Storage: Upload foto baru ke bucket app-media
+                    Storage-->>Repository: Public URL foto baru
+                else Foto kosong atau remote URL
+                    Repository->>Repository: Pakai imagePath saat ini
+                end
+
+                Repository->>SupabaseDB: Update products by id dan owner_user_id
+                SupabaseDB-->>Repository: Produk diperbarui
+                Repository-->>PosAppState: Sukses
+                PosAppState->>Repository: reload persisted data
+                Repository-->>PosAppState: Products terbaru
+                PosAppState-->>ProductFormSheet: Update berhasil
+                ProductFormSheet-->>ProductsScreen: Tutup sheet
+                ProductsScreen-->>Admin: Kartu produk menampilkan data terbaru
+            end
+        end
+    end
+
+    opt Hapus produk
+        Admin->>ProductsScreen: Long press kartu produk
+        ProductsScreen-->>Admin: Tampilkan aksi Edit Produk dan Hapus Produk
+        Admin->>ProductsScreen: Pilih Hapus Produk
+        ProductsScreen-->>Admin: Tampilkan dialog konfirmasi hapus
+        Admin->>ProductsScreen: Konfirmasi Hapus
+        ProductsScreen->>PosAppState: deleteProduct(productId)
+        PosAppState->>Repository: deleteProduct(productId)
+        Repository->>SupabaseDB: Cek produk berdasarkan id dan owner_user_id
+
+        alt Produk tidak ditemukan
+            SupabaseDB-->>Repository: Tidak ada data
+            Repository-->>PosAppState: Error Data tidak ditemukan
+            PosAppState-->>ProductsScreen: Hapus gagal
+            ProductsScreen-->>Admin: Tampilkan pesan error
+        else Produk ditemukan
+            Repository->>SupabaseDB: Cek transaction_items yang memakai product_id
+
+            alt Produk sudah dipakai transaksi
+                SupabaseDB-->>Repository: Ada transaction_items
+                Repository-->>PosAppState: Error produk sudah dipakai di transaksi
+                PosAppState-->>ProductsScreen: Hapus gagal
+                ProductsScreen-->>Admin: Tampilkan pesan error
+            else Produk belum dipakai transaksi
+                Repository->>SupabaseDB: Delete products by id dan owner_user_id
+                SupabaseDB-->>Repository: Produk terhapus
+                Repository-->>PosAppState: Sukses
+                PosAppState->>PosAppState: Hapus produk dari cart jika ada
+                PosAppState->>Repository: reload persisted data
+                Repository-->>PosAppState: Products terbaru
+                PosAppState-->>ProductsScreen: Hapus berhasil
+                ProductsScreen-->>Admin: Tampilkan snackbar produk berhasil dihapus
+            end
+        end
+    end

@@ -1,0 +1,101 @@
+sequenceDiagram
+    autonumber
+    actor Pengguna as Admin/Kasir
+    participant Router as GoRouter
+    participant ProductsScreen
+    participant AuthController
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant ProductCard as Product Showcase Card
+
+    Pengguna->>Router: Buka menu Produk
+    Router->>AuthController: Cek status login dan role
+
+    alt Belum login
+        Router-->>Pengguna: Redirect ke /login
+    else Role kasir dan route diizinkan
+        Router->>ProductsScreen: Buka /products
+    else Role admin
+        Router->>ProductsScreen: Buka /products
+    end
+
+    ProductsScreen->>PosAppState: watch(posStateProvider)
+
+    alt Data belum dimuat
+        PosAppState->>Repository: initialize / reload persisted data
+        Repository->>SupabaseDB: fetchCategories()
+        SupabaseDB-->>Repository: Data kategori
+        Repository->>SupabaseDB: fetchProducts()
+        Note over Repository,SupabaseDB: Select products berdasarkan owner_user_id dan order by name
+        SupabaseDB-->>Repository: Data produk
+        Repository->>SupabaseDB: fetch data pendukung lain
+        SupabaseDB-->>Repository: Profile, customer, transaksi, utang, stok
+        Repository-->>PosAppState: Data aplikasi
+        PosAppState->>PosAppState: Rebuild cache categoryById dan productById
+        PosAppState-->>ProductsScreen: Notify data siap
+    else Data sudah tersedia
+        PosAppState-->>ProductsScreen: Kirim state.products dan state.categories
+    end
+
+    ProductsScreen->>AuthController: Cek auth.isAdmin
+
+    alt User admin
+        AuthController-->>ProductsScreen: canManageProducts = true
+        ProductsScreen-->>Pengguna: Tampilkan tombol Tambah Produk
+    else User kasir
+        AuthController-->>ProductsScreen: canManageProducts = false
+        ProductsScreen-->>Pengguna: Sembunyikan tombol Tambah/Edit/Hapus
+    end
+
+    ProductsScreen->>ProductsScreen: Ambil query pencarian dan filter kategori
+    ProductsScreen->>ProductsScreen: Filter produk berdasarkan nama dan kategori
+
+    alt Hasil filter kosong
+        ProductsScreen-->>Pengguna: Tampilkan Produk tidak ditemukan
+    else Produk tersedia
+        ProductsScreen->>ProductCard: Render grid Etalase Produk
+        ProductCard->>PosAppState: categoryNameById(product.categoryId)
+        PosAppState-->>ProductCard: Nama kategori
+        ProductCard-->>Pengguna: Tampilkan foto, nama, kategori, harga, stok/Ready
+    end
+
+    opt Pengguna mencari produk
+        Pengguna->>ProductsScreen: Ketik kata kunci pencarian
+        ProductsScreen->>ProductsScreen: Update _query
+        ProductsScreen->>ProductsScreen: Filter ulang daftar produk
+        ProductsScreen-->>Pengguna: Tampilkan produk yang cocok
+    end
+
+    opt Pengguna memilih filter kategori
+        Pengguna->>ProductsScreen: Pilih kategori
+        ProductsScreen->>ProductsScreen: Update _categoryId
+        ProductsScreen->>ProductsScreen: Filter ulang daftar produk
+        ProductsScreen-->>Pengguna: Tampilkan produk sesuai kategori
+    end
+
+    opt Kasir menambahkan produk ke keranjang dari kartu produk
+        Pengguna->>ProductCard: Tekan tambah pada produk
+        ProductCard->>PosAppState: addToCart(product)
+        PosAppState->>PosAppState: Validasi stok atau Ready/Kosong
+
+        alt Produk tidak bisa ditambahkan
+            PosAppState-->>ProductCard: Error stok kurang atau produk kosong
+            ProductCard-->>Pengguna: Tampilkan pesan error
+        else Produk valid
+            PosAppState->>PosAppState: Update cart dan total
+            PosAppState-->>ProductCard: Keranjang diperbarui
+            ProductCard-->>Pengguna: Tampilkan jumlah produk di keranjang
+        end
+    end
+
+    opt Admin membuka aksi kelola produk
+        Pengguna->>ProductCard: Long press kartu produk
+        ProductCard->>ProductsScreen: showProductActions(product)
+
+        alt User admin
+            ProductsScreen-->>Pengguna: Tampilkan Edit Produk dan Hapus Produk
+        else User kasir
+            ProductsScreen-->>Pengguna: Aksi kelola tidak ditampilkan
+        end
+    end

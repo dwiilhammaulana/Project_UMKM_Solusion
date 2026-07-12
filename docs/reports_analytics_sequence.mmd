@@ -1,0 +1,188 @@
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Router as GoRouter
+    participant AuthController
+    participant MoreScreen
+    participant DashboardScreen
+    participant ReportsScreen
+    participant AnalyticsScreen
+    participant CostSheet as OperationalCostFormSheet
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant Regression as LinearRegressionModel
+    participant Chart as fl_chart
+    participant PdfEngine as PDF Generator
+    participant Printing
+
+    Admin->>Router: Buka fitur Laporan atau Analitik
+    Router->>AuthController: Cek status login dan role
+
+    alt Belum login
+        Router-->>Admin: Redirect ke /login
+    else Login sebagai kasir
+        Router-->>Admin: Redirect ke /cashier
+    else Login sebagai admin
+        alt Buka Laporan dari Dashboard
+            Router->>DashboardScreen: Buka /dashboard
+            Admin->>DashboardScreen: Tekan tombol Laporan
+            DashboardScreen->>Router: context.go('/reports')
+            Router->>ReportsScreen: Buka ReportsScreen
+        else Buka Laporan dari menu Lainnya
+            Router->>MoreScreen: Buka /more
+            Admin->>MoreScreen: Tekan Laporan
+            MoreScreen->>Router: context.go('/reports')
+            Router->>ReportsScreen: Buka ReportsScreen
+        else Buka Analitik dari menu Lainnya
+            Router->>MoreScreen: Buka /more
+            Admin->>MoreScreen: Tekan Analitik
+            MoreScreen->>Router: context.go('/analytics')
+            Router->>AnalyticsScreen: Buka AnalyticsScreen
+        end
+    end
+
+    alt Halaman Laporan dibuka
+        ReportsScreen->>PosAppState: watch(posStateProvider)
+    else Halaman Analitik dibuka
+        AnalyticsScreen->>PosAppState: watch(posStateProvider)
+    end
+
+    alt Data belum dimuat
+        PosAppState->>Repository: initialize / reload persisted data
+        Repository->>SupabaseDB: fetchAppProfile()
+        SupabaseDB-->>Repository: Profil toko
+        Repository->>SupabaseDB: fetchProducts()
+        SupabaseDB-->>Repository: Data produk dan modal
+        Repository->>SupabaseDB: fetchTransactions()
+        SupabaseDB-->>Repository: Data transaksi
+        Repository->>SupabaseDB: fetchDebts dan fetchPayments
+        SupabaseDB-->>Repository: Data BON dan pembayaran
+        Repository->>SupabaseDB: fetchOperationalCosts()
+        SupabaseDB-->>Repository: Data biaya operasional
+        Repository-->>PosAppState: Data aplikasi
+        PosAppState->>PosAppState: Rebuild operational cost indexes
+        PosAppState->>PosAppState: Rebuild reportSummaries 6 bulan terakhir
+    else Data sudah tersedia
+        PosAppState-->>ReportsScreen: State terbaru jika halaman Laporan
+        PosAppState-->>AnalyticsScreen: State terbaru jika halaman Analitik
+    end
+
+    opt Case Laporan
+        ReportsScreen->>PosAppState: Ambil reportSummaries.last
+        PosAppState-->>ReportsScreen: Periode berjalan
+        ReportsScreen->>PosAppState: Ambil activeDebtTotal dan todayTransactionCount
+        PosAppState-->>ReportsScreen: Ringkasan transaksi dan BON
+        ReportsScreen->>PosAppState: operationalCostsByMonth(selectedMonth)
+        PosAppState-->>ReportsScreen: Biaya operasional bulan terpilih
+        ReportsScreen->>PosAppState: operationalCostTotalByMonth(selectedMonth)
+        PosAppState-->>ReportsScreen: Total biaya bulan terpilih
+        ReportsScreen-->>Admin: Render Laporan, snapshot, net profit, biaya operasional, dan tab periode
+
+        opt Tambah atau edit biaya operasional
+            Admin->>ReportsScreen: Tekan Tambah atau edit biaya
+            ReportsScreen->>CostSheet: showOperationalCostFormSheet()
+            CostSheet-->>Admin: Tampilkan form Biaya Operasional
+            Admin->>CostSheet: Isi periode, nama biaya, dan nominal
+            Admin->>CostSheet: Tekan Simpan Biaya atau Update Biaya
+            CostSheet->>CostSheet: Validasi form
+
+            alt Form tidak valid
+                CostSheet-->>Admin: Tampilkan pesan validasi
+            else Form valid
+                CostSheet->>PosAppState: saveOperationalCost(id, data biaya)
+                PosAppState->>Repository: saveOperationalCost(id, data biaya)
+
+                alt Biaya baru
+                    Repository->>SupabaseDB: Insert operational_costs
+                else Biaya lama
+                    Repository->>SupabaseDB: Update operational_costs by id dan owner_user_id
+                end
+
+                SupabaseDB-->>Repository: Biaya tersimpan
+                Repository-->>PosAppState: Sukses
+                PosAppState->>Repository: reload persisted data
+                Repository-->>PosAppState: Data terbaru
+                PosAppState->>PosAppState: Rebuild reportSummaries
+                PosAppState-->>CostSheet: Save berhasil
+                CostSheet-->>ReportsScreen: Tutup sheet
+                ReportsScreen-->>Admin: Laporan dan net profit diperbarui
+            end
+        end
+
+        opt Hapus biaya operasional
+            Admin->>ReportsScreen: Tekan hapus pada biaya
+            ReportsScreen-->>Admin: Tampilkan dialog Hapus biaya operasional?
+
+            alt Admin batal
+                Admin-->>ReportsScreen: Tekan Batal
+                ReportsScreen-->>Admin: Dialog ditutup
+            else Admin konfirmasi
+                Admin->>ReportsScreen: Tekan Hapus
+                ReportsScreen->>PosAppState: deleteOperationalCost(id)
+                PosAppState->>Repository: deleteOperationalCost(id)
+                Repository->>SupabaseDB: Delete operational_costs by id dan owner_user_id
+                SupabaseDB-->>Repository: Biaya terhapus
+                Repository-->>PosAppState: Sukses
+                PosAppState->>Repository: reload persisted data
+                Repository-->>PosAppState: Data terbaru
+                PosAppState->>PosAppState: Rebuild reportSummaries
+                PosAppState-->>ReportsScreen: Hapus berhasil
+                ReportsScreen-->>Admin: Tampilkan snackbar biaya berhasil dihapus
+            end
+        end
+
+        opt Export laporan PDF
+            Admin->>ReportsScreen: Pilih tab Harian, Bulanan, atau Tahunan
+            Admin->>ReportsScreen: Tekan Export
+            ReportsScreen->>PosAppState: Ambil storeName dan data periode laporan
+            PosAppState-->>ReportsScreen: Data laporan siap export
+            ReportsScreen->>PdfEngine: Buat dokumen PDF
+            Note over ReportsScreen,PdfEngine: Harian, Bulanan, dan Tahunan memakai data reportSummaries,<br/>transaksi, BON aktif, biaya toko, dan net profit.
+            PdfEngine-->>ReportsScreen: Dokumen PDF
+            ReportsScreen->>Printing: Printing.layoutPdf()
+            Printing-->>Admin: Tampilkan dialog print / simpan PDF
+        end
+    end
+
+    opt Case Analitik
+        AnalyticsScreen->>PosAppState: Ambil reportSummaries
+        PosAppState-->>AnalyticsScreen: Data laporan bulanan
+
+        alt Belum ada data laporan
+            AnalyticsScreen-->>Admin: Tampilkan Belum ada data laporan
+        else Data laporan tersedia
+            AnalyticsScreen->>AnalyticsScreen: Ambil netProfit tiap bulan
+            AnalyticsScreen->>Regression: train(profits)
+
+            alt Data profit minimal 2 bulan
+                Regression->>Regression: Hitung slope dan intercept
+                AnalyticsScreen->>Regression: predict(profits.length + 1)
+                Regression-->>AnalyticsScreen: Prediksi profit bulan berikutnya
+            else Data profit hanya 1 bulan
+                AnalyticsScreen->>AnalyticsScreen: Gunakan profit terakhir sebagai prediksi
+            end
+
+            AnalyticsScreen->>Regression: calculateMAE, calculateMSE, calculateRMSE, calculateR2
+            Regression-->>AnalyticsScreen: Nilai evaluasi prediksi
+            AnalyticsScreen->>AnalyticsScreen: Hitung totalRevenue, totalCost, totalProfit
+            AnalyticsScreen->>AnalyticsScreen: Hitung averageProfit, profitMargin, bestMonth
+            AnalyticsScreen->>PosAppState: Ambil operationalCosts
+            PosAppState-->>AnalyticsScreen: Daftar biaya operasional
+            AnalyticsScreen->>AnalyticsScreen: Kelompokkan biaya berdasarkan nama biaya
+            AnalyticsScreen-->>Admin: Render hero Analitik dan Ringkasan Bulanan
+
+            AnalyticsScreen->>Chart: Render Perbandingan Keuangan
+            Chart-->>Admin: Grafik pendapatan, modal, biaya, dan net profit
+
+            alt Tidak ada biaya operasional
+                AnalyticsScreen-->>Admin: Tampilkan Belum ada biaya operasional
+            else Ada biaya operasional
+                AnalyticsScreen->>Chart: Render Komposisi Biaya Operasional
+                Chart-->>Admin: Grafik komposisi biaya
+            end
+
+            AnalyticsScreen->>Chart: Render Tren Net Profit Bulanan
+            Chart-->>Admin: Grafik profit aktual dan prediksi
+        end
+    end

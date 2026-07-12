@@ -1,0 +1,126 @@
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant Router as GoRouter
+    participant AuthController
+    participant DashboardScreen
+    participant PosAppState
+    participant Repository as SupabasePosRepository
+    participant SupabaseDB as Supabase Database
+    participant ProfileSheet as Store Profile Sheet
+
+    Admin->>Router: Buka halaman Dashboard
+    Router->>AuthController: Cek status auth dan role
+
+    alt Belum login
+        Router-->>Admin: Redirect ke /login
+    else Login sebagai kasir
+        Router-->>Admin: Redirect ke /cashier
+    else Login sebagai admin
+        Router->>DashboardScreen: Buka /dashboard
+    end
+
+    DashboardScreen->>PosAppState: watch(posStateProvider)
+
+    alt Data belum dimuat
+        PosAppState->>Repository: initialize / reload persisted data
+        Repository->>SupabaseDB: fetchAppProfile()
+        SupabaseDB-->>Repository: Profil toko
+        Repository->>SupabaseDB: fetchCategories()
+        SupabaseDB-->>Repository: Data kategori
+        Repository->>SupabaseDB: fetchProducts()
+        SupabaseDB-->>Repository: Data produk
+        Repository->>SupabaseDB: fetchCustomers()
+        SupabaseDB-->>Repository: Data pelanggan
+        Repository->>SupabaseDB: fetchTransactions()
+        SupabaseDB-->>Repository: Data transaksi
+        Repository->>SupabaseDB: fetchPendingTransactions()
+        SupabaseDB-->>Repository: Data transaksi berlangsung
+        Repository->>SupabaseDB: fetchDebts()
+        SupabaseDB-->>Repository: Data BON / utang
+        Repository->>SupabaseDB: fetchPayments()
+        SupabaseDB-->>Repository: Data pembayaran utang
+        Repository->>SupabaseDB: fetchStockMovements dan fetchOperationalCosts
+        SupabaseDB-->>Repository: Data stok dan biaya operasional
+        Repository-->>PosAppState: Semua data aplikasi
+    else Data sudah tersedia
+        PosAppState-->>DashboardScreen: State terbaru
+    end
+
+    PosAppState->>PosAppState: Rebuild categoryById, productById, customerById
+    PosAppState->>PosAppState: Hitung activeDebtsSorted
+    Note over PosAppState: Debt status selain paid<br/>diurutkan dari umur utang terbesar
+    PosAppState->>PosAppState: Hitung lowStockProducts
+    Note over PosAppState: Produk non nasi paket dengan stok di bawah minStock
+    PosAppState->>PosAppState: Hitung totalRevenue, activeDebtTotal, operationalCost
+    PosAppState->>PosAppState: Rebuild reportSummaries dan index pelanggan
+    PosAppState-->>DashboardScreen: Notify dashboard data siap
+
+    DashboardScreen->>PosAppState: Ambil appProfile
+    PosAppState-->>DashboardScreen: Nama toko, subtitle, owner, foto
+    DashboardScreen->>DashboardScreen: Hitung greeting berdasarkan waktu
+    DashboardScreen->>PosAppState: Ambil activeDebtsSorted.take(3)
+    PosAppState-->>DashboardScreen: 3 BON prioritas
+    DashboardScreen->>PosAppState: Ambil lowStockProducts.take(3)
+    PosAppState-->>DashboardScreen: 3 produk stok siaga
+
+    DashboardScreen-->>Admin: Render hero dashboard
+    Note over DashboardScreen,Admin: Menampilkan greeting, nama toko,<br/>avatar edit profil, tombol Buka kasir, tombol Laporan
+
+    alt Ada BON aktif
+        DashboardScreen-->>Admin: Tampilkan Bon Prioritas
+    else Tidak ada BON aktif
+        DashboardScreen-->>Admin: Tampilkan Semua bon lunas
+    end
+
+    alt Ada produk stok rendah
+        DashboardScreen-->>Admin: Tampilkan Stok Siaga
+    else Stok aman
+        DashboardScreen-->>Admin: Tampilkan Stok aman
+    end
+
+    opt Admin tekan edit profil toko
+        Admin->>DashboardScreen: Tekan avatar edit profil
+        DashboardScreen->>ProfileSheet: showStoreProfileSheet(profile)
+        ProfileSheet-->>Admin: Tampilkan form profil toko
+        Admin->>ProfileSheet: Simpan perubahan profil
+        ProfileSheet->>PosAppState: saveAppProfile(data)
+        PosAppState->>Repository: saveAppProfile(data)
+        Repository->>SupabaseDB: Upsert app_profile
+        SupabaseDB-->>Repository: Profil tersimpan
+        Repository-->>PosAppState: AppProfile
+        PosAppState->>Repository: reload persisted data
+        Repository-->>PosAppState: Data terbaru
+        PosAppState-->>DashboardScreen: Notify profil diperbarui
+        DashboardScreen-->>Admin: Tampilkan profil toko terbaru
+    end
+
+    opt Admin tekan Buka kasir
+        Admin->>DashboardScreen: Tekan tombol Buka kasir
+        DashboardScreen->>Router: context.go('/cashier')
+        Router-->>Admin: Tampilkan halaman kasir
+    end
+
+    opt Admin tekan Laporan
+        Admin->>DashboardScreen: Tekan tombol Laporan
+        DashboardScreen->>Router: context.go('/reports')
+        Router-->>Admin: Tampilkan halaman laporan
+    end
+
+    opt Admin buka semua BON
+        Admin->>DashboardScreen: Tekan Semua pada Bon Prioritas
+        DashboardScreen->>Router: context.go('/debts')
+        Router-->>Admin: Tampilkan halaman utang/BON
+    end
+
+    opt Admin buka detail BON prioritas
+        Admin->>DashboardScreen: Tekan salah satu BON prioritas
+        DashboardScreen->>Router: context.go('/debts/:id')
+        Router-->>Admin: Tampilkan detail utang
+    end
+
+    opt Admin buka inventori
+        Admin->>DashboardScreen: Tekan Inventori pada Stok Siaga
+        DashboardScreen->>Router: context.go('/inventory')
+        Router-->>Admin: Tampilkan halaman inventori
+    end

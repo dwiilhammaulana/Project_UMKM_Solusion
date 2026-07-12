@@ -1,0 +1,32 @@
+%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#000000", "primaryBorderColor": "#000000", "lineColor": "#000000", "secondaryColor": "#ffffff", "tertiaryColor": "#ffffff", "actorBorder": "#000000", "actorTextColor": "#000000", "actorBkg": "#ffffff", "activationBorderColor": "#000000", "activationBkgColor": "#ffffff", "sequenceNumberColor": "#000000", "noteBkgColor": "#ffffff", "noteTextColor": "#000000", "noteBorderColor": "#000000"}}}%%
+sequenceDiagram
+    actor Pengguna
+    participant Aplikasi as Aplikasi UMKM
+    participant Database
+    participant Pemilik as Pemilik UMKM
+
+    Pengguna->>Aplikasi: Login
+    Aplikasi->>Database: Cek data akun
+    Database-->>Aplikasi: Akun valid
+    Aplikasi-->>Pengguna: Masuk ke dashboard
+
+    Pengguna->>Aplikasi: Pilih produk untuk transaksi
+    Aplikasi->>Database: Ambil data produk dan harga
+    Database-->>Aplikasi: Data produk
+    Aplikasi-->>Pengguna: Tampilkan total belanja
+
+    Pengguna->>Aplikasi: Pilih metode pembayaran
+    alt Tunai / Non Tunai
+        Aplikasi->>Database: Simpan transaksi lunas
+        Database-->>Aplikasi: Transaksi tersimpan
+        Aplikasi-->>Pengguna: Tampilkan struk
+    else BON / Hutang
+        Aplikasi->>Database: Simpan transaksi dan data hutang
+        Database-->>Aplikasi: Hutang tersimpan
+        Aplikasi-->>Pengguna: Tampilkan sisa hutang
+    end
+
+    Pemilik->>Aplikasi: Buka laporan penjualan
+    Aplikasi->>Database: Ambil riwayat transaksi
+    Database-->>Aplikasi: Data laporan
+    Aplikasi-->>Pemilik: Tampilkan laporan sederhana
