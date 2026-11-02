@@ -539,22 +539,17 @@ class SupabasePosRepository implements PosRepository {
   @override
   Future<void> deleteProduct(String productId) async {
     final userId = await _requireDataOwnerUserId();
-    await _ensureRecordExists('products', productId);
-    final usedRows = await _client
-        .from('transaction_items')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('owner_user_id', userId)
-        .limit(1);
-    if ((usedRows as List<dynamic>).isNotEmpty) {
-      throw Exception(
-          'Produk sudah dipakai di transaksi dan tidak bisa dihapus.');
-    }
-    await _client
+    final archived = await _client
         .from('products')
-        .delete()
+        .update({'is_active': 0})
         .eq('id', productId)
-        .eq('owner_user_id', userId);
+        .eq('owner_user_id', userId)
+        .eq('is_active', 1)
+        .select('id')
+        .maybeSingle();
+    if (archived == null) {
+      throw Exception('Produk tidak ditemukan.');
+    }
   }
 
   @override
@@ -579,6 +574,9 @@ class SupabasePosRepository implements PosRepository {
       final product = productRows[entry.key];
       if (product == null) {
         throw Exception('Produk tidak ditemukan.');
+      }
+      if (!product.isActive) {
+        throw Exception('Produk ${product.name} sudah dihapus dari katalog.');
       }
       final quantity = entry.value;
       if (quantity <= 0) {
@@ -706,6 +704,9 @@ class SupabasePosRepository implements PosRepository {
       final product = productRows[entry.key];
       if (product == null) {
         throw Exception('Produk tidak ditemukan.');
+      }
+      if (!product.isActive) {
+        throw Exception('Produk ${product.name} sudah dihapus dari katalog.');
       }
       final quantity = entry.value;
       if (quantity <= 0) {

@@ -319,6 +319,7 @@ class _DebtPaymentHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppSectionCard(
+      key: const Key('transaction-debt-payment-history'),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:warung_kopi_pos/app/app.dart';
+import 'package:warung_kopi_pos/app/routing/app_router.dart';
 import 'package:warung_kopi_pos/shared/auth/auth_controller.dart';
 import 'package:warung_kopi_pos/shared/biometrics/biometric_service.dart';
 import 'package:warung_kopi_pos/shared/models/app_models.dart';
@@ -17,8 +18,9 @@ void main() {
     WidgetTester tester, {
     List<String?> pickerResponses = const [],
     AuthController? authController,
+    Size physicalSize = const Size(1080, 3200),
   }) async {
-    tester.view.physicalSize = const Size(1080, 3200);
+    tester.view.physicalSize = physicalSize;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
@@ -117,6 +119,47 @@ void main() {
     expect(find.text('Tambah Produk'), findsOneWidget);
   });
 
+  testWidgets('primary screens fit a compact phone viewport', (tester) async {
+    final container = await pumpApp(
+      tester,
+      physicalSize: const Size(360, 640),
+    );
+    final router = container.read(appRouterProvider);
+    for (final path in [
+      '/cashier',
+      '/products',
+      '/more',
+      '/customers',
+      '/debts',
+      '/inventory',
+      '/reports',
+      '/analytics',
+    ]) {
+      router.go(path);
+      await tester.pumpAndSettle();
+    }
+
+    tester.view.physicalSize = const Size(320, 568);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull,
+        reason: 'Layout error on /analytics');
+    for (final path in [
+      '/dashboard',
+      '/cashier',
+      '/products',
+      '/more',
+      '/customers',
+      '/debts',
+      '/inventory',
+      '/reports',
+      '/analytics',
+    ]) {
+      router.go(path);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'Layout error on $path');
+    }
+  });
+
   testWidgets('cashier uses sidebar navigation without bottom nav', (
     tester,
   ) async {
@@ -131,9 +174,10 @@ void main() {
     expect(find.byKey(const Key('bottom-nav-/cashier')), findsNothing);
     expect(find.byKey(const Key('bottom-nav-/products')), findsNothing);
     expect(find.byKey(const Key('bottom-nav-/debts')), findsNothing);
-    expect(find.byKey(const Key('cashier-sidebar-menu-button')), findsNothing);
+    expect(
+        find.byKey(const Key('cashier-sidebar-menu-button')), findsOneWidget);
 
-    await tester.dragFrom(const Offset(1, 500), const Offset(320, 0));
+    await tester.tap(find.byKey(const Key('cashier-sidebar-menu-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Sari Kasir'), findsOneWidget);
@@ -601,7 +645,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Riwayat Pembayaran BON'), findsOneWidget);
-    expect(find.text(AppFormatters.currency(paymentAmount)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('transaction-debt-payment-history')),
+        matching: find.text(AppFormatters.currency(paymentAmount)),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Cicilan pertama'), findsOneWidget);
   });
 
@@ -869,7 +919,7 @@ void main() {
     expect(created.imagePath, 'C:/mock/product-kopi.png');
   });
 
-  testWidgets('product can be deleted from long press action', (tester) async {
+  testWidgets('product can be deleted from its manage button', (tester) async {
     final container = await pumpApp(tester);
 
     await container.read(posStateProvider).saveProduct(
@@ -891,7 +941,12 @@ void main() {
     await tester.tap(find.byKey(const Key('bottom-nav-/products')));
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.byKey(Key('product-card-${created.id}')));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(Key('product-card-${created.id}')),
+        matching: find.byTooltip('Kelola produk'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Hapus Produk'), findsOneWidget);
@@ -905,6 +960,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Produk Hapus'), findsNothing);
+  });
+
+  testWidgets('sold product can be removed without losing transaction history',
+      (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final product = firstStockProduct(container);
+    state.addToCart(product);
+    final transaction = await state.checkout();
+    final costBeforeRemoval = state.reportSummaries.last.cost;
+    expect(costBeforeRemoval, greaterThan(0));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('bottom-nav-/products')));
+    await tester.pumpAndSettle();
+    final productCard = find.byKey(Key('product-card-${product.id}'));
+    await tester.ensureVisible(productCard);
+    await tester.longPress(productCard);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('product-delete-button-${product.id}')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Riwayat transaksi dan BON tetap tersimpan.'),
+        findsOneWidget);
+    await tester.tap(find.byKey(Key('product-confirm-delete-${product.id}')));
+    await tester.pumpAndSettle();
+
+    expect(state.products.any((item) => item.id == product.id), isFalse);
+    expect(state.transactionById(transaction.id)?.items.first.productName,
+        product.name);
+    expect(state.reportSummaries.last.cost, costBeforeRemoval);
+    expect(() => state.addToCart(product), throwsException);
+  });
+
+  testWidgets('ongoing transaction survives product removal', (tester) async {
+    final container = await pumpApp(tester);
+    final state = container.read(posStateProvider);
+    final product = firstNasiPaketProduct(container);
+    state.addToCart(product);
+    final pending = await state.moveCartToPendingTransaction();
+    await state.deleteProduct(product.id);
+    await tester.pumpAndSettle();
+
+    expect(state.products.any((item) => item.id == product.id), isFalse);
+    expect(state.pendingTransactionById(pending.id), isNotNull);
+
+    final completed = await state.checkoutPendingTransaction(
+      pendingTransactionId: pending.id,
+      paymentMethod: PaymentMethod.cash,
+    );
+    expect(completed.items.single.productName, product.name);
+    expect(state.pendingTransactionById(pending.id), isNull);
   });
 
   testWidgets('store profile image can be uploaded and cleared',

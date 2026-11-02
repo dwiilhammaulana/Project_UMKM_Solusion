@@ -68,7 +68,13 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(posStateProvider);
+    final loadState = ref.watch(posStateProvider.select(
+      (state) => (
+        isLoading: state.isLoading,
+        errorMessage: state.errorMessage,
+        hasProfile: state.hasAppProfile,
+      ),
+    ));
     final auth = ref.watch(authControllerProvider);
     final isAdmin = auth.isAdmin;
     final items = isAdmin ? _adminItems : _cashierItems;
@@ -135,17 +141,24 @@ class AppShell extends ConsumerWidget {
                 SafeArea(
                   top: !drawBehindStatusBar,
                   bottom: false,
-                  child: state.isLoading
+                  child: loadState.isLoading && !loadState.hasProfile
                       ? const LoadingState()
-                      : state.errorMessage != null
+                      : loadState.errorMessage != null
                           ? ErrorState(
                               title: 'Data aplikasi gagal dimuat',
-                              subtitle: state.errorMessage!,
+                              subtitle: loadState.errorMessage!,
                               onRetry: () =>
                                   ref.read(posStateProvider).reload(),
                             )
                           : child,
                 ),
+                if (loadState.isLoading && loadState.hasProfile)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(minHeight: 3),
+                  ),
               ],
             ),
           ),
@@ -184,6 +197,20 @@ class AppShell extends ConsumerWidget {
                 ),
               )
             : null,
+        floatingActionButton: isAdmin
+            ? null
+            : Builder(
+                builder: (buttonContext) => FloatingActionButton.small(
+                  key: const Key('cashier-sidebar-menu-button'),
+                  heroTag: 'cashier-sidebar-menu',
+                  tooltip: 'Buka menu navigasi',
+                  backgroundColor: AppTheme.deepTeal,
+                  foregroundColor: Colors.white,
+                  onPressed: () => Scaffold.of(buttonContext).openDrawer(),
+                  child: const Icon(Icons.menu_rounded),
+                ),
+              ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       ),
     );
   }

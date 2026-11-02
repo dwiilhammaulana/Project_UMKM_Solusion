@@ -233,19 +233,13 @@ class FakePosRepository implements PosRepository {
 
   @override
   Future<void> deleteProduct(String productId) async {
-    if (!_products.any((item) => item.id == productId)) {
+    final index = _products.indexWhere(
+      (product) => product.id == productId && product.isActive,
+    );
+    if (index == -1) {
       throw Exception('Produk tidak ditemukan.');
     }
-    final usedInTransaction = _transactions.any(
-      (transaction) =>
-          transaction.items.any((item) => item.productId == productId),
-    );
-    if (usedInTransaction) {
-      throw Exception(
-        'Produk sudah dipakai di transaksi dan tidak bisa dihapus.',
-      );
-    }
-    _products.removeWhere((item) => item.id == productId);
+    _products[index] = _products[index].copyWith(isActive: false);
   }
 
   @override
@@ -412,6 +406,9 @@ class FakePosRepository implements PosRepository {
   List<TransactionItem> _buildTransactionItems(Map<String, int> cart) {
     return cart.entries.map((entry) {
       final product = _productById(entry.key);
+      if (!product.isActive) {
+        throw Exception('Produk ${product.name} sudah dihapus dari katalog.');
+      }
       final quantity = entry.value;
       if (quantity <= 0) {
         throw Exception('Jumlah produk harus lebih dari 0.');

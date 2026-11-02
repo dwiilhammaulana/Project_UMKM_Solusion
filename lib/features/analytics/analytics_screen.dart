@@ -12,36 +12,24 @@ import '../../shared/widgets/common_widgets.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key});
-  
-  
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(posStateProvider);
     final reports = state.reportSummaries;
-    final profits =
-    reports.map((e) => e.netProfit).toList();
-
+    final profits = reports.map((report) => report.netProfit).toList();
     final model = LinearRegressionModel();
-
-    model.train(profits);
-
-    double predictedProfit = 0;
-
-      if (profits.length >= 2) {
-        model.train(profits);
-        predictedProfit = model.predict(profits.length + 1);
-      } else if (profits.isNotEmpty) {
-        predictedProfit = profits.last;
-      }
-      if (reports.isEmpty) {
-      return const Center(
-        child: Text('Belum ada data laporan'),
+    if (reports.isEmpty) {
+      return const ErrorState(
+        title: 'Belum ada data laporan',
+        subtitle: 'Catat transaksi untuk melihat analitik usaha.',
       );
-}
+    }
+    model.train(profits);
+    final predictedProfit =
+        profits.length >= 2 ? model.predict(profits.length + 1) : profits.last;
+    final latest = reports.last;
 
-final latest = reports.last;
-    
     final totalRevenue = reports.fold<double>(
       0,
       (sum, item) => sum + item.revenue,
@@ -54,7 +42,7 @@ final latest = reports.last;
       0,
       (sum, item) => sum + item.netProfit,
     );
-    final averageProfit = reports.isEmpty ? 0.0 : totalProfit / reports.length;
+    final averageProfit = totalProfit / reports.length;
     final profitMargin = totalRevenue <= 0 ? 0.0 : totalProfit / totalRevenue;
     final bestMonth = reports.fold<ReportSummary>(
       latest,
@@ -62,25 +50,7 @@ final latest = reports.last;
     );
     final costBuckets = _buildCostBuckets(state.operationalCosts);
 
-    final mae = model.calculateMAE(profits);
-    final mse = model.calculateMSE(profits);
-    final rmse = model.calculateRMSE(profits);
-    final r2 = model.calculateR2(profits);
-    
-
-debugPrint('MAE  : $mae');
-debugPrint('MSE  : $mse');
-debugPrint('RMSE : $rmse');
-debugPrint('R2   : $r2');
-    debugPrint('Slope: ${model.slope}');
-debugPrint('Intercept: ${model.intercept}');
-debugPrint('Prediksi: $predictedProfit');
-if (reports.isEmpty) {
-  
-  return const Center(
-    child: Text('Belum ada data laporan'),
-  );
-}
+    final r2 = profits.length >= 2 ? model.calculateR2(profits) : null;
 
     return AppPageScrollView(
       children: [
@@ -103,7 +73,7 @@ if (reports.isEmpty) {
                 icon: Icons.percent_rounded,
               ),
               StatusChip(
-               label: 'Bulan terbaik ${bestMonth.label}',
+                label: 'Bulan terbaik ${bestMonth.label}',
                 color: Colors.white,
                 icon: Icons.emoji_events_rounded,
               ),
@@ -113,18 +83,22 @@ if (reports.isEmpty) {
                 icon: Icons.show_chart_rounded,
               ),
               StatusChip(
-              label: r2 >= 0.8
-                  ? 'Prediksi Baik'
-                  : r2 >= 0.6
-                      ? 'Prediksi Cukup'
-                      : 'Prediksi Lemah',
-              color: r2 >= 0.8
-                  ? AppTheme.success
-                  : r2 >= 0.6
-                      ? AppTheme.warning
-                      : AppTheme.danger,
-              icon: Icons.psychology_rounded,
-            ),
+                label: r2 == null
+                    ? 'Data belum cukup'
+                    : r2 >= 0.8
+                        ? 'Prediksi Baik'
+                        : r2 >= 0.6
+                            ? 'Prediksi Cukup'
+                            : 'Prediksi Lemah',
+                color: r2 == null
+                    ? AppTheme.info
+                    : r2 >= 0.8
+                        ? AppTheme.success
+                        : r2 >= 0.6
+                            ? AppTheme.warning
+                            : AppTheme.danger,
+                icon: Icons.psychology_rounded,
+              ),
             ],
           ),
         ),
@@ -140,7 +114,7 @@ if (reports.isEmpty) {
         _ModernChartCard(
           title: 'Perbandingan Keuangan',
           subtitle:
-            'Perbandingan pendapatan, modal, biaya dan profit setiap bulan.',
+              'Perbandingan pendapatan, modal, biaya dan profit setiap bulan.',
           footer: 'Net profit = pendapatan - modal produk - biaya toko.',
           legends: const [
             _ChartLegend(label: 'Pendapatan', color: AppTheme.deepTeal),
@@ -163,8 +137,7 @@ if (reports.isEmpty) {
         const SizedBox(height: 20),
         _ModernChartCard(
           title: 'Tren Net Profit Bulanan',
-          subtitle:
-              'Perkembangan profit bersih dari bulan ke bulan.',
+          subtitle: 'Perkembangan profit bersih dari bulan ke bulan.',
           footer:
               'Rata-rata profit: ${AppFormatters.currency(averageProfit)} per Bulan.',
           legends: const [
@@ -172,9 +145,9 @@ if (reports.isEmpty) {
             _ChartLegend(label: 'Area positif', color: AppTheme.mint),
           ],
           child: _ProfitTrendChart(
-          reports: reports,
-          predictedProfit: predictedProfit,
-        ),
+            reports: reports,
+            predictedProfit: predictedProfit,
+          ),
         ),
       ],
     );
@@ -222,8 +195,7 @@ class _AnalyticsSummaryPanel extends StatelessWidget {
         children: [
           const SectionHeader(
             title: 'Ringkasan Bulanan',
-            subtitle:
-                'Akumulasi performa usaha berdasarkan bulanan.',
+            subtitle: 'Akumulasi performa usaha berdasarkan bulanan.',
           ),
           const SizedBox(height: 16),
           _MetricGrid(
@@ -253,10 +225,10 @@ class _AnalyticsSummaryPanel extends StatelessWidget {
                 color: averageProfit >= 0 ? AppTheme.info : AppTheme.danger,
               ),
               _AnalyticsMetricTile(
-              title: 'Prediksi Profit',
-              value: AppFormatters.currency(predictedProfit),
-              icon: Icons.psychology_rounded,
-              color: AppTheme.success,
+                title: 'Prediksi Profit',
+                value: AppFormatters.currency(predictedProfit),
+                icon: Icons.psychology_rounded,
+                color: AppTheme.success,
               ),
             ],
           ),
@@ -335,8 +307,6 @@ class _ModernChartCard extends StatelessWidget {
     );
   }
 }
-
-
 
 class _FinancialBarsChart extends StatelessWidget {
   const _FinancialBarsChart({required this.reports});
@@ -592,37 +562,35 @@ class _ProfitTrendChart extends StatelessWidget {
           interval: _chartInterval(maxY),
         ),
         lineBarsData: [
-  // data asli
-  LineChartBarData(
-    spots: [
-      for (var i = 0; i < reports.length; i++)
-        FlSpot(i.toDouble(), _toMillion(reports[i].netProfit)),
-    ],
-    color: AppTheme.success,
-  ),
+          // data asli
+          LineChartBarData(
+            spots: [
+              for (var i = 0; i < reports.length; i++)
+                FlSpot(i.toDouble(), _toMillion(reports[i].netProfit)),
+            ],
+            color: AppTheme.success,
+          ),
 
-  // prediksi
-  LineChartBarData(
-    spots: [
-      FlSpot(
-        (reports.length - 1).toDouble(),
-        _toMillion(reports.last.netProfit),
-      ),
-      FlSpot(
-        reports.length.toDouble(),
-        _toMillion(predictedProfit),
-      ),
-    ],
-    color: Colors.orange,
-    dashArray: [6, 4],
-  ),
-],
-        
+          // prediksi
+          LineChartBarData(
+            spots: [
+              FlSpot(
+                (reports.length - 1).toDouble(),
+                _toMillion(reports.last.netProfit),
+              ),
+              FlSpot(
+                reports.length.toDouble(),
+                _toMillion(predictedProfit),
+              ),
+            ],
+            color: Colors.orange,
+            dashArray: [6, 4],
+          ),
+        ],
       ),
     );
   }
 }
-
 
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.children});

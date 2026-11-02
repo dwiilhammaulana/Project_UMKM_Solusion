@@ -33,6 +33,7 @@ class PosAppState extends ChangeNotifier {
 
   AppProfile? _appProfile;
   List<Category> _categories = const [];
+  List<Product> _allProducts = const [];
   List<Product> _products = const [];
   List<Customer> _customers = const [];
   List<TransactionRecord> _transactions = const [];
@@ -625,7 +626,10 @@ class PosAppState extends ChangeNotifier {
 
     _appProfile = results[0] as AppProfile?;
     _categories = results[1] as List<Category>;
-    _products = results[2] as List<Product>;
+    _allProducts = results[2] as List<Product>;
+    _products = _allProducts.where((product) => product.isActive).toList();
+    final visibleProductIds = _products.map((product) => product.id).toSet();
+    _cart.removeWhere((productId, _) => !visibleProductIds.contains(productId));
     _customers = results[3] as List<Customer>;
     _transactions = results[4] as List<TransactionRecord>;
     _pendingTransactions = results[5] as List<PendingTransaction>;
@@ -656,6 +660,9 @@ class PosAppState extends ChangeNotifier {
   }
 
   void _ensureProductCanBeAdded(Product product) {
+    if (!product.isActive || !_productById.containsKey(product.id)) {
+      throw Exception('Produk ${product.name} sudah dihapus dari katalog.');
+    }
     if (isNasiPaketProduct(product) && !product.isReady) {
       throw Exception('${product.name} sedang kosong.');
     }
@@ -773,7 +780,7 @@ class PosAppState extends ChangeNotifier {
   void _rebuildReportSummaries(DateTime now) {
     final monthFormatter = DateFormat('MMM', 'id_ID');
     final productCostById = {
-      for (final product in _products) product.id: product.costPrice,
+      for (final product in _allProducts) product.id: product.costPrice,
     };
 
     _reportSummaryMonth = DateTime(now.year, now.month, 1);

@@ -154,31 +154,35 @@ class _DashboardHero extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'di toko ',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.white,
-                                    height: 1.04,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    profile.storeName,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      color: Colors.white,
-                                      height: 1.04,
-                                      fontWeight: FontWeight.w900,
+                            LayoutBuilder(
+                              builder: (context, constraints) => Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (constraints.maxWidth >= 140)
+                                    Text(
+                                      'di toko ',
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        color: Colors.white,
+                                        height: 1.04,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  Expanded(
+                                    child: Text(
+                                      profile.storeName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        color: Colors.white,
+                                        height: 1.04,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),

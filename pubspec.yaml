@@ -27,7 +27,6 @@ dependencies:
   local_auth: ^3.0.1
   local_auth_android: ^2.0.8
   iconify_flutter: ^0.0.7
-  lottie: ^3.3.3
   
 
 
@@ -46,4 +45,3 @@ flutter:
     - logo_putih.png
     - bg login.png
     - assets/images/splash_screen_load.png
-    - assets/lottie/

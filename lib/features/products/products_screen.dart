@@ -1,16 +1,18 @@
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/auth/auth_controller.dart';
 import '../../shared/models/app_models.dart';
 import '../../shared/state/app_state.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/utils/app_formatters.dart';
 import '../../shared/widgets/common_widgets.dart';
 import '../../shared/widgets/product_form_sheet.dart';
+import 'widgets/product_showcase_card.dart';
 
 const _productCategoryNames = [
   'nasi paket',
@@ -53,10 +55,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final forecastFuture = _forecastFutureFor(state.products, forecastDate);
 
     return CustomScrollView(
-      cacheExtent: 720,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(360),
       slivers: [
         SliverToBoxAdapter(
           child: _ProductsCompactHeader(
+            productCount: state.products.length,
+            cartCount: state.cartCount,
             categories: productCategories,
             selectedCategoryId: _categoryId,
             onSearchChanged: (value) => setState(() => _query = value),
@@ -66,6 +70,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             onAddProduct: canManageProducts
                 ? () => showProductFormSheet(context, ref)
                 : null,
+            onOpenCashier: () => context.go('/cashier'),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -74,9 +79,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           sliver: SliverToBoxAdapter(
             child: SectionHeader(
               title: 'Etalase Produk',
-              action: StatusChip(
-                label: '${state.products.length} produk aktif',
-                color: AppTheme.deepTeal,
+              action: Text(
+                '${filtered.length} item',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.deepTeal,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
             ),
           ),
@@ -99,17 +107,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             sliver: SliverLayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.crossAxisExtent;
-                final crossAxisCount = width >= 820
-                    ? 4
-                    : width >= 560
-                        ? 3
-                        : 2;
+                final crossAxisCount = width >= 950
+                    ? 5
+                    : width >= 740
+                        ? 4
+                        : width >= 500
+                            ? 3
+                            : width >= 300
+                                ? 2
+                                : 1;
                 const gridColumnGap = 12.0;
-                const gridRowGap = 8.0;
+                const gridRowGap = 14.0;
                 final cardWidth =
                     (width - (crossAxisCount - 1) * gridColumnGap) /
                         crossAxisCount;
-                final cardHeight = cardWidth + (width >= 560 ? 176 : 174);
+                final imageHeight = crossAxisCount == 1
+                    ? 160.0
+                    : (cardWidth * 0.78).clamp(110.0, 160.0);
+                final cardHeight = imageHeight + 200;
 
                 return SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -121,11 +136,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final product = filtered[index];
-                      return _ProductShowcaseCard(
+                      return ProductShowcaseCard(
                         key: Key('product-card-${product.id}'),
                         product: product,
                         categoryName:
                             state.categoryNameById(product.categoryId),
+                        imageHeight: imageHeight,
                         count: state.cart[product.id] ?? 0,
                         forecastFuture: forecastFuture,
                         onAdd: () {
@@ -137,11 +153,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                             );
                           }
                         },
-                        onEdit: () => showProductFormSheet(
-                          context,
-                          ref,
-                          product: product,
-                        ),
+                        onManage: () => _showProductActions(context, product),
                         onLongPress: canManageProducts
                             ? () => _showProductActions(context, product)
                             : null,
@@ -181,7 +193,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tahan lama produk untuk membuka aksi cepat seperti edit atau hapus.',
+                'Pilih tindakan untuk produk ini.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -242,7 +254,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         return AlertDialog(
           title: const Text('Hapus produk?'),
           content: Text(
-            'Produk ${product.name} akan dihapus dari katalog. Data ini tidak bisa dikembalikan.',
+            'Produk ${product.name} akan dihapus dari katalog. Riwayat transaksi dan BON tetap tersimpan.',
           ),
           actions: [
             TextButton(
@@ -290,18 +302,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
 class _ProductsCompactHeader extends StatelessWidget {
   const _ProductsCompactHeader({
+    required this.productCount,
+    required this.cartCount,
     required this.categories,
     required this.selectedCategoryId,
     required this.onSearchChanged,
     required this.onCategorySelected,
     required this.onAddProduct,
+    required this.onOpenCashier,
   });
 
+  final int productCount;
+  final int cartCount;
   final List<Category> categories;
   final String? selectedCategoryId;
   final ValueChanged<String> onSearchChanged;
-  final ValueChanged<String> onCategorySelected;
+  final ValueChanged<String?> onCategorySelected;
   final VoidCallback? onAddProduct;
+  final VoidCallback onOpenCashier;
 
   @override
   Widget build(BuildContext context) {
@@ -311,14 +329,18 @@ class _ProductsCompactHeader extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         20,
-        topInset + 12,
+        topInset + 14,
         20,
-        14,
+        18,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.deepTeal,
+        gradient: const LinearGradient(
+          colors: [AppTheme.midnight, AppTheme.deepTeal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(24),
+          bottom: Radius.circular(28),
         ),
         boxShadow: [
           BoxShadow(
@@ -334,31 +356,78 @@ class _ProductsCompactHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: AppSearchField(
-                  hintText: 'Cari produk...',
-                  onChanged: onSearchChanged,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Produk',
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                              ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      cartCount > 0
+                          ? '$productCount produk · $cartCount di keranjang'
+                          : '$productCount produk',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                    ),
+                  ],
                 ),
               ),
-              if (onAddProduct != null) ...[
-                const SizedBox(width: 10),
-                _CompactAddProductButton(onPressed: onAddProduct!),
-              ],
+              const SizedBox(width: 12),
+              if (onAddProduct != null)
+                _CompactAddProductButton(onPressed: onAddProduct!)
+              else
+                OutlinedButton.icon(
+                  onPressed: onOpenCashier,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ),
+                    minimumSize: const Size(0, 42),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.shopping_cart_outlined, size: 17),
+                  label:
+                      Text(cartCount > 0 ? 'Kasir ($cartCount)' : 'Ke Kasir'),
+                ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              for (final category in categories) ...[
-                Expanded(
-                  child: _CompactCategoryChip(
+          const SizedBox(height: 16),
+          AppSearchField(
+            hintText: 'Cari nama produk',
+            onChanged: onSearchChanged,
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _CompactCategoryChip(
+                  label: 'Semua',
+                  selected: selectedCategoryId == null,
+                  onTap: () => onCategorySelected(null),
+                ),
+                for (final category in categories) ...[
+                  const SizedBox(width: 8),
+                  _CompactCategoryChip(
                     label: category.name,
                     selected: selectedCategoryId == category.id,
                     onTap: () => onCategorySelected(category.id),
                   ),
-                ),
-                if (category != categories.last) const SizedBox(width: 6),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -373,41 +442,20 @@ class _CompactAddProductButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      width: 52,
-      child: FilledButton(
-        key: const Key('products-add-button'),
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: AppTheme.deepTeal,
-          padding: EdgeInsets.zero,
-          minimumSize: const Size(52, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        onPressed: onPressed,
-        child: const Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Opacity(
-              opacity: 0,
-              child: Text(
-                'Tambah Produk',
-                style: TextStyle(fontSize: 0),
-              ),
-            ),
-            AppIcon(Icons.inventory_2_rounded, size: 20),
-            Positioned(
-              right: -7,
-              bottom: -5,
-              child: AppIcon(Icons.add_rounded, size: 13),
-            ),
-          ],
+    return FilledButton.icon(
+      key: const Key('products-add-button'),
+      style: FilledButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: AppTheme.deepTeal,
+        minimumSize: const Size(0, 42),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
+      onPressed: onPressed,
+      icon: const Icon(Icons.add_rounded, size: 18),
+      label: const Text('Tambah Produk'),
     );
   }
 }
@@ -433,329 +481,28 @@ class _CompactCategoryChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color:
-                selected ? Colors.white : Colors.white.withValues(alpha: 0.16),
+                selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: Colors.white.withValues(alpha: selected ? 0.94 : 0.28),
+              color: Colors.white.withValues(alpha: selected ? 1 : 0.32),
             ),
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              style: TextStyle(
-                color: selected ? AppTheme.deepTeal : Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductShowcaseCard extends StatelessWidget {
-  const _ProductShowcaseCard({
-    super.key,
-    required this.product,
-    required this.categoryName,
-    required this.count,
-    required this.forecastFuture,
-    required this.onAdd,
-    required this.onEdit,
-    required this.onLongPress,
-    required this.showManageActions,
-  });
-
-  final Product product;
-  final String categoryName;
-  final int count;
-  final Future<Map<String, double>> forecastFuture;
-  final VoidCallback onAdd;
-  final VoidCallback onEdit;
-  final VoidCallback? onLongPress;
-  final bool showManageActions;
-
-  @override
-  Widget build(BuildContext context) {
-    final isNasiPaket = categoryName.toLowerCase() == 'nasi paket';
-    final stockColor = isNasiPaket
-        ? (product.isReady ? AppTheme.success : AppTheme.danger)
-        : (product.isLowStock ? AppTheme.warning : AppTheme.success);
-    final stockLabel = isNasiPaket
-        ? (product.isReady ? 'Ready' : 'Kosong')
-        : (product.isLowStock ? 'Stok tipis' : 'Tersedia');
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onLongPress: onLongPress,
-          child: Ink(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: AppTheme.deepTeal.withValues(alpha: 0.08),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.midnight.withValues(alpha: 0.07),
-                  blurRadius: 22,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: AppMediaPreview(
-                          imagePath: product.imagePath,
-                          width: double.infinity,
-                          height: double.infinity,
-                          label: 'Foto\nproduk',
-                          borderRadius: 0,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 10,
-                      left: 10,
-                      right: 10,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _ShowcaseBadge(
-                              label: categoryName,
-                              color: AppTheme.deepTeal,
-                            ),
-                          ),
-                          if (showManageActions) ...[
-                            const SizedBox(width: 8),
-                            _ShowcaseIconButton(
-                              tooltip: 'Edit produk',
-                              icon: Icons.edit_outlined,
-                              onPressed: onEdit,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 2),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        product.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          AppFormatters.currency(product.sellPrice),
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    color: AppTheme.deepTeal,
-                                  ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Baris Informasi Stok dan Lokasi Rak
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _ShowcaseBadge(
-                              label: isNasiPaket
-                                  ? stockLabel
-                                  : '$stockLabel ${product.stockQty} ${product.unit}',
-                              color: stockColor,
-                              compact: true,
-                            ),
-                          ),
-                          if ((product.rackLocation ?? '')
-                              .trim()
-                              .isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: _ShowcaseBadge(
-                                label: product.rackLocation!,
-                                color: AppTheme.info,
-                                compact: true,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      FutureBuilder<Map<String, double>>(
-                        future: forecastFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final predictedQty = snapshot.data?[product.id];
-                          if (predictedQty == null || predictedQty <= 0) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final isStockDeficit =
-                              !isNasiPaket && (product.stockQty < predictedQty);
-
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: _ShowcaseBadge(
-                              label: isStockDeficit
-                                  ? 'Esok butuh: ~${predictedQty.round()} unit (Stok kurang!)'
-                                  : 'Prediksi esok: ~${predictedQty.round()} unit',
-                              color: isStockDeficit
-                                  ? AppTheme.danger
-                                  : AppTheme.deepTeal,
-                              compact: true,
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(36),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed:
-                              isNasiPaket && !product.isReady ? null : onAdd,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const AppIcon(
-                                Icons.add_shopping_cart_rounded,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  isNasiPaket && !product.isReady
-                                      ? 'Kosong'
-                                      : (count > 0
-                                          ? 'Tambah ($count)'
-                                          : 'Tambah'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShowcaseBadge extends StatelessWidget {
-  const _ShowcaseBadge({
-    required this.label,
-    required this.color,
-    this.compact = false,
-  });
-
-  final String label;
-  final Color color;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 7 : 8,
-        vertical: compact ? 4 : 6,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
+          child: Text(
+            label.isEmpty
+                ? label
+                : '${label[0].toUpperCase()}${label.substring(1)}',
+            maxLines: 1,
+            style: TextStyle(
+              color: selected ? AppTheme.deepTeal : Colors.white,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
-              fontSize: compact ? 9 : 10,
             ),
-      ),
-    );
-  }
-}
-
-class _ShowcaseIconButton extends StatelessWidget {
-  const _ShowcaseIconButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox(
-        width: 34,
-        height: 34,
-        child: IconButton.filled(
-          padding: EdgeInsets.zero,
-          style: IconButton.styleFrom(
-            backgroundColor: Colors.white.withValues(alpha: 0.92),
-            foregroundColor: AppTheme.deepTeal,
           ),
-          onPressed: onPressed,
-          icon: AppIcon(icon, size: 18),
         ),
       ),
     );

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:iconify_flutter/iconify_flutter.dart';
 import 'package:iconify_flutter/icons/ic.dart';
-import 'package:lottie/lottie.dart';
 
 import '../models/app_models.dart';
 import '../theme/app_theme.dart';
@@ -28,14 +27,17 @@ class AppIcon extends StatelessWidget {
     final iconTheme = IconTheme.of(context);
     final resolvedSize = (size ?? iconTheme.size ?? 24) * visualScale;
 
-    return Iconify(
-      _iconifyAppIcon(icon),
-      color: color ?? iconTheme.color,
-      size: resolvedSize,
-    );
+    final iconifyIcon = _iconifyAppIcon(icon);
+    return iconifyIcon == null
+        ? Icon(icon, color: color ?? iconTheme.color, size: resolvedSize)
+        : Iconify(
+            iconifyIcon,
+            color: color ?? iconTheme.color,
+            size: resolvedSize,
+          );
   }
 
-  static String _iconifyAppIcon(IconData icon) {
+  static String? _iconifyAppIcon(IconData icon) {
     return switch (icon) {
       Icons.account_balance_wallet_rounded => Ic.round_account_balance_wallet,
       Icons.account_circle_outlined => Ic.round_account_circle,
@@ -128,13 +130,14 @@ class AppIcon extends StatelessWidget {
       Icons.wallet_rounded => Ic.round_wallet,
       Icons.warning_amber_rounded => Ic.round_warning_amber,
       Icons.widgets_rounded => Ic.round_widgets,
-      _ => Ic.round_help_outline,
+      _ => null,
     };
   }
 }
 
 const EdgeInsets kPagePadding = EdgeInsets.fromLTRB(20, 20, 20, 20);
 const double kShellBottomBarHeight = 74;
+const double kShellFloatingMenuHeight = 68;
 const double kShellBottomOverlaySpacing = 20;
 
 class AppShellChromeScope extends InheritedWidget {
@@ -162,7 +165,8 @@ double shellBottomClearance(
 }) {
   final hasBottomNavigation =
       AppShellChromeScope.maybeOf(context)?.hasBottomNavigation ?? true;
-  final navigationClearance = hasBottomNavigation ? kShellBottomBarHeight : 0.0;
+  final navigationClearance =
+      hasBottomNavigation ? kShellBottomBarHeight : kShellFloatingMenuHeight;
 
   return MediaQuery.viewPaddingOf(context).bottom +
       navigationClearance +
@@ -477,9 +481,12 @@ class AppSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: AppTheme.frostedDecoration(),
-      child: Padding(
-        padding: padding,
-        child: child,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Padding(
+          padding: padding,
+          child: child,
+        ),
       ),
     );
   }
@@ -505,7 +512,7 @@ class KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
@@ -529,21 +536,35 @@ class KpiCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.62),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: AppIcon(icon, color: color),
+            child: AppIcon(icon, color: color, size: 22),
           ),
           const Spacer(),
-          Text(title, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 6),
-          Text(value, style: theme.textTheme.titleLarge),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: theme.textTheme.titleLarge),
+          ),
           if (subtitle != null) ...[
-            const SizedBox(height: 6),
-            Text(subtitle!, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ],
       ),
@@ -580,12 +601,16 @@ class StatusChip extends StatelessWidget {
             AppIcon(icon!, size: 14, color: iconColor ?? color),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 12,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -1004,10 +1029,45 @@ class EmptyState extends StatelessWidget {
   }
 }
 
+class BrandLoadingIndicator extends StatelessWidget {
+  const BrandLoadingIndicator({
+    super.key,
+    this.color = AppTheme.deepTeal,
+    this.size = 56,
+  });
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Memuat',
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: size,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: color,
+                backgroundColor: color.withValues(alpha: 0.18),
+              ),
+            ),
+            Icon(Icons.local_cafe_rounded, color: color, size: size * 0.38),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class LoadingState extends StatelessWidget {
   const LoadingState({
     super.key,
-    this.label = 'Memuat data lokal...',
+    this.label = 'Memuat data...',
   });
 
   final String label;
@@ -1018,16 +1078,8 @@ class LoadingState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Lottie.asset(
-            'assets/lottie/loading.json',
-            width: 112,
-            height: 112,
-            fit: BoxFit.contain,
-            repeat: true,
-            renderCache: RenderCache.drawingCommands,
-            errorBuilder: (_, __, ___) => const CircularProgressIndicator(),
-          ),
-          const SizedBox(height: 10),
+          const BrandLoadingIndicator(),
+          const SizedBox(height: 16),
           Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
@@ -1127,9 +1179,12 @@ class BottomSheetContainer extends StatelessWidget {
         color: Colors.transparent,
         child: Container(
           decoration: AppTheme.frostedDecoration(radius: 34),
-          child: Padding(
-            padding: padding,
-            child: child,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Padding(
+              padding: padding,
+              child: child,
+            ),
           ),
         ),
       ),

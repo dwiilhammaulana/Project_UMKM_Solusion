@@ -37,8 +37,8 @@ class AppTheme {
       boxShadow: [
         BoxShadow(
           color: midnight.withValues(alpha: 0.08),
-          blurRadius: 34,
-          offset: const Offset(0, 18),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
         ),
       ],
     );

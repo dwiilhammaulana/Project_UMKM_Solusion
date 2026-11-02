@@ -121,9 +121,10 @@ void main() {
     expect(find.byKey(const Key('bottom-nav-/cashier')), findsNothing);
     expect(find.byKey(const Key('bottom-nav-/products')), findsNothing);
     expect(find.byKey(const Key('bottom-nav-/debts')), findsNothing);
-    expect(find.byKey(const Key('cashier-sidebar-menu-button')), findsNothing);
+    expect(
+        find.byKey(const Key('cashier-sidebar-menu-button')), findsOneWidget);
 
-    await tester.dragFrom(const Offset(1, 500), const Offset(320, 0));
+    await tester.tap(find.byKey(const Key('cashier-sidebar-menu-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Sari Kasir'), findsOneWidget);

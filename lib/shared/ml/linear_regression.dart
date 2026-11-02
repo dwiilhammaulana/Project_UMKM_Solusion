@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 class LinearRegressionModel {
   double slope = 0.0;
   double intercept = 0.0;
@@ -14,29 +15,22 @@ class LinearRegressionModel {
 
     final n = yValues.length;
 
-    
     final xValues = List<double>.generate(
       n,
       (index) => (index + 1).toDouble(),
     );
 
-    final xMean =
-        xValues.reduce((a, b) => a + b) / n;
+    final xMean = xValues.reduce((a, b) => a + b) / n;
 
-    final yMean =
-        yValues.reduce((a, b) => a + b) / n;
+    final yMean = yValues.reduce((a, b) => a + b) / n;
 
     double numerator = 0;
     double denominator = 0;
 
     for (int i = 0; i < n; i++) {
-      numerator +=
-          (xValues[i] - xMean) *
-          (yValues[i] - yMean);
+      numerator += (xValues[i] - xMean) * (yValues[i] - yMean);
 
-      denominator +=
-          (xValues[i] - xMean) *
-          (xValues[i] - xMean);
+      denominator += (xValues[i] - xMean) * (xValues[i] - xMean);
     }
 
     if (denominator == 0) {
@@ -68,6 +62,7 @@ class LinearRegressionModel {
   }
 
   double calculateMAE(List<double> actual) {
+    if (actual.isEmpty) return 0;
     final predicted = predictAll(actual.length);
 
     double error = 0;
@@ -79,27 +74,28 @@ class LinearRegressionModel {
   }
 
   double calculateMSE(List<double> actual) {
-  final predicted = predictAll(actual.length);
+    if (actual.isEmpty) return 0;
+    final predicted = predictAll(actual.length);
 
-  double error = 0;
+    double error = 0;
 
-  for (int i = 0; i < actual.length; i++) {
-    final diff = actual[i] - predicted[i];
-    error += diff * diff;
+    for (int i = 0; i < actual.length; i++) {
+      final diff = actual[i] - predicted[i];
+      error += diff * diff;
+    }
+
+    return error / actual.length;
   }
-
-  return error / actual.length;
-}
 
   double calculateRMSE(List<double> actual) {
     return math.sqrt(calculateMSE(actual));
   }
 
   double calculateR2(List<double> actual) {
+    if (actual.isEmpty) return 0;
     final predicted = predictAll(actual.length);
 
-    final mean =
-        actual.reduce((a, b) => a + b) / actual.length;
+    final mean = actual.reduce((a, b) => a + b) / actual.length;
 
     double ssRes = 0;
     double ssTot = 0;
