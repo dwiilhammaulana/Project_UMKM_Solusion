@@ -204,8 +204,8 @@ CustomTransitionPage<void> _authTransitionPage({
 }) {
   return CustomTransitionPage<void>(
     key: state.pageKey,
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 320),
+    transitionDuration: const Duration(milliseconds: 300),
+    reverseTransitionDuration: const Duration(milliseconds: 240),
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final fade = CurvedAnimation(
@@ -214,14 +214,14 @@ CustomTransitionPage<void> _authTransitionPage({
         reverseCurve: Curves.easeInCubic,
       );
       final slide = Tween<Offset>(
-        begin: const Offset(0.04, 0),
+        begin: const Offset(0.025, 0),
         end: Offset.zero,
       ).animate(fade);
 
       return Stack(
         fit: StackFit.expand,
         children: [
-          const _AuthRouteTransitionBackground(),
+          const ColoredBox(color: Color(0xFFF4F9F8)),
           FadeTransition(
             opacity: fade,
             child: SlideTransition(
@@ -233,37 +233,6 @@ CustomTransitionPage<void> _authTransitionPage({
       );
     },
   );
-}
-
-class _AuthRouteTransitionBackground extends StatelessWidget {
-  const _AuthRouteTransitionBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final isKeyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E4A43),
-        image: DecorationImage(
-          image: ResizeImage(
-            const AssetImage('bg login.png'),
-            height: (size.height * pixelRatio).round(),
-          ),
-          fit: BoxFit.cover,
-          alignment: isKeyboardVisible ? Alignment.topCenter : Alignment.center,
-          colorFilter: ColorFilter.mode(
-            Colors.black.withValues(alpha: 0.08),
-            BlendMode.darken,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _RouteLoadingScreen extends StatelessWidget {

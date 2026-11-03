@@ -7,7 +7,6 @@ import '../../shared/auth/auth_controller.dart';
 import '../../shared/auth/auth_repository.dart';
 import '../../shared/biometrics/biometric_lock_controller.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/common_widgets.dart';
 
 import 'auth_form_helpers.dart';
 import 'auth_scaffold.dart';
@@ -24,17 +23,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  double _stableKeyboardInset = 0;
   bool _isSubmitting = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _stableKeyboardInset = resolveStableKeyboardInset(
-      context,
-      _stableKeyboardInset,
-    );
-  }
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -46,22 +36,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isKeyboardVisible = _stableKeyboardInset > 0;
-
     return AuthScaffold(
       title: 'Buat akun baru',
-      subtitle: '',
-      backgroundColor: AppTheme.deepTeal,
-      backgroundImage: 'bg login.png',
-      frameless: true,
-      showBrand: false,
-      showHeader: !isKeyboardVisible,
-      resizeToAvoidBottomInset: false,
-      keyboardBottomInset: _stableKeyboardInset,
-      backgroundAlignment:
-          isKeyboardVisible ? Alignment.topCenter : Alignment.center,
-      paintBackground: false,
-      contentAlignment: const Alignment(0, 0.58),
+      subtitle: 'Mulai kelola tokomu dengan satu akun.',
       child: Form(
         key: _formKey,
         child: Column(
@@ -69,6 +46,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           children: [
             TextFormField(
               controller: _fullNameController,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.name],
               style: const TextStyle(color: AppTheme.deepTeal),
               decoration: authInputDecoration(
                 labelText: 'Nama lengkap',
@@ -79,6 +59,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              autocorrect: false,
               style: const TextStyle(color: AppTheme.deepTeal),
               decoration: authInputDecoration(
                 labelText: 'Email',
@@ -89,11 +72,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _passwordController,
-              obscureText: true,
+              obscureText: !_showPassword,
+              autofillHints: const [AutofillHints.newPassword],
               style: const TextStyle(color: AppTheme.deepTeal),
               decoration: authInputDecoration(
                 labelText: 'Password',
                 prefixIcon: Icons.lock_outline_rounded,
+                suffixIcon: IconButton(
+                  tooltip:
+                      _showPassword ? 'Sembunyikan password' : 'Lihat password',
+                  onPressed: () =>
+                      setState(() => _showPassword = !_showPassword),
+                  icon: Icon(
+                    _showPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                  ),
+                ),
               ),
               validator: validateMinPasswordLength,
             ),
@@ -106,13 +102,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 child: Text(_isSubmitting ? 'Membuat akun...' : 'Daftar'),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
+            const AuthDivider(),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _isSubmitting ? null : _submitGoogleLogin,
                 style: AuthFormStyles.googleButton,
-                icon: const AppIcon(Icons.account_circle_outlined, size: 16),
+                icon: const Text('G',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
                 label: const Text('Daftar dengan Google'),
               ),
             ),

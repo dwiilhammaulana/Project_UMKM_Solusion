@@ -41,12 +41,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       subtitle: canResetPassword
           ? 'Buat password baru untuk masuk kembali ke Toko Saku.'
           : 'Link ubah password tidak valid atau sudah kedaluwarsa.',
-      backgroundColor: AppTheme.deepTeal,
-      backgroundImage: 'bg login.png',
-      frameless: true,
-      showBrand: false,
-      contentAlignment: const Alignment(0, 0.58),
-      paintBackground: false,
       child: canResetPassword ? _buildResetForm() : _buildInvalidLink(),
     );
   }

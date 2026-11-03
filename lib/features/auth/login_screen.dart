@@ -9,45 +9,15 @@ import '../../shared/widgets/common_widgets.dart';
 import 'auth_form_helpers.dart';
 import 'auth_scaffold.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  double _stableKeyboardInset = 0;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _stableKeyboardInset = resolveStableKeyboardInset(
-      context,
-      _stableKeyboardInset,
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isKeyboardVisible = _stableKeyboardInset > 0;
-
-    return AuthScaffold(
+    return const AuthScaffold(
       title: 'Selamat datang di\nToko Saku!',
-      subtitle:
-          'Gunakan email dan password, atau masuk cepat dengan akun Google.',
-      backgroundColor: AppTheme.deepTeal,
-      backgroundImage: 'bg login.png',
-      frameless: true,
-      showBrand: false,
-      showHeader: !isKeyboardVisible,
-      resizeToAvoidBottomInset: false,
-      keyboardBottomInset: _stableKeyboardInset,
-      backgroundAlignment:
-          isKeyboardVisible ? Alignment.topCenter : Alignment.center,
-      paintBackground: false,
-      contentAlignment: const Alignment(0, 0.58),
-      child: const _LoginForm(),
+      subtitle: 'Masuk untuk mengelola penjualan dan stok toko.',
+      child: _LoginForm(),
     );
   }
 }
@@ -65,6 +35,7 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
   final _passwordController = TextEditingController();
   bool _isSubmitting = false;
   bool _isSendingPasswordReset = false;
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -83,6 +54,9 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email],
+            autocorrect: false,
             style: const TextStyle(color: AppTheme.deepTeal),
             decoration: authInputDecoration(
               labelText: 'Email',
@@ -93,11 +67,23 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _passwordController,
-            obscureText: true,
+            obscureText: !_showPassword,
+            autofillHints: const [AutofillHints.password],
             style: const TextStyle(color: AppTheme.deepTeal),
             decoration: authInputDecoration(
               labelText: 'Password',
               prefixIcon: Icons.lock_outline_rounded,
+              suffixIcon: IconButton(
+                tooltip:
+                    _showPassword ? 'Sembunyikan password' : 'Lihat password',
+                onPressed: () => setState(() => _showPassword = !_showPassword),
+                icon: Icon(
+                  _showPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 20,
+                ),
+              ),
             ),
             validator: validateRequiredPassword,
           ),
@@ -121,13 +107,16 @@ class _LoginFormState extends ConsumerState<_LoginForm> {
               child: Text(_isSubmitting ? 'Masuk...' : 'Masuk'),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
+          const AuthDivider(),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _isSubmitting ? null : _submitGoogleLogin,
               style: AuthFormStyles.googleButton,
-              icon: const AppIcon(Icons.account_circle_outlined, size: 16),
+              icon: const Text('G',
+                  style: TextStyle(fontWeight: FontWeight.w800)),
               label: const Text('Masuk dengan Google'),
             ),
           ),

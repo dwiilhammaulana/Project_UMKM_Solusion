@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/common_widgets.dart';
 
 class AuthFormStyles {
   const AuthFormStyles._();
 
   static final ButtonStyle primaryButton = FilledButton.styleFrom(
-    backgroundColor: Colors.white.withValues(alpha: 0.72),
-    foregroundColor: AppTheme.deepTeal,
+    backgroundColor: AppTheme.deepTeal,
+    foregroundColor: Colors.white,
     padding: const EdgeInsets.symmetric(vertical: 16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
   );
 
   static final ButtonStyle googleButton = OutlinedButton.styleFrom(
     foregroundColor: AppTheme.deepTeal,
     side: BorderSide(
-      color: AppTheme.deepTeal.withValues(alpha: 0.58),
+      color: AppTheme.deepTeal.withValues(alpha: 0.18),
     ),
+    backgroundColor: Colors.white.withValues(alpha: 0.72),
     padding: const EdgeInsets.symmetric(vertical: 16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
   );
 
   static final ButtonStyle textButton = TextButton.styleFrom(
@@ -28,39 +30,65 @@ class AuthFormStyles {
 InputDecoration authInputDecoration({
   required String labelText,
   required IconData prefixIcon,
+  Widget? suffixIcon,
 }) {
-  final borderRadius = BorderRadius.circular(18);
+  final borderRadius = BorderRadius.circular(16);
 
   return InputDecoration(
     labelText: labelText,
     labelStyle: TextStyle(color: AppTheme.deepTeal.withValues(alpha: 0.72)),
-    prefixIcon: AppIcon(
+    floatingLabelStyle: const TextStyle(color: AppTheme.deepTeal),
+    prefixIcon: Icon(
       prefixIcon,
       color: AppTheme.deepTeal,
-      size: 16,
+      size: 20,
     ),
     prefixIconConstraints: const BoxConstraints(
-      minWidth: 40,
-      minHeight: 40,
+      minWidth: 48,
+      minHeight: 48,
     ),
+    suffixIcon: suffixIcon,
     filled: true,
-    fillColor: Colors.white.withValues(alpha: 0.58),
+    fillColor: Colors.white.withValues(alpha: 0.82),
     border: OutlineInputBorder(
       borderRadius: borderRadius,
-      borderSide: BorderSide.none,
+      borderSide: BorderSide(
+        color: AppTheme.deepTeal.withValues(alpha: 0.12),
+      ),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: borderRadius,
-      borderSide: BorderSide.none,
+      borderSide: BorderSide(
+        color: AppTheme.deepTeal.withValues(alpha: 0.12),
+      ),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: borderRadius,
-      borderSide: BorderSide(
-        color: Colors.white.withValues(alpha: 0.72),
-        width: 1.4,
-      ),
+      borderSide: const BorderSide(color: AppTheme.deepTeal, width: 1.4),
     ),
   );
+}
+
+class AuthDivider extends StatelessWidget {
+  const AuthDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final lineColor = AppTheme.deepTeal.withValues(alpha: 0.12);
+    return Row(
+      children: [
+        Expanded(child: Divider(color: lineColor, height: 1)),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14),
+          child: Text(
+            'atau',
+            style: TextStyle(color: AppTheme.subtext, fontSize: 12),
+          ),
+        ),
+        Expanded(child: Divider(color: lineColor, height: 1)),
+      ],
+    );
+  }
 }
 
 String? validateAuthEmail(String? value) {
@@ -86,23 +114,6 @@ String? validateMinPasswordLength(String? value, {String label = 'Password'}) {
     return '$label minimal 8 karakter';
   }
   return null;
-}
-
-double resolveStableKeyboardInset(BuildContext context, double currentInset) {
-  final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-  if (keyboardInset <= 0) {
-    return 0;
-  }
-  if (currentInset > 0) {
-    return currentInset;
-  }
-
-  final screenHeight = MediaQuery.sizeOf(context).height;
-  final estimatedKeyboardInset =
-      (screenHeight * 0.38).clamp(260.0, 360.0).toDouble();
-  return keyboardInset > estimatedKeyboardInset
-      ? keyboardInset
-      : estimatedKeyboardInset;
 }
 
 void showAuthMessage(BuildContext context, String message) {

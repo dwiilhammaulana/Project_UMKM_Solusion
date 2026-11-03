@@ -1,123 +1,103 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/common_widgets.dart';
 
-class AuthScaffold extends StatefulWidget {
+class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
     super.key,
     required this.title,
     required this.subtitle,
     required this.child,
-    this.backgroundColor,
-    this.backgroundImage,
-    this.frameless = false,
-    this.contentAlignment = Alignment.center,
-    this.showBrand = true,
-    this.showHeader = true,
-    this.resizeToAvoidBottomInset,
-    this.keyboardBottomInset = 0,
-    this.backgroundAlignment = Alignment.center,
-    this.paintBackground = true,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
-  final Color? backgroundColor;
-  final String? backgroundImage;
-  final bool frameless;
-  final AlignmentGeometry contentAlignment;
-  final bool showBrand;
-  final bool showHeader;
-  final bool? resizeToAvoidBottomInset;
-  final double keyboardBottomInset;
-  final AlignmentGeometry backgroundAlignment;
-  final bool paintBackground;
-
-  @override
-  State<AuthScaffold> createState() => _AuthScaffoldState();
-}
-
-class _AuthScaffoldState extends State<AuthScaffold> {
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    final backgroundImage = widget.backgroundImage;
-    if (widget.paintBackground && backgroundImage != null) {
-      precacheImage(
-          _backgroundImageProvider(context, backgroundImage), context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final backgroundImage = widget.backgroundImage;
-    final imageProvider = backgroundImage == null
-        ? null
-        : _backgroundImageProvider(context, backgroundImage);
-
     return Scaffold(
-      backgroundColor: widget.paintBackground ? null : Colors.transparent,
-      resizeToAvoidBottomInset: widget.resizeToAvoidBottomInset,
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        decoration: widget.paintBackground && backgroundImage != null
-            ? BoxDecoration(
-                color: widget.backgroundColor,
-                image: DecorationImage(
-                  image: imageProvider!,
-                  fit: BoxFit.cover,
-                  alignment: widget.backgroundAlignment,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.08),
-                    BlendMode.darken,
-                  ),
-                ),
-              )
-            : !widget.paintBackground
-                ? const BoxDecoration()
-                : widget.backgroundColor == null
-                    ? const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Color(0xFFF9FCFB),
-                            Color(0xFFEAF7F4),
-                            Color(0xFFFFF6E1),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      )
-                    : BoxDecoration(color: widget.backgroundColor),
-        child: SafeArea(
-          child: RepaintBoundary(
-            child: _AuthGlassCard(
-              title: widget.title,
-              subtitle: widget.subtitle,
-              frameless: widget.frameless,
-              alignment: widget.contentAlignment,
-              showBrand: widget.showBrand,
-              showHeader: widget.showHeader,
-              keyboardBottomInset: widget.keyboardBottomInset,
-              child: widget.child,
-            ),
+      backgroundColor: const Color(0xFFF4F9F8),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF7FBFA),
+              Color(0xFFE7F4F2),
+              Color(0xFFF5F7FA),
+            ],
           ),
+        ),
+        child: Stack(
+          children: [
+            const Positioned(
+              top: -90,
+              right: -100,
+              child: _SoftOrb(size: 310, color: Color(0xFFB8E8DD)),
+            ),
+            const Positioned(
+              bottom: -155,
+              left: -140,
+              child: _SoftOrb(size: 360, color: Color(0xFFCADFFA)),
+            ),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final minHeight = constraints.maxHeight > 48
+                      ? constraints.maxHeight - 48
+                      : 0.0;
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 24,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: minHeight),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          child: _AuthGlassCard(
+                            title: title,
+                            subtitle: subtitle,
+                            child: child,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  ImageProvider _backgroundImageProvider(BuildContext context, String asset) {
-    final size = MediaQuery.sizeOf(context);
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    return ResizeImage(
-      AssetImage(asset),
-      height: (size.height * pixelRatio).round(),
+class _SoftOrb extends StatelessWidget {
+  const _SoftOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -127,186 +107,113 @@ class _AuthGlassCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    required this.frameless,
-    required this.alignment,
-    required this.showBrand,
-    required this.showHeader,
-    required this.keyboardBottomInset,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
-  final bool frameless;
-  final AlignmentGeometry alignment;
-  final bool showBrand;
-  final bool showHeader;
-  final double keyboardBottomInset;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = _AuthContent(
-      title: title,
-      subtitle: subtitle,
-      titleColor: frameless ? AppTheme.deepTeal : null,
-      subtitleColor:
-          frameless ? AppTheme.deepTeal.withValues(alpha: 0.78) : null,
-      showBrand: showBrand,
-      showHeader: showHeader,
-      child: child,
-    );
-
-    if (frameless) {
-      final bottomPadding = 24 + keyboardBottomInset;
-      return Align(
-        alignment: alignment,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 430),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(28, 24, 28, bottomPadding),
-            child: content,
-          ),
-        ),
-      );
-    }
-
-    return Align(
-      alignment: alignment,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + keyboardBottomInset),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(34),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.38),
-                  borderRadius: BorderRadius.circular(34),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.48),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.midnight.withValues(alpha: 0.06),
-                      blurRadius: 40,
-                      offset: const Offset(0, 24),
-                    ),
-                  ],
-                ),
-                child: content,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthContent extends StatelessWidget {
-  const _AuthContent({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-    required this.showBrand,
-    required this.showHeader,
-    this.titleColor,
-    this.subtitleColor,
-  });
-
-  final String title;
-  final String subtitle;
-  final Widget child;
-  final bool showBrand;
-  final bool showHeader;
-  final Color? titleColor;
-  final Color? subtitleColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasSubtitle = subtitle.trim().isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showBrand) ...[
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xE8FFFFFF), Color(0xB8FFFFFF)],
+        ),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deepTeal.withValues(alpha: 0.09),
+            blurRadius: 28,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Row(
             children: [
               Container(
-                width: 62,
-                height: 62,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFFFFFF),
-                      Color(0xFFDDF6F2),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                    colors: [Colors.white, Color(0xFFDDF6F2)],
                   ),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.86),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.deepTeal.withValues(alpha: 0.14),
-                      blurRadius: 24,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white),
                 ),
-                child: const AppIcon(
-                  Icons.local_cafe_rounded,
-                  color: AppTheme.deepTeal,
-                  size: 31,
+                child: const Center(
+                  child: Text(
+                    'TS',
+                    style: TextStyle(
+                      color: AppTheme.deepTeal,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.2,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Toko Saku',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: titleColor ?? AppTheme.deepTeal,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Toko Saku',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: AppTheme.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Kasir praktis untuk usahamu',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppTheme.subtext,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-        ],
-        if (showHeader) ...[
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              title,
-              textAlign: showBrand ? TextAlign.start : TextAlign.center,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: titleColor,
-                height: 1.08,
-              ),
+          const SizedBox(height: 26),
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: AppTheme.ink,
+              fontSize: 27,
+              fontWeight: FontWeight.w800,
+              height: 1.12,
+              letterSpacing: -0.6,
             ),
           ),
-          if (hasSubtitle) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: Text(
-                subtitle,
-                textAlign: showBrand ? TextAlign.start : TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: subtitleColor ?? AppTheme.ink.withValues(alpha: 0.64),
-                ),
+          if (subtitle.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppTheme.subtext,
+                height: 1.4,
               ),
             ),
           ],
-          const SizedBox(height: 26),
+          const SizedBox(height: 24),
+          child,
         ],
-        child,
-      ],
+      ),
     );
   }
 }
